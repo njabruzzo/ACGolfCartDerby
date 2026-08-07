@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- DERBY FIXED 2026-08-05: supplied cart art, explicit metrics, sprite decode/aspect fix. -->
 <!-- DERBY UPDATE 2026-08-06: Izzy renamed Weirdo Baby!, Franny butterfly cockpit, opaque steering-wheel backings on all carts. -->
-<!-- JULIANO EARTH ROAMER UPDATE 2026-08-06: seventh cart, tall POV, armored cockpit, bourbon animal-hit power. -->
+<!-- JULIANO EARTH ROAMER UPDATE 2026-08-06: seventh cart, top-pinned canopy cockpit, whiskey animal-hit power, animated wheel/UI pass. -->
 <!-- MUSUBI UPDATE 2026-08-07: eighth cart, 6-seat island-style ride, musubi dashboard power. -->
 <!-- APPLE CANYON RUN v4 SHARE BUILD: hill-climb torque, beat-synced dashboard passengers, brighter daylight, adaptive forest headlamps, terrain-grounded props/cart, goblin score. -->
 <html lang="en">
@@ -247,6 +247,47 @@
   #cockpitArt{position:absolute;left:50%;bottom:0;transform:translateX(-50%);
     width:100%;height:60%;object-fit:cover;object-position:center bottom;
     pointer-events:none;z-index:4;display:none;transition:opacity .25s}
+  /* Top HUD must always stay above the cart art, and each block needs its own
+     reserved footprint so Juliano's taller canopy cannot visually collide with
+     the key counters. */
+  #speed,#laps,#map,#hpwrap,#toggles,#radioname,#cartName,#rage{z-index:12}
+  #speed{min-width:118px;padding:7px 12px 6px;border-radius:16px;
+    background:rgba(14,20,30,.46);box-shadow:0 0 0 2px rgba(255,253,248,.38),0 8px 22px rgba(0,0,0,.24)}
+  #laps{top:14px;right:64px;max-width:235px;padding:8px 12px;border-radius:16px;
+    background:rgba(14,20,30,.46);box-shadow:0 0 0 2px rgba(255,253,248,.34),0 8px 22px rgba(0,0,0,.22)}
+  #hpwrap{top:84px}
+  #cartName{top:calc(52px + env(safe-area-inset-top))}
+  body.mob #speed{top:10px;min-width:102px;padding:6px 10px 5px}
+  body.mob #laps{top:10px;right:58px;max-width:178px;padding:7px 10px}
+  body.mob #hpwrap{top:76px}
+  body.mob #cartName{top:calc(48px + env(safe-area-inset-top))}
+
+  /* DOM steering wheel overlay used by Juliano. It sits above the painted cabin,
+     so the wheel is never clipped by the image and can visibly rotate with input. */
+  #steerHud{position:absolute;left:50%;bottom:32px;transform:translateX(-50%);
+    width:190px;height:172px;display:none;pointer-events:none;z-index:8}
+  #steerHud .stem{position:absolute;left:50%;top:74px;width:12px;height:78px;
+    transform:translateX(-50%) rotate(18deg);transform-origin:50% 12%;
+    border-radius:999px;background:linear-gradient(180deg,#62676f,#202329);
+    box-shadow:0 0 0 2px rgba(255,255,255,.10),0 10px 14px rgba(0,0,0,.38)}
+  #steerHudWheel{position:absolute;left:50%;top:0;width:126px;height:126px;
+    transform:translateX(-50%) rotate(0deg);transform-origin:50% 50%;
+    border:10px solid #24272d;border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.06) 0 33%,rgba(0,0,0,0) 34% 100%);
+    box-shadow:0 0 0 3px rgba(255,255,255,.12),0 16px 28px rgba(0,0,0,.34)}
+  #steerHudWheel .hub{position:absolute;left:50%;top:50%;width:26px;height:26px;
+    transform:translate(-50%,-50%);border-radius:50%;background:#202329;
+    box-shadow:0 0 0 3px rgba(255,255,255,.12)}
+  #steerHudWheel .spoke{position:absolute;left:50%;top:50%;width:12px;height:42px;
+    transform-origin:50% 6px;border-radius:999px;
+    background:linear-gradient(180deg,#656a73,#23272d)}
+  #steerHudWheel .spoke.s1{transform:translate(-50%,-50%) rotate(0deg)}
+  #steerHudWheel .spoke.s2{transform:translate(-50%,-50%) rotate(120deg)}
+  #steerHudWheel .spoke.s3{transform:translate(-50%,-50%) rotate(240deg)}
+  body.mob #steerHud{width:158px;height:146px;bottom:22px}
+  body.mob #steerHudWheel{width:106px;height:106px;border-width:9px}
+  body.mob #steerHud .stem{top:62px;height:68px}
+
   #kartLights{position:absolute;top:16%;left:50%;transform:translateX(-50%);
     display:none;gap:14px;z-index:9;pointer-events:none}
   #kartLights div{width:clamp(30px,8vw,50px);height:clamp(30px,8vw,50px);border-radius:50%;
@@ -916,6 +957,7 @@
   <button id="gas">▲</button>
 </div>
 <img id="cockpitArt" alt="">
+<div id="steerHud"><div class="stem"></div><div id="steerHudWheel"><span class="spoke s1"></span><span class="spoke s2"></span><span class="spoke s3"></span><span class="hub"></span></div></div>
 <div id="kartLights"><div></div><div></div><div></div></div>
 <div id="boostFx"></div>
 <div id="rotate">↻ turn the phone sideways</div>
@@ -2602,7 +2644,7 @@ function crashSfx(){if(!SND)return;const a=SND.a;
 }
 
 /* ---------------- cockpit ---------------- */
-const cockpit=new THREE.Group();let wheel;
+const cockpit=new THREE.Group();let wheel;let steerHudWheel=null,steerHudWrap=null;
 let headLampL=null,headLampR=null,headLampTarget=null,headLampGlow=[];
 let cartBodyMat=null,cartDarkMat=null,cartOrnaments=null;
 (function(){
@@ -2643,6 +2685,8 @@ let cartBodyMat=null,cartDarkMat=null,cartOrnaments=null;
   /* headlamps removed - the world is lit as full daylight everywhere */
   camera.add(cockpit);scene.add(camera);
 })();
+steerHudWrap=document.getElementById('steerHud');
+steerHudWheel=document.getElementById('steerHudWheel');
 function clearCartOrnaments(){while(cartOrnaments&&cartOrnaments.children.length)cartOrnaments.remove(cartOrnaments.children[0]);julianoBourbon=null;musubiDashItems=[];}
 let julianoBourbon=null,musubiDashItems=[];
 function makeBourbonGlass(){
@@ -2727,10 +2771,41 @@ function applyCartStyle(){
     const art=document.getElementById('cockpitArt');
     if(art){
       const url=COCKPIT_ART[ACTIVE_CART.key];
-      if(url){art.src=url;art.style.display='block';}
-      else art.style.display='none';
+      if(url){
+        art.src=url;art.style.display='block';
+        if(ACTIVE_CART.key==='juliano'){
+          /* Juliano should read like a tall overland cabin: keep the canopy pinned
+             to the very top of the interface instead of cropping it lower. */
+          art.style.top='0';
+          art.style.bottom='auto';
+          art.style.left='50%';
+          art.style.transform='translateX(-50%)';
+          art.style.width='auto';
+          art.style.height='100%';
+          art.style.minWidth='0';
+          art.style.maxWidth='none';
+          art.style.maxHeight='100%';
+          art.style.objectFit='contain';
+          art.style.objectPosition='center top';
+        }else{
+          art.style.top='';
+          art.style.bottom='';
+          art.style.left='';
+          art.style.transform='';
+          art.style.width='';
+          art.style.height='';
+          art.style.minWidth='';
+          art.style.maxWidth='';
+          art.style.maxHeight='';
+          art.style.objectFit='';
+          art.style.objectPosition='';
+        }
+      }else art.style.display='none';
       // carts with no painted plate use the built 3D cockpit, tinted to livery
       if(typeof cockpit!=='undefined'&&cockpit)cockpit.visible=!url;
+      if(steerHudWrap){
+        steerHudWrap.style.display=(ACTIVE_CART.key==='juliano')?'block':'none';
+      }
     }
   }catch(e){}
   // re-perch riders for this cart's dash line (guarded: applyCartStyle also runs
@@ -4303,7 +4378,7 @@ function tick(now){
       animalHitFx(A.grp.position);scene.remove(A.grp);ANIMALS.splice(i,1);
       addPassenger(A.typ);ding();thunk();
       let specialToast='';
-      if(ACTIVE_CART.bourbonPower){showJulianoBourbon();specialToast=' · BOURBON ON THE DASH!';}
+      if(ACTIVE_CART.bourbonPower){showJulianoBourbon();specialToast=' · WHISKEY ON THE DASH!';}
       if(ACTIVE_CART.musubiPower){showMusubiDash();specialToast=' · MUSUBI ON THE DASH!';}
       if(rageT<=0){
         const bump=A.typ.big?Math.min(8,3+Math.round(Math.abs(cart.v)*.18)):Math.min(3,1+Math.round(Math.abs(cart.v)*.06));
@@ -4446,6 +4521,7 @@ function tick(now){
   camera.fov=72+cart.v*.45+(DRUNK?Math.sin(clockT*1.4)*2.5:0);
   camera.updateProjectionMatrix();
   if(wheel)wheel.rotation.z=-cart.steerV*1.6;
+  if(steerHudWheel)steerHudWheel.style.transform=`translateX(-50%) rotate(${-cart.steerV*92}deg)`;
 
   /* ---- damaged cart smokes, then burns ---- */
   if(cart.hp<45&&Math.random()<dt*(cart.hp<20?16:6)){
