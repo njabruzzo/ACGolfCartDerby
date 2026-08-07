@@ -768,6 +768,127 @@
     .stats,.cart-card.selected .stats{padding-bottom:30px}
   }
 
+
+
+  /* ==========================================================================
+     EXACT CART CARD SIZE PATCH 2026-08-07
+     The whole card, not just its internal regions, has an explicit footprint.
+     This prevents short-name cards such as Weirdo Baby! and Musubi! from
+     collapsing and guarantees identical width/height for every ride card.
+     ========================================================================== */
+  .cart-card{
+    display:inline-flex;
+    flex-direction:column;
+    vertical-align:top;
+    width:300px;
+    height:480px;
+    min-height:480px;
+    max-height:480px;
+    box-sizing:border-box;
+    padding:0;
+  }
+  .fixed-cart-head{
+    flex:0 0 92px;
+    height:92px;
+    min-height:92px;
+    max-height:92px;
+  }
+  .cart-art-frame{
+    flex:0 0 213px;
+    width:100%;
+    height:213px;
+    min-height:213px;
+    max-height:213px;
+    padding:0;
+    box-sizing:border-box;
+  }
+  .cart-art{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+  .stats,
+  .cart-card.selected .stats{
+    flex:1 1 auto;
+    width:100%;
+    min-height:0;
+    box-sizing:border-box;
+    padding:12px 14px 34px;
+    margin:0;
+  }
+  .pick-ribbon{flex:none}
+
+  @media (min-width:901px) and (max-width:1050px){
+    .cart-card{
+      width:280px;
+      height:466px;
+      min-height:466px;
+      max-height:466px;
+    }
+    .cart-art-frame{
+      flex-basis:199px;
+      height:199px;
+      min-height:199px;
+      max-height:199px;
+    }
+  }
+
+  @media (min-width:701px) and (max-width:900px){
+    .cart-card{
+      width:262px;
+      height:453px;
+      min-height:453px;
+      max-height:453px;
+    }
+    .cart-art-frame{
+      flex-basis:186px;
+      height:186px;
+      min-height:186px;
+      max-height:186px;
+    }
+  }
+
+  @media (max-width:700px){
+    .cart-card{
+      display:flex;
+      width:88%;
+      max-width:340px;
+      height:500px;
+      min-height:500px;
+      max-height:500px;
+      margin-left:auto;
+      margin-right:auto;
+    }
+    .cart-art-frame{
+      flex-basis:235px;
+      height:235px;
+      min-height:235px;
+      max-height:235px;
+    }
+  }
+
+  @media (max-height:520px){
+    .cart-card{
+      width:236px;
+      height:382px;
+      min-height:382px;
+      max-height:382px;
+    }
+    .fixed-cart-head{
+      flex-basis:72px;
+      height:72px;
+      min-height:72px;
+      max-height:72px;
+    }
+    .cart-art-frame{
+      flex-basis:123px;
+      height:123px;
+      min-height:123px;
+      max-height:123px;
+      padding:0;
+    }
+    .stats,.cart-card.selected .stats{padding:8px 12px 30px}
+  }
 </style>
 </head>
 <body>
