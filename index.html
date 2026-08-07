@@ -639,6 +639,135 @@
   .seat-badge{top:11px; right:11px}
   /* six cards: keep three per row on desktop, two on tablet, one on phone */
   @media (min-width:1120px){ .cart-card{width:300px} }
+
+
+  /* ==========================================================================
+     CART CARD CONSISTENCY PATCH 2026-08-07
+     Every ride card now uses identical section dimensions. Long cart names are
+     kept clear of the seat badge, and stat labels get a dedicated column so
+     MANEUVERABILITY (and any future long label) cannot collide with x/10.
+     ========================================================================== */
+  .cart-card{
+    box-sizing:border-box;
+  }
+  .fixed-cart-head{
+    box-sizing:border-box;
+    height:92px;
+    min-height:92px;
+    padding:12px 90px 10px 14px;
+    overflow:hidden;
+  }
+  .fixed-cart-head > div{
+    width:100%;
+    min-width:0;
+    max-width:100%;
+  }
+  .cart-card h3{
+    max-width:100%;
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+  .cart-desc{
+    max-width:100%;
+  }
+  .seat-badge{
+    top:11px;
+    right:11px;
+    max-width:76px;
+    text-align:center;
+  }
+
+  /* Reserve the SELECTED band on every card, not only the selected card. This
+     removes the old 22px height jump when selection changed. */
+  .stats,
+  .cart-card.selected .stats{
+    box-sizing:border-box;
+    padding:12px 14px 34px;
+  }
+
+  /* Three explicit columns: label | score | meter. No absolute positioning. */
+  .stat,
+  .fixed-stat{
+    display:grid;
+    grid-template-columns:102px 34px minmax(0,1fr);
+    align-items:center;
+    column-gap:7px;
+    min-height:18px;
+    margin:0 0 7px;
+    padding:0;
+    font-size:0;
+  }
+  .stat:last-child,
+  .fixed-stat:last-child{margin-bottom:0}
+  .stat span,
+  .fixed-stat span{
+    position:static;
+    display:block;
+    width:auto;
+    min-width:0;
+    font-size:8.5px;
+    font-weight:700;
+    letter-spacing:.65px;
+    line-height:1;
+    color:#6d7488;
+    white-space:nowrap;
+  }
+  .stat b,
+  .fixed-stat b{
+    display:block;
+    width:auto;
+    min-width:0;
+    margin:0;
+    font-size:11px;
+    line-height:1;
+    text-align:right;
+    white-space:nowrap;
+    color:#161b26;
+    font-family:Futura,'Trebuchet MS',sans-serif;
+    font-weight:700;
+    letter-spacing:0;
+  }
+  .meter{
+    display:block;
+    width:100%;
+    min-width:0;
+    margin:0;
+  }
+
+  /* Undo the one-off Juliano stat sizing now that every card has enough room. */
+  .cart-card[data-cart="juliano"] .stat span{
+    width:auto;
+    font-size:8.1px;
+    letter-spacing:.45px;
+  }
+
+  /* All cards in a breakpoint keep exactly the same width. */
+  @media (min-width:1051px){
+    .cart-card{width:300px}
+  }
+  @media (min-width:901px) and (max-width:1050px){
+    .cart-card{width:280px}
+    .stat,.fixed-stat{grid-template-columns:100px 32px minmax(0,1fr);column-gap:6px}
+    .stat span,.fixed-stat span{font-size:8.1px;letter-spacing:.5px}
+  }
+  @media (min-width:701px) and (max-width:900px){
+    .cart-card{width:262px}
+    .stat,.fixed-stat{grid-template-columns:98px 31px minmax(0,1fr);column-gap:5px}
+    .stat span,.fixed-stat span{font-size:7.8px;letter-spacing:.35px}
+  }
+  @media (max-width:700px){
+    .cart-card{width:88%;max-width:340px}
+    .fixed-cart-head{height:92px;min-height:92px}
+    .stat,.fixed-stat{grid-template-columns:100px 32px minmax(0,1fr);column-gap:6px}
+    .stat span,.fixed-stat span{font-size:8px;letter-spacing:.45px}
+  }
+  @media (max-height:520px){
+    .fixed-cart-head{height:72px;min-height:72px}
+    .stat,.fixed-stat{grid-template-columns:96px 30px minmax(0,1fr);column-gap:5px;margin-bottom:5px}
+    .stat span,.fixed-stat span{font-size:7.4px;letter-spacing:.3px}
+    .stats,.cart-card.selected .stats{padding-bottom:30px}
+  }
+
 </style>
 </head>
 <body>
