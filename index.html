@@ -1453,15 +1453,12 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
       <div class="lb-sub"><span id="acrBoardCount">no runs yet</span> &middot; one lap &middot; <span id="acrBoardMode">local</span></div>
     </div>
 
-    <div class="lb-tabs">
-      <button type="button" class="acr-btab on" data-sort="time"><b>&#9201;</b> FASTEST</button>
-      <button type="button" class="acr-btab" data-sort="animals"><b>&#128062;</b> ANIMALS</button>
-      <button type="button" class="acr-btab" data-sort="goblins"><b>&#128122;</b> GOBLINS</button>
-    </div>
-
     <div id="acrBoardYou" class="lb-you" hidden></div>
 
     <div class="lb-scroll">
+      <div class="lb-table-head" aria-hidden="true">
+        <span>USER NAME</span><span>CART</span><span>TIME</span><span>ANIMALS SAVED</span><span>GOBLINS DESTROYED</span><span>APPLES COLLECTED</span>
+      </div>
       <div id="acrBoardBody" class="lb-list"></div>
       <div id="acrBoardEmpty" class="lb-empty">Finish a lap and your run lands here.</div>
     </div>
@@ -1672,7 +1669,7 @@ window.ACR_CONFIG = {
   var K_ACCT='acr_accounts_v1', K_SCORE='acr_scores_v1', K_SESS='acr_session_v1',
       K_TOK='acr_token_v1', K_PEND='acr_pending_v1';
   var RACE_LAPS=1;
-  var ACR_BUILD='2026-08-08h';   // bump me on every change; shown on the sign-in screen
+  var ACR_BUILD='2026-08-08i-leaderboard';   // bump me on every change; shown on the sign-in screen
 
   /* ---------- storage helpers ---------- */
   function read(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
@@ -1766,18 +1763,19 @@ window.ACR_CONFIG = {
           id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
           user_id:user.id, screen:user.screen,
           time_sec:Math.round(run.time*10)/10,
-          animals:run.animals|0, goblins:run.goblins|0,
+          animals:run.animals|0, goblins:run.goblins|0, apples:run.apples|0,
           best_lap:(isFinite(run.best)?Math.round(run.best*10)/10:null),
           wrecks:run.wrecks|0, cart:run.cart||'', laps:RACE_LAPS, created_at:Date.now()
         };
         var all=scores(); all.push(row); write(K_SCORE,all);
         return Promise.resolve(row);
       },
-      board:function(sort){
-        var list=scores().slice();
-        if(sort==='animals') list.sort(function(a,b){ return (b.animals-a.animals)||(a.time_sec-b.time_sec); });
-        else if(sort==='goblins') list.sort(function(a,b){ return (b.goblins-a.goblins)||(a.time_sec-b.time_sec); });
-        else list.sort(function(a,b){ return a.time_sec-b.time_sec; });
+      board:function(){
+        var list=scores().slice().map(function(r){
+          if(r.apples==null)r.apples=0;
+          return r;
+        });
+        list.sort(function(a,b){ return a.time_sec-b.time_sec; });
         return Promise.resolve(list.slice(0,LIMIT));
       }
     };
@@ -1888,14 +1886,18 @@ window.ACR_CONFIG = {
       },
 
       submit:function(user,run){
-        /* user_id and screen are filled in by column DEFAULTs on the server
-           (auth.uid() and the JWT's screen_name), so they cannot be forged. */
+        /* Send the authenticated driver's identity explicitly. RLS still decides
+           whether this user may insert the row. The existing `wrecks` DB field is
+           used for apples on the shared board so this build works without a schema
+           migration; the live results card still keeps the actual wreck count. */
         var body={
+          user_id:user.id,
+          screen:user.screen,
           time_sec:Math.round(run.time*10)/10,
           animals:run.animals|0,
           goblins:run.goblins|0,
           best_lap:(isFinite(run.best)?Math.round(run.best*10)/10:null),
-          wrecks:run.wrecks|0,
+          wrecks:run.apples|0,
           cart:run.cart||'',
           laps:RACE_LAPS
         };
@@ -1907,13 +1909,15 @@ window.ACR_CONFIG = {
           });
         }).then(function(d){ return (d&&d[0])||body; });
       },
-      board:function(sort){
-        var order = sort==='animals' ? 'animals.desc,time_sec.asc'
-                  : sort==='goblins' ? 'goblins.desc,time_sec.asc'
-                  : 'time_sec.asc';
+      board:function(){
         var url=SUPA_URL+'/rest/v1/runs?select=id,user_id,screen,time_sec,animals,goblins,best_lap,wrecks,cart,created_at'
-              +'&order='+encodeURIComponent(order)+'&limit='+LIMIT;
-        return jfetch(url,{headers:authHeaders()});
+              +'&order='+encodeURIComponent('time_sec.asc')+'&limit='+LIMIT;
+        return jfetch(url,{headers:authHeaders()}).then(function(rows){
+          return (rows||[]).map(function(r){
+            r.apples=r.wrecks|0;
+            return r;
+          });
+        });
       }
     };
   })();
@@ -1999,39 +2003,36 @@ window.ACR_CONFIG = {
     return Math.round(s/86400)+'d ago';
   }
 
-  /* The big number always shows whatever the board is sorted by, and the line
-     beneath it is the gap to the leader — the way a timing tower reads. */
-  function heroFor(r,sort){
-    if(sort==='animals') return {v:String(r.animals|0), unit:'saved',     n:r.animals|0, dir:-1};
-    if(sort==='goblins') return {v:String(r.goblins|0), unit:'destroyed', n:r.goblins|0, dir:-1};
-    return {v:fmt(r.time_sec), unit:'', n:+r.time_sec, dir:1};
+  /* One durable leaderboard row per completed run. The visible board always
+     includes this browser's saved records, even if the shared server rejects an
+     insert or is temporarily unavailable. Remote/local equivalents are de-duped. */
+  function rowKey(r){
+    return [String(r.user_id||''),String(r.screen||''),String(r.cart||''),
+      Number(r.time_sec||0).toFixed(1),r.animals|0,r.goblins|0,r.apples|0].join('|');
   }
-  function gapText(r,lead,sort){
-    var h=heroFor(r,sort), l=heroFor(lead,sort);
-    var d=(h.n-l.n)*h.dir;
-    if(!isFinite(d)||d===0) return 'LEADER';
-    if(sort==='time') return '+'+d.toFixed(1)+'s';
-    return '-'+Math.abs(d)+' behind';
+  function mergeRows(remoteRows,localRows){
+    var seen={}, out=[];
+    (remoteRows||[]).concat(localRows||[]).forEach(function(r){
+      if(r.apples==null)r.apples=0;
+      var k=rowKey(r);
+      if(seen[k])return;
+      seen[k]=1; out.push(r);
+    });
+    out.sort(function(a,b){ return (+a.time_sec||Infinity)-(+b.time_sec||Infinity); });
+    return out.slice(0,LIMIT);
   }
 
   function renderRows(list,noteText,isError){
-    var body=$('acrBoardBody'), out='', place=['p1','p2','p3'];
-    var lead=list[0];
-    list.forEach(function(r,i){
+    var body=$('acrBoardBody'), out='';
+    list.forEach(function(r){
       var mine=CURRENT&&!CURRENT.guest&&r.user_id===CURRENT.id;
-      var h=heroFor(r,boardSort);
-      var meta=[esc(r.cart||''),ago(r.created_at)].filter(Boolean).join(' \u00b7 ');
-      out+='<div class="lb-row '+(place[i]||'')+(mine?' me':'')+'">'+
-        '<div class="lb-rank">'+(i+1)+'</div>'+
-        '<div class="lb-id">'+
-          '<div class="lb-name">'+esc(r.screen||'DRIVER')+'</div>'+
-          (meta?'<div class="lb-meta">'+meta+'</div>':'')+
-          '<div class="lb-pills"><span>\ud83d\udc3e '+(r.animals|0)+'</span>'+
-            '<span>\ud83d\udc7a '+(r.goblins|0)+'</span>'+
-            (boardSort!=='time'?'<span>\u23f1 '+fmt(r.time_sec)+'</span>':'')+
-          '</div>'+
-        '</div>'+
-        '<div class="lb-hero"><b>'+h.v+'</b><i>'+gapText(r,lead,boardSort)+'</i></div>'+
+      out+='<div class="lb-row'+(mine?' me':'')+'">'+
+        '<div class="lb-cell lb-name" data-label="USER NAME">'+esc(r.screen||r.user_id||'DRIVER')+'</div>'+
+        '<div class="lb-cell lb-cart" data-label="CART">'+esc(r.cart||'—')+'</div>'+
+        '<div class="lb-cell lb-time" data-label="TIME">'+fmt(r.time_sec)+'</div>'+
+        '<div class="lb-cell lb-num" data-label="ANIMALS SAVED">'+(r.animals|0)+'</div>'+
+        '<div class="lb-cell lb-num" data-label="GOBLINS DESTROYED">'+(r.goblins|0)+'</div>'+
+        '<div class="lb-cell lb-num" data-label="APPLES COLLECTED">'+(r.apples|0)+'</div>'+
       '</div>';
     });
     body.innerHTML=out;
@@ -2039,19 +2040,17 @@ window.ACR_CONFIG = {
     var empty=$('acrBoardEmpty');
     empty.style.display = list.length ? 'none' : '';
     empty.className = 'lb-empty'+(isError?' err':'');
-    empty.textContent = noteText || 'Finish a lap and your run lands here.';
+    empty.textContent = noteText || 'Finish a race and your run lands here.';
     $('acrBoardCount').textContent = list.length ? (list.length+(list.length===1?' run':' runs')) : 'no runs yet';
-    $('acrBoardMode').textContent = BACKEND.label;
+    $('acrBoardMode').textContent = BACKEND.mode==='supabase' ? 'shared + saved locally' : BACKEND.label;
 
-    /* your own standing, lifted out of the list */
     var you=$('acrBoardYou');
     if(CURRENT&&!CURRENT.guest&&list.length){
       var idx=list.findIndex(function(r){ return r.user_id===CURRENT.id; });
       if(idx>=0){
-        var mineRow=list[idx], mh=heroFor(mineRow,boardSort);
-        you.innerHTML='YOUR BEST <b>'+mh.v+'</b> \u00b7 #'+(idx+1)+' of '+list.length;
+        you.innerHTML='YOUR BEST <b>'+fmt(list[idx].time_sec)+'</b> · #'+(idx+1)+' of '+list.length;
         you.hidden=false;
-      } else { you.hidden=true; }
+      } else you.hidden=true;
     } else you.hidden=true;
   }
 
@@ -2059,20 +2058,21 @@ window.ACR_CONFIG = {
     $('acrBoardYou').hidden=true;
     $('acrBoardBody').innerHTML='';
     var empty=$('acrBoardEmpty');
-    empty.style.display=''; empty.className='lb-empty'; empty.textContent='Reading the timing tower\u2026';
-    return BACKEND.board(boardSort).then(function(list){
-      lastRows=list||[]; renderRows(lastRows);
-    },function(err){
-      if(BACKEND.mode==='supabase'){
-        return LocalBackend.board(boardSort).then(function(l){
-          renderRows(l||[], String(err)+' Showing this device\u2019s runs instead.', true);
-        });
-      }
-      renderRows([],String(err),true);
+    empty.style.display=''; empty.className='lb-empty'; empty.textContent='Reading the timing tower…';
+    if(BACKEND.mode!=='supabase'){
+      return LocalBackend.board().then(function(list){ lastRows=list||[]; renderRows(lastRows); });
+    }
+    return Promise.all([
+      BACKEND.board().then(function(x){return {ok:true,rows:x||[]};},function(e){return {ok:false,error:e,rows:[]};}),
+      LocalBackend.board().then(function(x){return x||[];})
+    ]).then(function(parts){
+      lastRows=mergeRows(parts[0].rows,parts[1]);
+      var note=parts[0].ok?'':String(parts[0].error||'Shared board unavailable.')+' Showing saved runs from this device.';
+      renderRows(lastRows,note,!parts[0].ok);
     });
   }
   function openBoard(sort,fromResults){
-    boardSort=sort||boardSort;
+    boardSort='time';
     if(fromResults!==undefined)boardCameFromResults=!!fromResults;
     Array.prototype.forEach.call(document.querySelectorAll('.acr-btab'),function(b){
       b.classList.toggle('on',b.dataset.sort===boardSort);
@@ -2104,37 +2104,29 @@ window.ACR_CONFIG = {
     results.classList.add('show'); results.setAttribute('aria-hidden','false');
 
     if(!CURRENT||CURRENT.guest){
-      $('acrResultRank').textContent='Guest run \u2014 sign in to save scores to the board.';
+      $('acrResultRank').textContent='Guest run — sign in to save scores to the board.';
       return;
     }
-    $('acrResultRank').textContent='Saving your run\u2026';
-    /* Always keep a local copy so nothing is lost if the network is down. */
-    if(BACKEND.mode==='supabase')LocalBackend.submit(CURRENT,run);
 
-    BACKEND.submit(CURRENT,run).then(function(row){
-      return Promise.all([
-        BACKEND.board('time'),BACKEND.board('animals'),BACKEND.board('goblins')
-      ]).then(function(bs){
-        var t=placeOf(row,bs[0]), a=placeOf(row,bs[1]), g=placeOf(row,bs[2]);
-        var bits=[];
-        if(t.place===1) bits.push('\ud83c\udfc6 FASTEST RACE ON THE BOARD');
-        else if(t.place>0) bits.push('#'+t.place+' of '+t.total+' on time');
-        if(a.place===1&&(run.animals|0)>0) bits.push('\ud83d\udc3e most animals saved');
-        if(g.place===1&&(run.goblins|0)>0) bits.push('\ud83d\udc7a most goblins destroyed');
-        $('acrResultRank').textContent=bits.join(' \u00b7 ')||'Saved to the board.';
-      },function(){ $('acrResultRank').textContent='Saved \u2014 board unavailable right now.'; });
-    },function(err){
-      /* A network failure is worth retrying; a server rejection (a check
-         constraint, a missing table, an RLS policy) will fail identically
-         every time, so say what happened instead of silently queueing. */
-      var msg=String(err||'');
-      if(msg.indexOf('Could not reach')===0){
-        queueRun(run);
-        $('acrResultRank').textContent='Offline \u2014 run saved, will upload next time you sign in.';
-      }else{
-        $('acrResultRank').textContent='Not saved: '+msg;
+    $('acrResultRank').textContent='Saving your run…';
+    /* Local persistence is authoritative for durability. Shared sync is an
+       additional copy, never a prerequisite for the score appearing. */
+    LocalBackend.submit(CURRENT,run).then(function(localRow){
+      if(BACKEND.mode!=='supabase'){
+        $('acrResultRank').textContent='Saved to the leaderboard.';
+        return;
       }
-      console.error('[ACR] run rejected:',msg,run);
+      return BACKEND.submit(CURRENT,run).then(function(){
+        $('acrResultRank').textContent='Saved locally and synced to the shared leaderboard.';
+      },function(err){
+        var msg=String(err||'');
+        queueRun(run);
+        $('acrResultRank').textContent='Saved on this device — shared sync will retry next sign-in.';
+        console.error('[ACR] shared run sync failed:',msg,run);
+      });
+    },function(err){
+      $('acrResultRank').textContent='Could not save score: '+String(err||'browser storage unavailable');
+      console.error('[ACR] local score save failed:',err,run);
     });
   }
   function closeResults(){ results.classList.remove('show'); results.setAttribute('aria-hidden','true'); }
@@ -6729,6 +6721,7 @@ function finishRace(totalTime){
     time:    Math.max(0,totalTime||0),
     animals: animalsSaved,
     goblins: goblinKills,
+    apples:  appleScore,
     best:    cart.best,
     wrecks:  cart.lost,
     cart:    (ACTIVE_CART&&ACTIVE_CART.name)||''
@@ -7613,7 +7606,7 @@ body.menuMode #map,body.menuMode #tach{display:none!important}
   border:1px solid rgba(243,234,216,.22);border-radius:20px;padding:22px 20px;
   box-shadow:0 26px 60px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06);
 }
-.acr-board-inner{width:min(660px,100%);padding-top:0;overflow:hidden}
+.acr-board-inner{width:min(1060px,100%);padding-top:0;overflow:hidden}
 /* The board is opened from on top of the results card, so it has to sit above
    it. Equal z-index plus later DOM order meant it rendered behind and looked
    like nothing happened. */
@@ -7770,6 +7763,28 @@ body.menuMode #map,body.menuMode #tach{display:none!important}
 @media (prefers-reduced-motion:reduce){
   .acr-btab{transition:none}
 }
+
+/* six-column results table */
+.lb-scroll{overflow:auto;max-height:min(52vh,430px);margin:0 -4px;padding:0 4px}
+.lb-table-head,.lb-row{
+  display:grid;grid-template-columns:minmax(145px,1.35fr) minmax(130px,1.2fr) 92px 120px 135px 120px;
+  min-width:825px;align-items:center;gap:10px;
+}
+.lb-table-head{position:sticky;top:0;z-index:3;padding:8px 12px;margin-bottom:6px;border-radius:9px;
+  background:#111c2e;border:1px solid rgba(243,234,216,.15);box-shadow:0 4px 10px rgba(0,0,0,.22)}
+.lb-table-head span{font-size:8px;line-height:1.15;letter-spacing:.12em;color:#ffd166;font-weight:800;text-align:center}
+.lb-table-head span:first-child,.lb-table-head span:nth-child(2){text-align:left}
+.lb-list{display:flex;flex-direction:column;gap:6px}
+.lb-row{padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.045);
+  border:1px solid rgba(243,234,216,.10);border-left:3px solid transparent}
+.lb-row.me{background:rgba(255,209,102,.11);border-color:rgba(255,209,102,.30);border-left-color:var(--sun,#ffc63f)}
+.lb-cell{min-width:0;font-size:11px;color:#f5eedf;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-cell.lb-name{font-family:var(--display,inherit);font-variant:small-caps;font-size:14px;font-weight:700;letter-spacing:.04em}
+.lb-cart{opacity:.82;font-size:10px}
+.lb-time,.lb-num{font-family:var(--mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-variant-numeric:tabular-nums;text-align:center;font-weight:700}
+.lb-time{font-size:14px;color:#fff}
+.lb-num{font-size:13px}
+@media(max-width:700px){.acr-board-inner{width:100%}.lb-scroll{max-height:55vh}.lb-table-head,.lb-row{min-width:825px}}
 
 /* results */
 .acr-result-banner{
