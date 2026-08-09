@@ -25,6 +25,7 @@
 <!-- RADIO TRACK UPDATE 2026-08-08: replaced procedural stations with five embedded NCS MP3 tracks; Fireflies is the default. -->
 <!-- CART VISIBILITY SAFETY FIX 2026-08-07: collision-state sanitizer, cockpit restoration after crashes/musky/explosions, and zero-distance obstacle normal guard. -->
 <!-- FIXED BLUE SKY 2026-08-08: gameplay sky and horizon now use one constant blue; removed camera-angle-dependent sky gradient. -->
+<!-- MOBILE IMMERSIVE + WITCH ART PASS 2026-08-08: TV/CRT control removed; direct fullscreen gameplay by default; portrait cockpit stretched roof-to-dash; landscape top gradient removed; touch HUD/controls refined; witches rebuilt with richer faces, hats, dresses and animated brooms. -->
 <!-- LOW-SPEED TURNAROUND FIX 2026-08-08: stronger walking-speed steering, pedal-assisted recovery turns, and immediate reverse steering intent. -->
 <!-- STEERING/CALICO/RECOVERY UPDATE 2026-08-08: corrected left-right steering sign for every cart, solid calico kitten dash rewards, and star trail-recovery button. -->
 <!-- MUSKY OUTCOME MESSAGE FIX 2026-08-08: destroyed carts show "The Musky Ate Your Cart!"; belly-up message is reserved for invincible-cart Musky kills. -->
@@ -1388,7 +1389,6 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 <div id="toast"></div>
 <div id="flash"></div>
 <div id="toggles">
-  <button id="crt" class="on" title="arcade filter">📺</button>
   <button id="radio" title="radio">📻</button>
   <button id="drunk" title="drunk mode">🍺</button>
   <button id="horn" title="horn">📯</button>
@@ -1396,10 +1396,10 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   <button id="fire" title="fire power — hold to shoot">🔥</button>
 </div>
 <div id="radioname"></div>
-<div class="pad" id="steerpad"><button id="left">◀</button><button id="right">▶</button></div>
+<div class="pad" id="steerpad"><button id="left" title="steer left" aria-label="Steer left">◀</button><button id="right" title="steer right" aria-label="Steer right">▶</button></div>
 <div class="pad" id="pedals">
-  <div id="pedalstack"><button id="brake">■</button><button id="rev">▼</button></div>
-  <button id="gas">▲</button>
+  <div id="pedalstack"><button id="brake" title="stop / brake" aria-label="Stop or brake">■</button><button id="rev" title="reverse" aria-label="Reverse">▼</button></div>
+  <button id="gas" title="accelerate" aria-label="Accelerate">▲</button>
 </div>
 <div id="cockpitStage">
   <img id="cockpitArt" alt="">
@@ -2588,7 +2588,7 @@ const camera=new THREE.PerspectiveCamera(72,1,0.1,1800);
    Geometry stays rock-solid float -- no PS1 vertex snapping. ============== */
 /* phones default to widescreen fill -- a 4:3 window on a 19.5:9 panel wastes
    most of the glass. V (or the \u2b1c button) switches back to the cabinet. */
-const ARCADE={on:true,wide:MOBILE,W:496,H:384};
+const ARCADE={on:false,wide:true,W:496,H:384};
 const lowRT=new THREE.WebGLRenderTarget(ARCADE.W,ARCADE.H,{
   minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,
   format:THREE.RGBAFormat,depthBuffer:true,stencilBuffer:false});
@@ -4535,9 +4535,7 @@ function acrTypingTarget(e){
 }
 addEventListener('keydown',e=>{if(acrTypingTarget(e))return;const k=keymap[e.code];if(k){input[k]=1;e.preventDefault();}
   if(e.code==='KeyR')radioCycle();if(e.code==='KeyH')honk();
-  if(e.code==='KeyF')crtSet(!ARCADE.on);
-  if(e.code==='KeyV'){ARCADE.wide=!ARCADE.wide;resize();
-    toast(ARCADE.wide?'WIDESCREEN':'4:3 CABINET');}});
+});
 addEventListener('keyup',e=>{if(acrTypingTarget(e))return;const k=keymap[e.code];if(k)input[k]=0;});
 function bindHold(id,key){
   const el=document.getElementById(id);
@@ -4573,9 +4571,7 @@ function recoverCartToTrail(){
 }
 const recoverEl=document.getElementById('recover');
 if(recoverEl)recoverEl.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();recoverCartToTrail();});
-function crtSet(v){ARCADE.on=v;
-  document.getElementById('crt').classList.toggle('on',v);resize();}
-document.getElementById('crt').addEventListener('click',e=>{e.stopPropagation();crtSet(!ARCADE.on);});
+function crtSet(v){ARCADE.on=false;ARCADE.wide=true;resize();}
 document.getElementById('radio').addEventListener('click',e=>{e.stopPropagation();radioCycle();});
 document.getElementById('horn').addEventListener('click',e=>{e.stopPropagation();honk();});
 document.getElementById('drunk').addEventListener('click',e=>{
@@ -5725,46 +5721,74 @@ function burnObstacle(o,dir,pos){
 }
 function makeWitch(){
   const g=new THREE.Group();
-  const skin=new THREE.MeshLambertMaterial({color:0x7fb253});
-  const black=new THREE.MeshLambertMaterial({color:0x111116});
-  const cloth=new THREE.MeshLambertMaterial({color:0x1b1a22});
-  const wood=new THREE.MeshLambertMaterial({color:0x6e4426});
-  const straw=new THREE.MeshLambertMaterial({color:0xc9a259});
-  const eyeBlue=new THREE.MeshBasicMaterial({color:0x8fc7ff});
-  const lipRed=new THREE.MeshBasicMaterial({color:0xb00f26});
-  const buckleM=new THREE.MeshLambertMaterial({color:0xe6c75b});
+  const phong=(color,shininess=18)=>new THREE.MeshPhongMaterial({color,shininess,specular:0x4a4a4a});
+  const skin=phong(0x79ad4d,26),skinDark=phong(0x5e8539,18);
+  const black=phong(0x0b0b10,34),cloth=phong(0x17131d,20),clothHi=phong(0x2d2038,26);
+  const purple=phong(0x4b193f,28),wood=phong(0x6e4426,12),straw=phong(0xc99b48,10);
+  const eyeWhite=new THREE.MeshBasicMaterial({color:0xf3f4e9});
+  const eyeBlue=new THREE.MeshBasicMaterial({color:0x54aef2});
+  const pupilM=new THREE.MeshBasicMaterial({color:0x050509});
+  const lipRed=phong(0xc21735,42),buckleM=phong(0xe8c44f,55),hairM=phong(0x353039,12);
 
-  const skirt=new THREE.Mesh(new THREE.ConeGeometry(.72,2.55,10),cloth);skirt.position.y=1.2;g.add(skirt);
-  const torso=new THREE.Mesh(new THREE.CylinderGeometry(.34,.44,1.05,10),cloth);torso.position.y=2.18;g.add(torso);
-  const collar=new THREE.Mesh(new THREE.CylinderGeometry(.52,.34,.38,12,1,true),black);collar.position.y=2.72;g.add(collar);
-  const collarLip=new THREE.Mesh(new THREE.TorusGeometry(.42,.05,6,18),black);collarLip.rotation.x=Math.PI/2;collarLip.position.y=2.89;g.add(collarLip);
-  const belt=new THREE.Mesh(new THREE.BoxGeometry(.9,.12,.44),black);belt.position.set(0,1.84,.02);g.add(belt);
-  const buckle=new THREE.Mesh(new THREE.BoxGeometry(.22,.18,.08),buckleM);buckle.position.set(0,1.84,.24);g.add(buckle);
+  // Tall layered black dress with a high dramatic collar.
+  const skirt=new THREE.Mesh(new THREE.ConeGeometry(.78,2.72,14),cloth);skirt.position.y=1.34;g.add(skirt);
+  const skirtLayer=new THREE.Mesh(new THREE.ConeGeometry(.70,2.12,14,1,true),clothHi);skirtLayer.position.y=1.45;skirtLayer.scale.set(1.01,1,1.01);g.add(skirtLayer);
+  const hem=new THREE.Mesh(new THREE.TorusGeometry(.72,.055,7,20),purple);hem.rotation.x=Math.PI/2;hem.position.y=.10;g.add(hem);
+  const torso=new THREE.Mesh(new THREE.CylinderGeometry(.31,.48,1.14,12),cloth);torso.position.y=2.28;g.add(torso);
+  const shoulders=new THREE.Mesh(new THREE.SphereGeometry(.47,12,8),clothHi);shoulders.scale.set(1.25,.43,.78);shoulders.position.y=2.70;g.add(shoulders);
+  const collarBack=new THREE.Mesh(new THREE.ConeGeometry(.53,.62,12,1,true),black);collarBack.position.set(0,2.96,-.12);g.add(collarBack);
+  const collar=new THREE.Mesh(new THREE.CylinderGeometry(.48,.30,.42,12,1,true),black);collar.position.y=2.86;g.add(collar);
+  const belt=new THREE.Mesh(new THREE.BoxGeometry(.93,.13,.48),black);belt.position.set(0,1.92,.02);g.add(belt);
+  const buckle=new THREE.Mesh(new THREE.BoxGeometry(.23,.19,.08),buckleM);buckle.position.set(0,1.92,.275);g.add(buckle);
 
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.37,12,10),skin);head.position.y=3.28;g.add(head);
-  const nose=new THREE.Mesh(new THREE.ConeGeometry(.11,.58,7),skin);nose.rotation.z=-Math.PI/2;nose.position.set(.48,3.23,.02);g.add(nose);
-  const chin=new THREE.Mesh(new THREE.SphereGeometry(.08,8,8),skin);chin.position.set(.23,2.93,.02);g.add(chin);
-  const wart=new THREE.Mesh(new THREE.SphereGeometry(.035,7,7),new THREE.MeshLambertMaterial({color:0x6d8f3b}));wart.position.set(.6,3.15,.08);g.add(wart);
+  // Head and expressive face point along local +Z, matching Object3D.lookAt().
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.39,16,12),skin);head.scale.set(.88,1.08,.92);head.position.y=3.36;g.add(head);
+  const jaw=new THREE.Mesh(new THREE.SphereGeometry(.20,12,9),skinDark);jaw.scale.set(.75,.65,.80);jaw.position.set(0,3.08,.18);g.add(jaw);
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(.115,.68,9),skin);nose.rotation.x=Math.PI/2;nose.position.set(.02,3.35,.64);g.add(nose);
+  const wart=new THREE.Mesh(new THREE.SphereGeometry(.045,8,7),skinDark);wart.position.set(.08,3.30,.94);g.add(wart);
   for(const sx of[-1,1]){
-    const eye=new THREE.Mesh(new THREE.SphereGeometry(.055,8,8),eyeBlue);eye.position.set(.17,3.36,sx*.11);g.add(eye);
-    const pupil=new THREE.Mesh(new THREE.SphereGeometry(.022,8,8),new THREE.MeshBasicMaterial({color:0x111111}));pupil.position.set(.205,3.35,sx*.11);g.add(pupil);
-    const sleeve=new THREE.Mesh(new THREE.CylinderGeometry(.08,.1,.8,6),cloth);sleeve.position.set(.18,2.28,sx*.43);sleeve.rotation.z=sx>0?.95:-.95;g.add(sleeve);
-    const hand=new THREE.Mesh(new THREE.SphereGeometry(.075,8,8),skin);hand.position.set(.5,1.98,sx*.63);g.add(hand);
+    const white=new THREE.Mesh(new THREE.SphereGeometry(.082,10,8),eyeWhite);white.scale.set(1.0,.72,.45);white.position.set(sx*.145,3.48,.34);g.add(white);
+    const iris=new THREE.Mesh(new THREE.SphereGeometry(.047,9,7),eyeBlue);iris.position.set(sx*.145,3.475,.405);g.add(iris);
+    const pupil=new THREE.Mesh(new THREE.SphereGeometry(.021,8,7),pupilM);pupil.position.set(sx*.145,3.477,.445);g.add(pupil);
+    const brow=new THREE.Mesh(new THREE.BoxGeometry(.16,.035,.035),black);brow.position.set(sx*.145,3.59,.39);brow.rotation.z=sx*.18;g.add(brow);
+    const ear=new THREE.Mesh(new THREE.SphereGeometry(.095,9,8),skinDark);ear.position.set(sx*.34,3.38,0);g.add(ear);
   }
-  const lip=new THREE.Mesh(new THREE.BoxGeometry(.16,.035,.22),lipRed);lip.position.set(.22,3.02,.0);g.add(lip);
-  const cheek=new THREE.Mesh(new THREE.BoxGeometry(.04,.08,.44),lipRed);cheek.position.set(.17,3.05,0);g.add(cheek);
-  const hatBrim=new THREE.Mesh(new THREE.CylinderGeometry(.72,.72,.08,16),black);hatBrim.position.y=3.7;g.add(hatBrim);
-  const hatCone=new THREE.Mesh(new THREE.ConeGeometry(.46,1.45,10),black);hatCone.position.y=4.44;hatCone.rotation.z=.12;g.add(hatCone);
-  const hatBand=new THREE.Mesh(new THREE.TorusGeometry(.26,.04,6,16),new THREE.MeshLambertMaterial({color:0x5d0d1e}));hatBand.rotation.x=Math.PI/2;hatBand.position.y=4.0;g.add(hatBand);
-  for(const sx of[-1,1]){const ear=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),skin);ear.position.set(.02,3.25,sx*.29);g.add(ear);}
+  const upperLip=new THREE.Mesh(new THREE.SphereGeometry(.105,10,7),lipRed);upperLip.scale.set(1,.30,.42);upperLip.position.set(0,3.13,.355);g.add(upperLip);
+  const lowerLip=new THREE.Mesh(new THREE.SphereGeometry(.11,10,7),lipRed);lowerLip.scale.set(1,.34,.45);lowerLip.position.set(0,3.08,.36);g.add(lowerLip);
+  for(const sx of[-1,1]){
+    const hair=new THREE.Mesh(new THREE.CylinderGeometry(.035,.055,.68,6),hairM);hair.position.set(sx*.31,3.09,-.04);hair.rotation.z=sx*.20;g.add(hair);
+  }
 
-  const broomStick=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,3.35,8),wood);
-  broomStick.rotation.z=Math.PI/2.25;broomStick.position.set(-.42,1.92,.18);g.add(broomStick);
-  const bristleBase=new THREE.Mesh(new THREE.CylinderGeometry(.13,.19,.36,8),new THREE.MeshLambertMaterial({color:0x8b6433}));
-  bristleBase.rotation.z=Math.PI/2.25;bristleBase.position.set(-1.68,1.24,.18);g.add(bristleBase);
-  const bristle=new THREE.Mesh(new THREE.ConeGeometry(.26,.82,10),straw);bristle.rotation.z=-Math.PI/2.25;bristle.position.set(-1.98,1.1,.18);g.add(bristle);
+  // Crooked black witch hat with purple band and gold buckle.
+  const hatBrim=new THREE.Mesh(new THREE.CylinderGeometry(.78,.78,.09,20),black);hatBrim.position.y=3.78;hatBrim.rotation.z=-.05;g.add(hatBrim);
+  const hatCone=new THREE.Mesh(new THREE.ConeGeometry(.48,1.32,14),black);hatCone.position.set(-.03,4.47,0);hatCone.rotation.z=.10;g.add(hatCone);
+  const hatTip=new THREE.Mesh(new THREE.ConeGeometry(.25,.72,12),black);hatTip.position.set(.18,5.18,.02);hatTip.rotation.z=.62;g.add(hatTip);
+  const hatBand=new THREE.Mesh(new THREE.TorusGeometry(.34,.055,7,20),purple);hatBand.rotation.x=Math.PI/2;hatBand.position.y=4.02;g.add(hatBand);
+  const hatBuckle=new THREE.Mesh(new THREE.BoxGeometry(.20,.17,.06),buckleM);hatBuckle.position.set(.02,4.02,.36);g.add(hatBuckle);
 
-  g.scale.setScalar(1.16);return g;
+  // Sleeves, green hands and a broom on an animation pivot.
+  for(const sx of[-1,1]){
+    const sleeve=new THREE.Mesh(new THREE.CylinderGeometry(.085,.13,.92,8),clothHi);sleeve.position.set(sx*.43,2.38,.05);sleeve.rotation.z=sx*.82;g.add(sleeve);
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(.09,9,8),skin);hand.position.set(sx*.72,2.10,.12);g.add(hand);
+  }
+  const broomPivot=new THREE.Group();broomPivot.position.set(.12,2.08,.42);g.add(broomPivot);
+  const broomStick=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,3.55,9),wood);broomStick.rotation.z=Math.PI/2;broomStick.position.x=-.40;broomPivot.add(broomStick);
+  const tie=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,.22,8),purple);tie.rotation.z=Math.PI/2;tie.position.x=-2.17;broomPivot.add(tie);
+  for(let i=0;i<5;i++){
+    const bristle=new THREE.Mesh(new THREE.ConeGeometry(.13,.83,8),straw);bristle.rotation.z=-Math.PI/2;
+    bristle.position.set(-2.57,(i-2)*.105,((i%2)-.5)*.10);broomPivot.add(bristle);
+  }
+  broomPivot.rotation.z=-.16;
+
+  // Subtle shadow plate grounds the silhouette even in bright scenes.
+  const shadow=new THREE.Mesh(new THREE.CircleGeometry(.68,16),new THREE.MeshBasicMaterial({color:0x120d17,transparent:true,opacity:.22,depthWrite:false}));
+  shadow.rotation.x=-Math.PI/2;shadow.position.y=.02;g.add(shadow);
+
+  g.userData.broom=broomPivot;
+  g.userData.hat=hatTip;
+  g.userData.baseScale=1.20;
+  g.scale.setScalar(1.20);
+  return g;
 }
 function spawnHouseWitches(o){
   if(!o||o.witchTriggered)return;o.witchTriggered=true;
@@ -5786,7 +5810,13 @@ function updateWitches(dt){
     g.position.x+=(ux*speed-uz*side*.9)*dt;g.position.z+=(uz*speed+ux*side*.9)*dt;
     const targetY=cart.y+2.2+Math.sin(w.ph)*.55+(w.life<3?(3-w.life)*2.2:0);
     g.position.y+=(targetY-g.position.y)*Math.min(1,dt*3.2);
-    g.lookAt(cart.x,g.position.y,cart.z);g.rotation.z=Math.sin(w.ph*1.4)*.12;
+    g.lookAt(cart.x,g.position.y,cart.z);g.rotation.z=Math.sin(w.ph*1.4)*.09;
+    if(g.userData.hat)g.userData.hat.rotation.z=.62+Math.sin(w.ph*.8+w.orbit)*.08;
+    if(g.userData.broom){
+      const attackSwing=d<4.2?Math.sin((w.atk+.28)*13)*.72:0;
+      g.userData.broom.rotation.z=-.16+Math.sin(w.ph*1.7+w.orbit)*.10+attackSwing;
+      g.userData.broom.rotation.y=Math.sin(w.ph*.9+w.orbit)*.08;
+    }
     if(d<3.15&&w.atk<=0&&w.life>3){w.atk=1.05+Math.random()*.55;thunk();damage(1,'🧹 WITCH BROOM ATTACK!');
       const p=new THREE.Vector3(cart.x,cart.y+.8,cart.z);fireBurst(p);}
   }
@@ -7436,7 +7466,19 @@ document.getElementById('derbyBack').addEventListener('click',()=>{
   cartSelectEl.classList.remove('show');cartSelectEl.setAttribute('aria-hidden','true');
   document.getElementById('title').style.display='';
 });
+function enterGameFullscreen(){
+  if(!MOBILE||document.fullscreenElement)return;
+  const root=document.documentElement;
+  if(!root||!root.requestFullscreen)return;
+  try{
+    const p=root.requestFullscreen({navigationUI:'hide'});
+    if(p&&p.catch)p.catch(()=>{});
+  }catch(_){
+    try{const p=root.requestFullscreen();if(p&&p.catch)p.catch(()=>{});}catch(__){}
+  }
+}
 function startRaceNow(){
+  enterGameFullscreen();
   if(window.ACR){ACR.closeResults();ACR.closeBoard();}
   RUNNING=false;stopRunAudio();
   document.getElementById('title').style.display='none';
@@ -8397,6 +8439,93 @@ body.menuMode #wrongway{display:none!important}
 /* ================= END PORTRAIT MOBILE DRIVE BAR ================= */
 
 body.menuMode #sticky{display:none!important}
+
+
+/* ================= IMMERSIVE MOBILE UI + PORTRAIT COCKPIT PASS 2026-08-08 ================= */
+/* The old TV/CRT mode is retired. Gameplay renders directly to the full viewport. */
+#crt{display:none!important}
+
+/* Improve control hit targets and feedback on touch devices. */
+body.mob .pad button,body.mob #pedalstack button,body.mob #toggles button{
+  -webkit-user-select:none!important;user-select:none!important;
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+  box-shadow:0 0 0 2px rgba(255,255,255,.72),0 7px 20px rgba(0,0,0,.38),inset 0 2px 0 rgba(255,255,255,.34)!important;
+}
+body.mob .pad button:active,body.mob #pedalstack button:active,body.mob #toggles button:active{
+  filter:brightness(1.14);transform:scale(.94)!important;
+}
+
+/* Portrait: stretch the supplied cockpit plate from roof to dash so the canopy
+   sits at the very top and both support poles run continuously down the screen. */
+@media (orientation:portrait) and (max-width:760px){
+  body.mob #cockpitStage{inset:0!important;width:100vw!important;height:100dvh!important;overflow:hidden!important}
+  body.mob #cockpitArt{
+    inset:0!important;width:100vw!important;height:100dvh!important;
+    object-fit:fill!important;object-position:center center!important;
+  }
+  /* Individual HUD chips replace the old full-width dark top band. */
+  body.mob #hudSafeTop{height:0!important;background:transparent!important;display:block!important}
+  body.mob #map{top:calc(8px + env(safe-area-inset-top,0px))!important;left:8px!important;width:62px!important;height:62px!important}
+  body.mob #speed{top:calc(7px + env(safe-area-inset-top,0px))!important;min-width:78px!important;padding:5px 7px 4px!important}
+  body.mob #speed b{font-size:25px!important}
+  body.mob #laps{top:calc(7px + env(safe-area-inset-top,0px))!important;right:46px!important;width:92px!important;max-width:92px!important;padding:5px 6px!important;font-size:7.5px!important;line-height:1.25!important}
+  body.mob #quit{top:calc(7px + env(safe-area-inset-top,0px))!important;right:7px!important;width:34px!important;height:34px!important}
+  body.mob #cartName{top:calc(68px + env(safe-area-inset-top,0px))!important;min-width:118px!important;max-width:156px!important}
+  body.mob #hpwrap{top:calc(96px + env(safe-area-inset-top,0px))!important;width:150px!important;height:13px!important}
+  body.mob #rage{top:calc(115px + env(safe-area-inset-top,0px))!important}
+  body.mob #toast{top:calc(132px + env(safe-area-inset-top,0px))!important;max-width:82vw!important}
+
+  /* Secondary actions are compact and kept clear of the five-button drive bar. */
+  body.mob #toggles{
+    top:auto!important;right:8px!important;bottom:calc(84px + env(safe-area-inset-bottom,0px))!important;
+    display:grid!important;grid-template-columns:repeat(2,42px)!important;gap:7px!important;
+  }
+  body.mob #toggles button{width:42px!important;height:42px!important;font-size:18px!important}
+
+  /* Five primary controls form one centered row: Reverse, Left, Gas, Right, Stop. */
+  body.mob #rev,body.mob #left,body.mob #gas,body.mob #right,body.mob #brake{
+    bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;
+    width:56px!important;height:56px!important;min-width:56px!important;min-height:56px!important;
+    line-height:56px!important;font-size:23px!important;
+  }
+  body.mob #rev  {left:calc(50% - 148px)!important}
+  body.mob #left {left:calc(50% - 88px)!important}
+  body.mob #gas  {left:calc(50% - 28px)!important}
+  body.mob #right{left:calc(50% + 32px)!important}
+  body.mob #brake{left:calc(50% + 92px)!important}
+  body.mob #wrongway{top:29%!important;max-width:86vw!important}
+}
+
+/* Mobile landscape: remove the black top gradient completely and use compact
+   floating chips, leaving the scenery and cockpit roof unobstructed. */
+@media (orientation:landscape) and (max-width:980px){
+  body.mob #hudSafeTop{height:0!important;background:none!important;background-color:transparent!important;box-shadow:none!important}
+  body.mob #map{top:calc(7px + env(safe-area-inset-top,0px))!important;left:calc(8px + env(safe-area-inset-left,0px))!important;width:60px!important;height:60px!important}
+  body.mob #speed{top:calc(6px + env(safe-area-inset-top,0px))!important;min-width:78px!important;padding:4px 7px!important;background:rgba(14,20,30,.66)!important}
+  body.mob #speed b{font-size:25px!important}
+  body.mob #laps{top:calc(6px + env(safe-area-inset-top,0px))!important;right:calc(46px + env(safe-area-inset-right,0px))!important;width:128px!important;max-width:128px!important;padding:5px 7px!important;font-size:7.6px!important;background:rgba(14,20,30,.66)!important}
+  body.mob #quit{top:calc(6px + env(safe-area-inset-top,0px))!important;right:calc(7px + env(safe-area-inset-right,0px))!important;width:34px!important;height:34px!important}
+  body.mob #cartName{top:calc(48px + env(safe-area-inset-top,0px))!important;min-width:118px!important;max-width:160px!important;font-size:7.8px!important;background:rgba(14,20,30,.62)!important}
+  body.mob #hpwrap{top:calc(72px + env(safe-area-inset-top,0px))!important;width:146px!important;height:12px!important}
+  body.mob #rage{top:calc(88px + env(safe-area-inset-top,0px))!important}
+  body.mob #toast{top:calc(100px + env(safe-area-inset-top,0px))!important;max-width:62vw!important;background:rgba(10,16,24,.42)!important}
+  body.mob #toggles{top:calc(50px + env(safe-area-inset-top,0px))!important;right:calc(8px + env(safe-area-inset-right,0px))!important;display:flex!important;flex-direction:row!important;gap:7px!important}
+  body.mob #toggles button{width:40px!important;height:40px!important;font-size:17px!important}
+  body.mob .pad{bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;gap:10px!important}
+  body.mob #steerpad{left:calc(12px + env(safe-area-inset-left,0px))!important}
+  body.mob #pedals{right:calc(12px + env(safe-area-inset-right,0px))!important}
+  body.mob .pad button,body.mob #pedalstack button{width:60px!important;height:60px!important;font-size:22px!important}
+  body.mob #pedalstack{gap:8px!important}
+}
+
+@media (orientation:landscape) and (max-height:430px){
+  body.mob #map{width:52px!important;height:52px!important}
+  body.mob #toggles{top:46px!important}
+  body.mob #toggles button{width:36px!important;height:36px!important;font-size:15px!important}
+  body.mob .pad button,body.mob #pedalstack button{width:54px!important;height:54px!important;font-size:20px!important}
+  body.mob #pedalstack{gap:6px!important}
+}
+/* ================= END IMMERSIVE MOBILE UI + PORTRAIT COCKPIT PASS ================= */
 </style>
 
 </body>
