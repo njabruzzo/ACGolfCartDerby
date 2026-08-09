@@ -26,6 +26,8 @@
 <!-- CART VISIBILITY SAFETY FIX 2026-08-07: collision-state sanitizer, cockpit restoration after crashes/musky/explosions, and zero-distance obstacle normal guard. -->
 <!-- FIXED BLUE SKY 2026-08-08: gameplay sky and horizon now use one constant blue; removed camera-angle-dependent sky gradient. -->
 <!-- MOBILE IMMERSIVE + WITCH ART PASS 2026-08-08: TV/CRT control removed; direct fullscreen gameplay by default; portrait cockpit stretched roof-to-dash; landscape top gradient removed; touch HUD/controls refined; witches rebuilt with richer faces, hats, dresses and animated brooms. -->
+<!-- START RELIABILITY FIX 2026-08-08: restored efficient widescreen render path, removed blocking browser-fullscreen request, added timed 3D-engine fallbacks/retry, and race-start recovery. -->
+<!-- AUTH/GUEST START FIX 2026-08-08: gameplay no longer waits on auth/session services; guest/login go directly to cart picker; late session restore cannot reopen the gate; local Three.js is preferred; auth requests time out cleanly. -->
 <!-- LOW-SPEED TURNAROUND FIX 2026-08-08: stronger walking-speed steering, pedal-assisted recovery turns, and immediate reverse steering intent. -->
 <!-- STEERING/CALICO/RECOVERY UPDATE 2026-08-08: corrected left-right steering sign for every cart, solid calico kitten dash rewards, and star trail-recovery button. -->
 <!-- MUSKY OUTCOME MESSAGE FIX 2026-08-08: destroyed carts show "The Musky Ate Your Cart!"; belly-up message is reserved for invincible-cart Musky kills. -->
@@ -1683,7 +1685,7 @@ window.ACR_CONFIG = {
   var K_ACCT='acr_accounts_v1', K_SCORE='acr_scores_v1', K_SESS='acr_session_v1',
       K_TOK='acr_token_v1', K_PEND='acr_pending_v1';
   var RACE_LAPS=1;
-  var ACR_BUILD='2026-08-08k-fixed-blue-sky';   // bump me on every change; shown on the sign-in screen
+  var ACR_BUILD='2026-08-08n-auth-start-fix';   // bump me on every change; shown on the sign-in screen
 
   /* ---------- storage helpers ---------- */
   function read(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
@@ -1809,13 +1811,21 @@ window.ACR_CONFIG = {
              || ('Request failed ('+(res?res.status:'network')+').');
     }
     function jfetch(url,opts){
-      return fetch(url,opts).then(function(res){
+      /* Authentication is useful, but it must never be able to freeze the game.
+         Race the network request against a short timeout; Guest Play remains usable
+         even when the account service, DNS, captive Wi-Fi, or a content blocker fails. */
+      var timer;
+      var timeout=new Promise(function(_,reject){
+        timer=setTimeout(function(){ reject('Account server timed out. You can still race as a guest.'); },8000);
+      });
+      var request=fetch(url,opts).then(function(res){
         return res.text().then(function(t){
           var d=null; try{ d=t?JSON.parse(t):null; }catch(e){}
           if(!res.ok) throw errText(d,res);
           return d;
         });
-      },function(){ throw 'Could not reach the leaderboard server.'; });
+      },function(){ throw 'Could not reach the account server. You can still race as a guest.'; });
+      return Promise.race([request,timeout]).then(function(v){ clearTimeout(timer); return v; },function(e){ clearTimeout(timer); throw e; });
     }
 
     var TOK=null;   // {access_token, refresh_token, expires_at, user}
@@ -1960,9 +1970,26 @@ window.ACR_CONFIG = {
   /* ---------- DOM ---------- */
   var $=function(id){ return document.getElementById(id); };
   var gate,board,results,whoami,mode='login',busy=false;
+  var authChoiceMade=false; // once the player chooses Login/Guest, late restore results are ignored
 
-  function openGate(){ gate.classList.add('show'); gate.setAttribute('aria-hidden','false'); setErr(''); }
+  function openGate(){
+    if(authChoiceMade)return;
+    gate.classList.add('show'); gate.setAttribute('aria-hidden','false'); setErr('');
+  }
   function closeGate(){ gate.classList.remove('show'); gate.setAttribute('aria-hidden','true'); }
+  function continueIntoGame(){
+    /* The account layer never owns game startup. Close it immediately, remember
+       that the player wants to race, and hand off to the picker as soon as the
+       3D engine is ready. If it is already ready, this happens immediately. */
+    closeGate();
+    window.ACR_PLAY_AFTER_AUTH=true;
+    document.body.classList.add('menuMode');
+    var title=document.getElementById('title'); if(title)title.style.display='';
+    if(typeof window.ACR_OPEN_CART_PICKER==='function'){
+      window.ACR_PLAY_AFTER_AUTH=false;
+      window.ACR_OPEN_CART_PICKER();
+    }
+  }
   function setErr(m){ $('acrError').textContent=m||''; }
   function clearFields(){
     ['acrUser','acrScreen','acrPass','acrPass2'].forEach(function(id){ var el=$(id); if(el)el.value=''; });
@@ -2178,6 +2205,7 @@ window.ACR_CONFIG = {
 
     $('acrSubmit').addEventListener('click',function(){
       if(busy)return;
+      authChoiceMade=true;
       var id=$('acrUser').value, p=$('acrPass').value;
       setErr('');
       var job;
@@ -2190,13 +2218,23 @@ window.ACR_CONFIG = {
         job=BACKEND.signIn(id,p);
       }
       job.then(function(u){
-        setBusy(false); setUser(u); closeGate(); clearFields();
+        setBusy(false); setUser(u); clearFields();
+        continueIntoGame();
         flushQueue();
-      },function(e){ setBusy(false); setErr(String(e)); });
+      },function(e){
+        setBusy(false); setErr(String(e));
+        /* Keep the gate open after a failed login, but do not let a stale
+           background session restore replace what the player just chose. */
+        gate.classList.add('show'); gate.setAttribute('aria-hidden','false');
+      });
     });
 
     $('acrGuest').addEventListener('click',function(){
-      setUser({id:'guest',screen:'GUEST',guest:true}); closeGate(); clearFields();
+      authChoiceMade=true;
+      setBusy(false);
+      setUser({id:'guest',screen:'GUEST',guest:true});
+      clearFields();
+      continueIntoGame();
     });
     ['acrUser','acrPass','acrPass2','acrScreen'].forEach(function(id){
       $(id).addEventListener('keydown',function(e){ if(e.key==='Enter')$('acrSubmit').click(); });
@@ -2232,10 +2270,13 @@ window.ACR_CONFIG = {
     var hasLocal = Object.keys(read(K_ACCT,{})).length>0;
     setMode((REMOTE||hasLocal) ? 'login' : 'register');
 
+    /* Show the gate immediately. Session restoration is background convenience,
+       never a prerequisite for the buttons becoming usable. */
+    openGate();
     BACKEND.restore().then(function(u){
+      if(authChoiceMade)return;
       if(u){ setUser(u); closeGate(); flushQueue(); }
-      else openGate();
-    },function(){ openGate(); });
+    },function(){ /* gate is already usable; network failure must not change it */ });
   }
 
   window.ACR={
@@ -2258,12 +2299,16 @@ window.ACR_CONFIG = {
 <script>
 (function(){
   const THREE_CDNS=[
+    'vendor/three.r128.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
     'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
-    'https://unpkg.com/three@0.128.0/build/three.min.js'
+    'https://unpkg.com/three@0.128.0/build/three.min.js',
+    'https://raw.githubusercontent.com/mrdoob/three.js/r128/build/three.min.js'
   ];
   const loadStatus=document.getElementById('loadstatus');
   const goButton=document.getElementById('go');
+  window.ACR_ENGINE_READY=false;
+  window.ACR_PLAY_AFTER_AUTH=!!window.ACR_PLAY_AFTER_AUTH;
 
   function startAppleCanyonRun(){
 /* ===== device class: drives every LOD decision below ===== */
@@ -2588,7 +2633,7 @@ const camera=new THREE.PerspectiveCamera(72,1,0.1,1800);
    Geometry stays rock-solid float -- no PS1 vertex snapping. ============== */
 /* phones default to widescreen fill -- a 4:3 window on a 19.5:9 panel wastes
    most of the glass. V (or the \u2b1c button) switches back to the cabinet. */
-const ARCADE={on:false,wide:true,W:496,H:384};
+const ARCADE={on:true,wide:true,W:496,H:384};
 const lowRT=new THREE.WebGLRenderTarget(ARCADE.W,ARCADE.H,{
   minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,
   format:THREE.RGBAFormat,depthBuffer:true,stencilBuffer:false});
@@ -4571,7 +4616,7 @@ function recoverCartToTrail(){
 }
 const recoverEl=document.getElementById('recover');
 if(recoverEl)recoverEl.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();recoverCartToTrail();});
-function crtSet(v){ARCADE.on=false;ARCADE.wide=true;resize();}
+function crtSet(v){ARCADE.on=true;ARCADE.wide=true;resize();}
 document.getElementById('radio').addEventListener('click',e=>{e.stopPropagation();radioCycle();});
 document.getElementById('horn').addEventListener('click',e=>{e.stopPropagation();honk();});
 document.getElementById('drunk').addEventListener('click',e=>{
@@ -7466,33 +7511,36 @@ document.getElementById('derbyBack').addEventListener('click',()=>{
   cartSelectEl.classList.remove('show');cartSelectEl.setAttribute('aria-hidden','true');
   document.getElementById('title').style.display='';
 });
-function enterGameFullscreen(){
-  if(!MOBILE||document.fullscreenElement)return;
-  const root=document.documentElement;
-  if(!root||!root.requestFullscreen)return;
-  try{
-    const p=root.requestFullscreen({navigationUI:'hide'});
-    if(p&&p.catch)p.catch(()=>{});
-  }catch(_){
-    try{const p=root.requestFullscreen();if(p&&p.catch)p.catch(()=>{});}catch(__){}
-  }
-}
 function startRaceNow(){
-  enterGameFullscreen();
-  if(window.ACR){ACR.closeResults();ACR.closeBoard();}
-  RUNNING=false;stopRunAudio();
-  document.getElementById('title').style.display='none';
-  document.body.classList.remove('menuMode');
-  unlockAudio();initSound();
-  ACTIVE_CART=DERBY_CARTS[SELECTED_CART_KEY];applyCartStyle();resetRun();
-  if(!RADIO.on)radioCycle();          // default: KREZUS, Surreal_dvd — Fireflies
-  cartSelectEl.classList.remove('show');cartSelectEl.setAttribute('aria-hidden','true');
-  quitDisarm();
-  toast(ACTIVE_CART.name+' — WHITETAIL WOODS',1900);
-  hpDraw();
-  RUNNING=true;
-  last=performance.now();
-  requestAnimationFrame(tick);
+  /* Never let an optional browser feature or one bad initialization step strand
+     the player on a blank screen. The game itself already fills the viewport. */
+  try{
+    if(window.ACR){ACR.closeResults();ACR.closeBoard();}
+    RUNNING=false;stopRunAudio();
+    document.getElementById('title').style.display='none';
+    document.body.classList.remove('menuMode');
+    unlockAudio();initSound();
+    ACTIVE_CART=DERBY_CARTS[SELECTED_CART_KEY]||DERBY_CARTS.abruzzo;
+    applyCartStyle();resetRun();
+    if(!RADIO.on)radioCycle();          // default: KREZUS, Surreal_dvd — Fireflies
+    cartSelectEl.classList.remove('show');cartSelectEl.setAttribute('aria-hidden','true');
+    quitDisarm();
+    toast(ACTIVE_CART.name+' — WHITETAIL WOODS',1900);
+    hpDraw();
+    RUNNING=true;
+    last=performance.now();
+    requestAnimationFrame(tick);
+  }catch(err){
+    console.error('Race start failed:',err);
+    RUNNING=false;
+    document.body.classList.add('menuMode');
+    document.getElementById('title').style.display='none';
+    cartSelectEl.classList.add('show');cartSelectEl.setAttribute('aria-hidden','false');
+    derbyStartEl.disabled=false;
+    derbyStartEl.textContent='↻ TRY START AGAIN';
+    const s=document.getElementById('loadstatus');
+    if(s){s.classList.add('error');s.textContent='START FAILED — TAP START DERBY AGAIN.';}
+  }
 }
 function openCartPickerForNewRace(){
   if(window.ACR){ACR.closeResults();ACR.closeBoard();}
@@ -7508,16 +7556,38 @@ derbyStartEl.addEventListener('click',startRaceNow);
 
   }
 
+  let engineBooted=false;
+  function retryEngineLoad(){
+    goButton.removeEventListener('click',retryEngineLoad);
+    goButton.disabled=true;
+    goButton.textContent='▶ ENTER DERBY';
+    loadStatus.classList.remove('error');
+    loadStatus.textContent='RETRYING 3D ENGINE…';
+    loadThree(0);
+  }
   function ready(){
+    if(engineBooted)return;
     try{
+      engineBooted=true;
+      goButton.removeEventListener('click',retryEngineLoad);
       startAppleCanyonRun();
+      window.ACR_ENGINE_READY=true;
       goButton.disabled=false;
+      goButton.textContent='▶ ENTER DERBY';
       loadStatus.classList.remove('error');
       loadStatus.textContent='READY TO RIDE';
+      if(window.ACR_PLAY_AFTER_AUTH && typeof window.ACR_OPEN_CART_PICKER==='function'){
+        window.ACR_PLAY_AFTER_AUTH=false;
+        setTimeout(function(){ try{ window.ACR_OPEN_CART_PICKER(); }catch(e){ console.error('Post-auth game handoff failed:',e); } },0);
+      }
     }catch(err){
+      engineBooted=false;
       console.error('Apple Canyon Run failed to initialize:',err);
       loadStatus.classList.add('error');
-      loadStatus.textContent='THE GAME COULD NOT START IN THIS BROWSER. TRY CURRENT CHROME, EDGE, SAFARI, OR FIREFOX.';
+      loadStatus.textContent='GAME SETUP FAILED — TAP BELOW TO RETRY.';
+      goButton.disabled=false;
+      goButton.textContent='↻ RETRY GAME LOAD';
+      goButton.addEventListener('click',retryEngineLoad,{once:true});
     }
   }
 
@@ -7525,15 +7595,27 @@ derbyStartEl.addEventListener('click',startRaceNow);
     if(window.THREE){ready();return;}
     if(i>=THREE_CDNS.length){
       loadStatus.classList.add('error');
-      loadStatus.textContent='CONNECT TO THE INTERNET AND REOPEN THIS FILE — THE 3D ENGINE COULD NOT BE LOADED.';
+      loadStatus.textContent='3D ENGINE DID NOT LOAD — TAP BELOW TO RETRY.';
+      goButton.disabled=false;
+      goButton.textContent='↻ RETRY GAME LOAD';
+      goButton.removeEventListener('click',retryEngineLoad);
+      goButton.addEventListener('click',retryEngineLoad,{once:true});
       return;
     }
+    loadStatus.textContent='LOADING 3D ENGINE… '+(i+1)+'/'+THREE_CDNS.length;
     const s=document.createElement('script');
+    let settled=false;
+    const next=()=>{
+      if(settled)return;settled=true;
+      clearTimeout(timer);s.onload=s.onerror=null;
+      if(!window.THREE)s.remove();
+      window.THREE?ready():loadThree(i+1);
+    };
     s.src=THREE_CDNS[i];
     s.async=true;
-    s.crossOrigin='anonymous';
-    s.onload=()=>window.THREE?ready():loadThree(i+1);
-    s.onerror=()=>loadThree(i+1);
+    s.onload=next;
+    s.onerror=next;
+    const timer=setTimeout(next,6500);
     document.head.appendChild(s);
   }
 
@@ -8458,9 +8540,9 @@ body.mob .pad button:active,body.mob #pedalstack button:active,body.mob #toggles
 /* Portrait: stretch the supplied cockpit plate from roof to dash so the canopy
    sits at the very top and both support poles run continuously down the screen. */
 @media (orientation:portrait) and (max-width:760px){
-  body.mob #cockpitStage{inset:0!important;width:100vw!important;height:100dvh!important;overflow:hidden!important}
+  body.mob #cockpitStage{inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;overflow:hidden!important}
   body.mob #cockpitArt{
-    inset:0!important;width:100vw!important;height:100dvh!important;
+    inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;
     object-fit:fill!important;object-position:center center!important;
   }
   /* Individual HUD chips replace the old full-width dark top band. */
