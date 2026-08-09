@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- GAME UI MATCH 2026-08-08: login, results and leaderboard now share the bright canyon/checker/card styling of the title and cart picker. -->
 <!-- FINISH/RESTART FIX 2026-08-08: finish requires ordered forward checkpoints before the line counts; leaderboard gets a working NEW RACE path and replay uses direct race launch instead of a synthetic click. -->
 <!-- DERBY FIXED 2026-08-05: supplied cart art, explicit metrics, sprite decode/aspect fix. -->
 <!-- DERBY UPDATE 2026-08-06: Izzy renamed Weirdo Baby!, Franny butterfly cockpit, opaque steering-wheel backings on all carts. -->
@@ -23,6 +24,10 @@
 <!-- DAM RIVER/BRIDGE FIX 2026-08-08: cliff moved beside trail; waterfall descends into a river that crosses beneath a small timber bridge. -->
 <!-- RADIO TRACK UPDATE 2026-08-08: replaced procedural stations with five embedded NCS MP3 tracks; Fireflies is the default. -->
 <!-- CART VISIBILITY SAFETY FIX 2026-08-07: collision-state sanitizer, cockpit restoration after crashes/musky/explosions, and zero-distance obstacle normal guard. -->
+<!-- FIXED BLUE SKY 2026-08-08: gameplay sky and horizon now use one constant blue; removed camera-angle-dependent sky gradient. -->
+<!-- LOW-SPEED TURNAROUND FIX 2026-08-08: stronger walking-speed steering, pedal-assisted recovery turns, and immediate reverse steering intent. -->
+<!-- MUSKY OUTCOME MESSAGE FIX 2026-08-08: destroyed carts show "The Musky Ate Your Cart!"; belly-up message is reserved for invincible-cart Musky kills. -->
+<!-- BIGFOOT PLUSH ART PASS 2026-08-08: rebuilt dashboard plush with a clearer Sasquatch silhouette, cloth shading, expressive stitched face, and oversized hands/feet. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1671,7 +1676,7 @@ window.ACR_CONFIG = {
   var K_ACCT='acr_accounts_v1', K_SCORE='acr_scores_v1', K_SESS='acr_session_v1',
       K_TOK='acr_token_v1', K_PEND='acr_pending_v1';
   var RACE_LAPS=1;
-  var ACR_BUILD='2026-08-08j-finish-restart';   // bump me on every change; shown on the sign-in screen
+  var ACR_BUILD='2026-08-08k-fixed-blue-sky';   // bump me on every change; shown on the sign-in screen
 
   /* ---------- storage helpers ---------- */
   function read(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
@@ -2565,7 +2570,7 @@ const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),anti
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,MOBILE?1.3:2));
 renderer.setClearColor(0x000000,1);
 const scene=new THREE.Scene();
-const SKY=0xa9cdec;
+const SKY=0x54c4f7; // fixed gameplay sky blue
 scene.background=new THREE.Color(SKY);
 scene.fog=new THREE.Fog(SKY,55,430);
 const camera=new THREE.PerspectiveCamera(72,1,0.1,1800);
@@ -4642,45 +4647,99 @@ function critterPose(g,list,t,sx=1,sy=1){
 const bigfootPlushItems=[];
 function makeBigfootPlush(){
   const g=new THREE.Group();
-  const furM  = new THREE.MeshLambertMaterial({color:0x5b4030});
-  const furLM = new THREE.MeshLambertMaterial({color:0x7a5942});
-  const faceM = new THREE.MeshLambertMaterial({color:0xc9a07a});
-  const eyeM  = new THREE.MeshBasicMaterial({color:0x120d09});
-  const seamM = new THREE.MeshLambertMaterial({color:0x3a2a1e});
+  g.name='bigfoot-plush';
 
-  const body=new THREE.Mesh(new THREE.SphereGeometry(.070,10,8),furM);
-  body.scale.set(1.0,.92,.86); body.position.y=.070; g.add(body);
-  const belly=new THREE.Mesh(new THREE.SphereGeometry(.050,10,8),furLM);
-  belly.scale.set(.92,.80,.55); belly.position.set(0,.062,.042); g.add(belly);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.050,10,8),furM);
-  head.scale.set(1.0,.95,.92); head.position.y=.150; g.add(head);
-  const face=new THREE.Mesh(new THREE.SphereGeometry(.034,10,8),faceM);
-  face.scale.set(.92,.86,.50); face.position.set(0,.143,.034); g.add(face);
-  const brow=new THREE.Mesh(new THREE.BoxGeometry(.062,.012,.016),furM);
-  brow.position.set(0,.170,.036); g.add(brow);
-  [-.018,.018].forEach(function(x){
-    const e=new THREE.Mesh(new THREE.SphereGeometry(.0068,6,5),eyeM);
-    e.position.set(x,.156,.056); g.add(e);
+  /* Soft, warm cloth colors with very high roughness so the ornament reads as
+     a stuffed animal rather than a shiny collection of primitive shapes. */
+  const furM   =new THREE.MeshStandardMaterial({color:0x5a3827,roughness:.98,metalness:0});
+  const furLM  =new THREE.MeshStandardMaterial({color:0x7b5139,roughness:.98,metalness:0});
+  const faceM  =new THREE.MeshStandardMaterial({color:0xc99568,roughness:.96,metalness:0});
+  const palmM  =new THREE.MeshStandardMaterial({color:0xb77e55,roughness:.98,metalness:0});
+  const darkM  =new THREE.MeshStandardMaterial({color:0x24140d,roughness:.90,metalness:0});
+  const stitchM=new THREE.MeshBasicMaterial({color:0x2b1a12});
+  const shineM =new THREE.MeshBasicMaterial({color:0xf8ead9});
+
+  function oval(r,mat,x,y,z,sx,sy,sz){
+    const m=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),mat);
+    m.position.set(x,y,z);m.scale.set(sx,sy,sz);g.add(m);return m;
+  }
+  function tube(points,r,mat){
+    const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(p[0],p[1],p[2])));
+    const m=new THREE.Mesh(new THREE.TubeGeometry(curve,10,r,5,false),mat);g.add(m);return m;
+  }
+
+  /* Broad pear-shaped torso and shoulders: the defining Bigfoot silhouette. */
+  oval(.072,furM,0,.086,0,1.12,1.20,.78);
+  oval(.058,furLM,0,.076,.050,.83,.93,.34);
+  oval(.050,furM,0,.156,.002,1.15,.98,.88);
+  oval(.042,furM,0,.188,-.003,.85,.43,.72); // furry crown/tuft mass
+
+  /* Small round ears peeking through the fur. */
+  [-1,1].forEach(sd=>{
+    oval(.017,furM,sd*.049,.165,-.001,1,.96,.65);
+    oval(.010,faceM,sd*.051,.164,.009,1,.92,.38);
   });
-  const seam=new THREE.Mesh(new THREE.BoxGeometry(.004,.052,.004),seamM);
-  seam.position.set(0,.124,.050); g.add(seam);
-  [-1,1].forEach(function(sd){
-    const arm=new THREE.Mesh(new THREE.SphereGeometry(.024,8,6),furM);
-    arm.scale.set(.85,1.5,.85); arm.position.set(sd*.070,.082,.010);
-    arm.rotation.z=sd*-.42; g.add(arm);
-    const leg=new THREE.Mesh(new THREE.SphereGeometry(.026,8,6),furM);
-    leg.scale.set(.95,1.15,1.25); leg.position.set(sd*.036,.014,.020); g.add(leg);
-    const foot=new THREE.Mesh(new THREE.SphereGeometry(.020,8,6),faceM);
-    foot.scale.set(.95,.55,1.5); foot.position.set(sd*.036,.006,.046); g.add(foot);
+
+  /* Friendly plush face: brow ridge, muzzle, button eyes, nose and smile. */
+  oval(.036,faceM,0,.153,.040,1.03,.84,.42);
+  oval(.030,faceM,0,.134,.055,1.10,.68,.36);
+  oval(.010,darkM,0,.143,.076,1.28,.72,.62);
+
+  [-1,1].forEach(sd=>{
+    const eye=oval(.0072,darkM,sd*.0175,.162,.069,1,1,.62);
+    oval(.0022,shineM,sd*.0155,.1645,.074,1,1,.45);
+    /* Raised furry brows help it read as a Sasquatch rather than a teddy bear. */
+    const brow=oval(.010,furM,sd*.0175,.176,.056,1.35,.35,.35);
+    brow.rotation.z=sd*-.13;
   });
+
+  tube([[-.013,.130,.074],[0,.125,.078],[.013,.130,.074]],.0018,stitchM);
+  tube([[0,.120,.067],[0,.111,.063]],.0016,stitchM);
+
+  /* Uneven crown tufts. */
+  [-.020,0,.020].forEach((x,i)=>{
+    const tuft=new THREE.Mesh(new THREE.ConeGeometry(.012-i*.001,.033,7),furM);
+    tuft.position.set(x,.216,-.001);tuft.rotation.z=(i-1)*-.20;g.add(tuft);
+  });
+
+  /* Long loose arms with oversized plush hands and visible paw pads. */
+  [-1,1].forEach(sd=>{
+    const upper=oval(.026,furM,sd*.071,.104,.000,.82,1.42,.78);
+    upper.rotation.z=sd*-.34;
+    const fore=oval(.023,furM,sd*.083,.067,.011,.78,1.23,.75);
+    fore.rotation.z=sd*-.12;
+    oval(.025,furLM,sd*.086,.037,.032,1.02,.84,.72);
+    oval(.016,palmM,sd*.086,.036,.050,.92,.68,.31);
+    /* Three subtle stitched fingers. */
+    [-.008,0,.008].forEach(dx=>{
+      const st=new THREE.Mesh(new THREE.BoxGeometry(.0014,.011,.0015),stitchM);
+      st.position.set(sd*.086+dx,.033,.058);st.rotation.z=dx*7;g.add(st);
+    });
+
+    /* Short seated legs with comically large Bigfoot soles. */
+    const leg=oval(.030,furM,sd*.036,.026,.004,.92,1.04,.92);
+    leg.rotation.z=sd*.08;
+    oval(.029,furLM,sd*.039,.008,.045,1.18,.63,1.30);
+    oval(.021,palmM,sd*.039,.006,.067,1.15,.48,.72);
+    [-.010,0,.010].forEach(dx=>{
+      oval(.0045,darkM,sd*.039+dx,.007,.083,1,.55,.42);
+    });
+  });
+
+  /* A few deliberate seam marks sell the handmade stuffed-animal construction. */
+  tube([[0,.037,.066],[0,.070,.072],[0,.099,.068]],.0015,stitchM);
+  [-1,1].forEach(sd=>tube([[sd*.047,.190,.020],[sd*.056,.181,.018]],.0013,stitchM));
+
+  g.scale.set(1.10,1.10,1.10);
+  g.rotation.x=-.02;
   return g;
 }
 function layoutBigfootPlush(){
   /* Re-place the whole row each time: once the shelf is full the oldest is
      dropped, and positioning only the newcomer stacked them all in one spot. */
   bigfootPlushItems.forEach(function(m,i){
-    m.position.set(-.34+i*.17,-.435,-1.16);
-    m.rotation.set(-.10,.26-i*.13,0);
+    m.position.set(-.35+i*.18,-.438,-1.145);
+    m.rotation.set(-.06,.24-i*.12,0);
   });
 }
 function showBigfootPlush(){
@@ -6046,21 +6105,24 @@ function tick(now){
     }
     if(cart.musky<=0){
       hideCockpitArt(false);ensureCartVisualIntegrity(true);
-      if(rageT>0){
+      const muskyKilledByInvincibleCart = rageT>0;
+      if(muskyKilledByInvincibleCart){
+        // Only an invincible/golden cart can kill the Musky on impact.
         muskyBelly=4.5;
         muskyRig.rotation.z=Math.PI;                 // rolled over
         setMuskyFrame(0);
         muskyRig.position.y=WATER_Y+.3;
         splashRing(muskyRig.position.clone().setY(WATER_Y+.2));
-        squelch();toast('THE MUSKY WENT BELLY-UP',2600);
+        squelch();toast('THE MUSKY WENT BELLY UP!',2600);
         const rn=roadExact(cart.x,cart.z),sp=SAMP[rn.i];
         cart.x=sp.p.x;cart.z=sp.p.z;cart.y=sp.p.y+.02;
         cart.vy=0;cart.airT=0;cart.v=0;
         cart.heading=Math.atan2(sp.tan.x,sp.tan.z);
       }else{
+        // Normal carts lose the collision and are destroyed by the Musky.
         chompSfx();
         muskyRig.visible=false;
-        explode(true,'A GIANT MUSKY ATE YOUR CART!');
+        explode(true,'THE MUSKY ATE YOUR CART!');
       }
     }
     updateParts(dt);
@@ -6093,16 +6155,34 @@ function tick(now){
     requestAnimationFrame(tick);return;
   }
 
-  /* ---- steering: speed-sensitive with a light trail stability assist ---- */
+  /* ---- steering: speed-sensitive with easy low-speed recovery ----
+     The old logic disabled steering below ~0.35 m/s, which could leave a cart
+     effectively trapped when stopped or facing the wrong way. Keep normal
+     high-speed handling, but give the driver a tight arcade-style recovery
+     turn at walking speed and while reversing. */
   let steerIn=(input.right-input.left);
   if(DRUNK){cart.wander=vnoise(clockT*.35,7.3)*2-1;steerIn+=cart.wander*1.15;}
   const speedAbs=Math.abs(cart.v);
   cart.steerV+=(steerIn-cart.steerV)*(1-Math.exp(-dt*(DRUNK?2.1:(MOBILE?9.5:7.8))));
+  const recoveryBlend=1-clamp(speedAbs/7,0,1); // fades out completely by ~16 mph
   let steerAuthority=(1.18+ACTIVE_CART.handling*.045)/(1+speedAbs*.035)+.14;
-  if(!g.onTrail)steerAuthority*=.82;
+  steerAuthority*=1+recoveryBlend*(.92+ACTIVE_CART.handling*.018);
+  if(!g.onTrail)steerAuthority*=.82+.12*recoveryBlend;
   let yawRate=-cart.steerV*steerAuthority;
   if(cart.airT>0)yawRate*=.26;
-  cart.heading+=yawRate*dt*(speedAbs>.35?1:0)*(cart.v>=0?1:-1);
+
+  /* At very low speed, pedal + steering input now supplies enough rotational
+     authority to make a quick U-turn / three-point turn instead of waiting for
+     the cart to build speed. Reverse intent chooses reverse steering direction
+     immediately, even before velocity has crossed through zero. */
+  const pedalIntent=!!(input.gas||input.brake||input.rev);
+  let steerMotion=clamp(speedAbs/1.55,0,1);
+  if(cart.airT===0&&Math.abs(steerIn)>.06&&pedalIntent)
+    steerMotion=Math.max(steerMotion,.52+.38*recoveryBlend);
+  else if(cart.airT===0&&Math.abs(steerIn)>.06&&speedAbs<.35)
+    steerMotion=Math.max(steerMotion,.24); // small stationary correction
+  const reverseIntent=cart.v<-.15||((input.rev||input.brake)&&!input.gas&&cart.v<.35);
+  cart.heading+=yawRate*dt*steerMotion*(reverseIntent?-1:1);
   if(!DRUNK&&g.onTrail&&speedAbs>10&&Math.abs(steerIn)<.08&&cart.airT===0){
     const ts=sampAt(g.re.t);let target=Math.atan2(ts.tan.x,ts.tan.z);
     let delta=Math.atan2(Math.sin(target-cart.heading),Math.cos(target-cart.heading));
@@ -6827,7 +6907,7 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
     })();
 
     /* ---------- 2. sunny sky + punchy light ---------- */
-    const SKY_TOP=new THREE.Color(0x2fa8e8), SKY_LOW=new THREE.Color(0xbfeaff);
+    const SKY_TOP=new THREE.Color(SKY), SKY_LOW=new THREE.Color(SKY);
     scene.background=SKY_LOW.clone();
     if(scene.fog){scene.fog.color.copy(SKY_LOW);}
     scene.traverse(o=>{
@@ -6836,15 +6916,11 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
     });
     scene.add(new THREE.AmbientLight(0xbfe6ff,0.24));      // lifts the shadow side, toon-style
 
-    // gradient sky dome so the horizon reads like a cartoon poster
+    // Fixed solid-blue sky dome. Keeping one blue at every viewing angle prevents
+    // hills, camera pitch, and horizon position from making the sky appear to change color.
     (function(){
-      const cv=document.createElement('canvas');cv.width=8;cv.height=128;
-      const g=cv.getContext('2d').createLinearGradient(0,0,0,128);
-      g.addColorStop(0,'#0d7fd8');g.addColorStop(.46,'#54c4f7');g.addColorStop(1,'#d6f4ff');
-      const x=cv.getContext('2d');x.fillStyle=g;x.fillRect(0,0,8,128);
-      const tex=new THREE.CanvasTexture(cv);
       const dome=new THREE.Mesh(new THREE.SphereGeometry(1400,18,12),
-        new THREE.MeshBasicMaterial({map:tex,side:THREE.BackSide,fog:false,depthWrite:false}));
+        new THREE.MeshBasicMaterial({color:SKY,side:THREE.BackSide,fog:false,depthWrite:false}));
       dome.renderOrder=-1000;scene.add(dome);
     })();
 
@@ -7866,6 +7942,154 @@ body.menuMode #acrWhoami{display:flex}
   .acr-result-time span{font-size:32px}
   .acr-note{display:none}
 }
+
+
+/* ================= GAME-MATCHED AUTH + LEADERBOARD SKIN 2026-08-08 ================= */
+/* Keep the account and records screens in the same bright arcade/canyon visual
+   language as the title and cart picker: blue sky, green hills, checkers,
+   white cards, tomato-red branding and golden race controls. */
+#acrGate,#acrBoard,#acrResults{
+  font-family:var(--ui,'Avenir Next','Segoe UI',system-ui,-apple-system,Arial,sans-serif);
+  color:var(--ink,#161b26);
+  background:#3ea3dc;
+  background-image:linear-gradient(180deg,#1273b4 0%,#3ea3dc 30%,#a9dcf0 52%,#8ccf62 52%,#4c9c3f 74%,#2f6b2b 100%);
+}
+#acrGate::before,#acrBoard::before,#acrResults::before,
+#acrGate::after,#acrBoard::after,#acrResults::after{
+  content:"";position:fixed;left:0;right:0;height:7px;z-index:3;pointer-events:none;opacity:1;
+  background-image:repeating-linear-gradient(90deg,#161b26 0,#161b26 7px,#fffdf8 7px,#fffdf8 14px);
+}
+#acrGate::before,#acrBoard::before,#acrResults::before{top:0;inset:auto 0 auto 0}
+#acrGate::after,#acrBoard::after,#acrResults::after{bottom:0}
+
+.acr-gate-inner,.acr-board-inner,.acr-results-inner{
+  z-index:4;
+  background:#fffdf8;color:#161b26;
+  border:0;border-radius:14px;
+  box-shadow:0 18px 44px rgba(16,22,34,.30),0 2px 6px rgba(16,22,34,.16);
+}
+.acr-gate-inner{width:min(500px,100%);padding:0 26px 24px;overflow:hidden;gap:16px}
+.acr-gate-inner::before{
+  content:"GOLF CART DERBY";display:block;margin:0 -26px 2px;padding:10px 18px;
+  background:#d8402c;color:#fffdf8;text-align:center;
+  font-family:var(--display,Futura,'Avenir Next',sans-serif);font-weight:800;
+  font-size:10px;letter-spacing:.34em;text-transform:uppercase;
+}
+.acr-logo{padding:4px 0 0}
+.acr-logo-badge{
+  display:inline-block;background:#d8402c;color:#fffdf8;
+  padding:8px 11px 8px 18px;border-radius:3px;
+  font-family:var(--display,Futura,'Avenir Next',sans-serif);font-size:12px;font-weight:800;
+  letter-spacing:7px;text-shadow:none;box-shadow:0 2px 5px rgba(16,22,34,.22);
+}
+.acr-logo-sub{margin-top:10px;color:#39415a;opacity:1;font-weight:800;font-size:10px;letter-spacing:.36em}
+
+.acr-tabs{background:#eef1f3;border-radius:999px;padding:4px;gap:4px;align-self:center}
+.acr-tab{
+  border:0;background:transparent;color:#5a6275;border-radius:999px;padding:10px 16px;
+  font-family:var(--ui,inherit);font-weight:800;font-size:10px;letter-spacing:.14em;
+}
+.acr-tab:hover{background:rgba(255,255,255,.7)}
+.acr-tab.on{
+  background:#161b26;color:#fffdf8;font-weight:800;box-shadow:0 2px 5px rgba(16,22,34,.18);
+}
+.acr-field>span{color:#39415a;opacity:1;font-weight:800;font-size:9px;letter-spacing:.2em}
+.acr-field>span i{color:#6d7484;opacity:1}
+.acr-field input{
+  color:#161b26;background:#fff;border:2px solid #d9dde3;border-radius:9px;
+  box-shadow:inset 0 1px 2px rgba(16,22,34,.05);font-family:var(--ui,inherit);font-weight:600;
+}
+.acr-field input::placeholder{color:#9aa0ad}
+.acr-field input:focus{border-color:#3ea3dc;box-shadow:0 0 0 3px rgba(62,163,220,.18)}
+.acr-error{color:#c92f21;font-weight:700}
+.acr-note{color:#5c6473;opacity:1;background:#f2f4f5;border-radius:8px;padding:9px 11px}
+
+.acr-primary{
+  font-family:var(--display,Futura,'Avenir Next',sans-serif);font-weight:800;text-transform:uppercase;
+  color:#2a1c00;border:0;background-image:linear-gradient(180deg,#ffd569 0%,#ef8f16 100%);
+  box-shadow:0 8px 18px rgba(16,22,34,.22),inset 0 1px 0 rgba(255,255,255,.55);
+}
+.acr-primary:hover{background-image:linear-gradient(180deg,#ffe08a 0%,#f59b1c 100%)}
+.acr-primary:active{transform:translateY(2px);box-shadow:0 3px 8px rgba(16,22,34,.22)}
+.acr-ghost{color:#39415a;opacity:.8;font-weight:700}
+.acr-ghost2{
+  font-family:var(--ui,inherit);font-weight:800;color:#39415a;background:#fffdf8;
+  border:1px solid #cfd4dc;border-radius:999px;box-shadow:0 2px 5px rgba(16,22,34,.10);
+}
+.acr-ghost2:hover{background:#f0ece0;border-color:#aeb5c1}
+.acr-ghost2.danger{color:#b62d24;border-color:#e1aaa5;background:#fff8f7}
+
+/* Leaderboard = a big cart-selection card / race timing sheet. */
+.acr-board-inner{width:min(1100px,100%);padding:0 22px 20px;overflow:hidden;gap:12px}
+.lb-flag{
+  height:11px;margin:0 -22px;opacity:1;
+  background:repeating-conic-gradient(#fffdf8 0 25%,#161b26 0 50%) 0 0/12px 12px;
+}
+.lb-head{
+  margin:0 -22px;padding:16px 22px 14px;background:#d8402c;color:#fffdf8;
+  text-align:center;box-shadow:inset 0 -1px 0 rgba(0,0,0,.12);
+}
+.lb-head h2{
+  margin:0;color:#fffdf8;text-shadow:0 2px 0 rgba(99,20,14,.3);
+  font-family:var(--display,Futura,'Avenir Next',sans-serif);font-weight:800;
+  font-size:26px;letter-spacing:.14em;
+}
+.lb-sub{color:#fff6ee;opacity:.9;font-weight:700;font-size:9px;letter-spacing:.2em}
+.lb-you{
+  background:#fff3c8;border:1px solid #e8c45e;color:#5a4400;border-radius:9px;
+  font-weight:800;box-shadow:0 2px 5px rgba(16,22,34,.08);
+}
+.lb-you b{color:#161b26}
+.lb-scroll{background:#f3f5f6;border:1px solid #d9dde3;border-radius:10px;padding:7px;box-shadow:inset 0 1px 2px rgba(16,22,34,.06)}
+.lb-table-head{
+  background:#161b26;border:0;border-radius:7px;box-shadow:none;
+}
+.lb-table-head span{color:#ffd166;font-weight:800}
+.lb-row{
+  background:#fffdf8;border:1px solid #e0e3e7;border-left:4px solid transparent;
+  box-shadow:0 1px 2px rgba(16,22,34,.06);color:#161b26;
+}
+.lb-row:nth-child(even){background:#faf8f1}
+.lb-row.me{background:#fff3c8;border-color:#e8c45e;border-left-color:#d8402c}
+.lb-cell{color:#39415a}
+.lb-cell.lb-name{color:#161b26}
+.lb-cart{color:#5c6473;opacity:1}
+.lb-time{color:#161b26}
+.lb-num{color:#39415a}
+.lb-empty{color:#5c6473;opacity:1}
+.lb-empty.err{color:#b62d24}
+.lb-bar{padding-top:3px}
+
+/* Results card follows the same derby card treatment too, so the transition to
+   the leaderboard does not jump into a third visual language. */
+.acr-results-inner{width:min(520px,100%);padding:0 20px 22px;overflow:hidden}
+.acr-results-inner::before{
+  content:"APPLE CANYON RUN";display:block;margin:0 -20px 3px;padding:10px 18px;
+  background:#d8402c;color:#fffdf8;text-align:center;
+  font-family:var(--display,Futura,'Avenir Next',sans-serif);font-weight:800;
+  font-size:10px;letter-spacing:.32em;text-transform:uppercase;
+}
+.acr-result-banner{color:#161b26;text-shadow:none;font-family:var(--display,Futura,'Avenir Next',sans-serif)}
+.acr-result-cart{color:#5c6473;opacity:1}
+.acr-result-time span{color:#d8402c;text-shadow:none;font-family:var(--display,Futura,'Avenir Next',sans-serif)}
+.acr-result-time i{color:#5c6473;opacity:1;font-weight:700}
+.acr-result-stat{background:#f3f5f6;border:1px solid #d9dde3;border-radius:9px}
+.acr-result-stat b{color:#d8402c}
+.acr-result-stat span{color:#5c6473;opacity:1;font-weight:700}
+.acr-result-rank{color:#2f7d32;font-weight:800}
+
+@media(max-width:520px){
+  .acr-gate-inner{padding:0 18px 18px}
+  .acr-gate-inner::before{margin:0 -18px 2px}
+  .acr-logo-badge{letter-spacing:4px;padding-left:12px}
+  .acr-board-inner{padding:0 12px 14px}
+  .lb-flag,.lb-head{margin-left:-12px;margin-right:-12px}
+  .lb-head{padding-left:12px;padding-right:12px}
+  .lb-head h2{font-size:21px}
+  .acr-results-inner{padding:0 14px 16px}
+  .acr-results-inner::before{margin-left:-14px;margin-right:-14px}
+}
+/* ================= END GAME-MATCHED AUTH + LEADERBOARD SKIN ================= */
 
 /* ================= WRONG-WAY WARNING ================= */
 #wrongway{
