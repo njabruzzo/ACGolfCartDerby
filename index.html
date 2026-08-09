@@ -26,6 +26,7 @@
 <!-- CART VISIBILITY SAFETY FIX 2026-08-07: collision-state sanitizer, cockpit restoration after crashes/musky/explosions, and zero-distance obstacle normal guard. -->
 <!-- FIXED BLUE SKY 2026-08-08: gameplay sky and horizon now use one constant blue; removed camera-angle-dependent sky gradient. -->
 <!-- LOW-SPEED TURNAROUND FIX 2026-08-08: stronger walking-speed steering, pedal-assisted recovery turns, and immediate reverse steering intent. -->
+<!-- STEERING/CALICO/RECOVERY UPDATE 2026-08-08: corrected left-right steering sign for every cart, solid calico kitten dash rewards, and star trail-recovery button. -->
 <!-- MUSKY OUTCOME MESSAGE FIX 2026-08-08: destroyed carts show "The Musky Ate Your Cart!"; belly-up message is reserved for invincible-cart Musky kills. -->
 <!-- BIGFOOT PLUSH ART PASS 2026-08-08: rebuilt dashboard plush with a clearer Sasquatch silhouette, cloth shading, expressive stitched face, and oversized hands/feet. -->
 <html lang="en">
@@ -93,6 +94,10 @@
   #toggles button{width:52px;height:52px;border-radius:50%;font-size:24px;cursor:pointer;
     border:2px solid rgba(243,234,216,.55);background:rgba(20,28,18,.5);color:var(--cream)}
   #toggles button.on{background:rgba(242,182,74,.65);border-color:var(--cream)}
+  #recover{background:radial-gradient(circle at 35% 28%,#fff2a1,#e2a51f 68%,#8d5b08)!important;
+    color:#3d2600!important;border-color:rgba(255,244,184,.88)!important;font-weight:900;
+    text-shadow:0 1px 0 rgba(255,255,255,.45);box-shadow:0 4px 13px rgba(0,0,0,.28),0 0 12px rgba(255,205,63,.22)}
+  #recover:active{transform:scale(.93)}
   #fire{display:none!important;background:radial-gradient(circle at 36% 28%,#ffdf72,#d94712)!important}
   #fire.armed{display:block!important;box-shadow:0 0 0 2px rgba(255,253,248,.65),0 0 20px rgba(255,91,22,.7)!important}
   #fire.firing{transform:scale(.92);filter:brightness(1.25)}
@@ -1387,6 +1392,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   <button id="radio" title="radio">📻</button>
   <button id="drunk" title="drunk mode">🍺</button>
   <button id="horn" title="horn">📯</button>
+  <button id="recover" title="return cart to the trail" aria-label="Return cart to the trail">★</button>
   <button id="fire" title="fire power — hold to shoot">🔥</button>
 </div>
 <div id="radioname"></div>
@@ -1406,6 +1412,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 <div id="boostFx"></div>
 <div id="rotate">↻ turn the phone sideways</div>
 <div id="sticky" aria-hidden="true">&#127855; STICKY TIRES</div>
+<div id="chainsawStatus" aria-hidden="true">&#129690; CHAINSAW</div>
 <div id="wrongway" aria-hidden="true">&#8634; TURN AROUND &mdash; YOU&#8217;RE GOING THE WRONG WAY!</div>
 
 <!-- ============ DRIVER LOGIN + LEADERBOARD (added 2026-08-08) ============ -->
@@ -3327,25 +3334,75 @@ const HOUSES=[];
     const bx=s.p.clone().addScaledVector(s.right,side*(20+(i%2)*6));
     const gy=surfaceH(bx.x,bx.z);
     const g=new THREE.Group();
-    const body=new THREE.Mesh(new THREE.BoxGeometry(11,5.6,8.5),
-      new THREE.MeshLambertMaterial({color:bodyCols[i],map:TEX.rep(TEX.siding,2,1)}));
-    body.position.y=2.8;g.add(body);
-    const roof=new THREE.Mesh(new THREE.ConeGeometry(8.2,3.6,4),
-      new THREE.MeshLambertMaterial({color:0x6e4434,map:TEX.rep(TEX.shingle,3,2)}));
-    roof.position.y=7.3;roof.rotation.y=Math.PI/4;roof.scale.z=.75;g.add(roof);
-    const winM=new THREE.MeshBasicMaterial({color:0xffe9a8});
-    for(let w=0;w<3;w++){
-      const win=new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.6),winM);
-      win.position.set(-3.4+w*3.4,3,4.28);g.add(win);
+    const isWitchHouse=i===NH-1;
+    const wallCol=isWitchHouse?0x8d5a32:bodyCols[i];
+    const trimCol=isWitchHouse?0xf7ecdd:0xf1ebe0;
+    const roofCol=isWitchHouse?0xf1e5d4:0x6e4434;
+    const foundation=new THREE.Mesh(new THREE.BoxGeometry(12.2,.55,9.3),
+      new THREE.MeshLambertMaterial({color:isWitchHouse?0x6b4a33:0x7f7d78,map:TEX.rep(TEX.rock,2,1)}));
+    foundation.position.y=.28;g.add(foundation);
+    const body=new THREE.Mesh(new THREE.BoxGeometry(10.8,5.5,8.2),
+      new THREE.MeshLambertMaterial({color:wallCol,map:TEX.rep(isWitchHouse?TEX.plank:TEX.siding,2,1)}));
+    body.position.y=3.05;g.add(body);
+    const roof=new THREE.Mesh(new THREE.ConeGeometry(8.4,3.9,4),
+      new THREE.MeshLambertMaterial({color:roofCol,map:TEX.rep(isWitchHouse?TEX.plank:TEX.shingle,3,2)}));
+    roof.position.y=7.65;roof.rotation.y=Math.PI/4;roof.scale.z=.8;g.add(roof);
+    const roofTrim=new THREE.Mesh(new THREE.TorusGeometry(5.05,.14,6,4),
+      new THREE.MeshLambertMaterial({color:trimCol}));
+    roofTrim.rotation.x=Math.PI/2;roofTrim.rotation.z=Math.PI/4;roofTrim.position.y=6.15;roofTrim.scale.set(1,.84,1);g.add(roofTrim);
+    const porch=new THREE.Mesh(new THREE.BoxGeometry(5.0,.24,2.1),
+      new THREE.MeshLambertMaterial({color:isWitchHouse?0xb77b4a:0xa98f72,map:TEX.rep(TEX.plank,2,1)}));
+    porch.position.set(0,.72,5.02);g.add(porch);
+    for(const px of[-1.9,1.9]){
+      const post=new THREE.Mesh(new THREE.BoxGeometry(.22,2.1,.22),new THREE.MeshLambertMaterial({color:trimCol}));
+      post.position.set(px,1.75,5.55);g.add(post);
     }
-    const door=new THREE.Mesh(new THREE.PlaneGeometry(1.6,2.6),
-      new THREE.MeshLambertMaterial({color:0x54382a}));
-    door.position.set(0,1.3,4.28);g.add(door);
+    const porchRoof=new THREE.Mesh(new THREE.BoxGeometry(5.35,.22,1.75),
+      new THREE.MeshLambertMaterial({color:isWitchHouse?0xe6dac5:0x8d674d,map:TEX.rep(TEX.plank,2,1)}));
+    porchRoof.position.set(0,3.0,5.08);g.add(porchRoof);
+    const winM=new THREE.MeshBasicMaterial({color:0xffe8a0});
+    const frameM=new THREE.MeshLambertMaterial({color:trimCol});
+    const shutterM=new THREE.MeshLambertMaterial({color:isWitchHouse?0xcf5560:0x5572a1});
+    [[-3.0,3.25],[3.0,3.25],[-3.0,1.75],[3.0,1.75]].forEach(([wx,wy])=>{
+      const frame=new THREE.Mesh(new THREE.BoxGeometry(1.95,1.95,.14),frameM);
+      frame.position.set(wx,wy,4.18);g.add(frame);
+      const glass=new THREE.Mesh(new THREE.PlaneGeometry(1.45,1.45),winM);
+      glass.position.set(wx,wy,4.26);g.add(glass);
+      const muntA=new THREE.Mesh(new THREE.BoxGeometry(.12,1.45,.05),frameM);muntA.position.set(wx,wy,4.25);g.add(muntA);
+      const muntB=new THREE.Mesh(new THREE.BoxGeometry(1.45,.12,.05),frameM);muntB.position.set(wx,wy,4.25);g.add(muntB);
+      for(const sx of[-1,1]){const sh=new THREE.Mesh(new THREE.BoxGeometry(.22,1.65,.08),shutterM);sh.position.set(wx+sx*.95,wy,4.22);g.add(sh);}
+      if(isWitchHouse){
+        const candy=new THREE.Mesh(new THREE.BoxGeometry(1.72,.12,.10),new THREE.MeshLambertMaterial({color:0xf6d66f}));
+        candy.position.set(wx,wy+.96,4.23);g.add(candy);
+      }
+    });
+    const doorFrame=new THREE.Mesh(new THREE.BoxGeometry(2.15,3.0,.14),frameM);doorFrame.position.set(0,1.65,4.16);g.add(doorFrame);
+    const door=new THREE.Mesh(new THREE.PlaneGeometry(1.65,2.6),
+      new THREE.MeshLambertMaterial({color:isWitchHouse?0x5f2e1f:0x54382a}));
+    door.position.set(0,1.45,4.24);g.add(door);
+    const knob=new THREE.Mesh(new THREE.SphereGeometry(.08,8,8),new THREE.MeshBasicMaterial({color:0xf5d061}));
+    knob.position.set(.48,1.35,4.3);g.add(knob);
+    const chimney=new THREE.Mesh(new THREE.BoxGeometry(1.15,2.6,1.15),
+      new THREE.MeshLambertMaterial({color:isWitchHouse?0x9b5f38:0x8e5e4a,map:TEX.rep(TEX.brick,1,2)}));
+    chimney.position.set(2.9,7.75,-1.4);g.add(chimney);
+    for(const sx of[-1,1]){
+      const shrub=new THREE.Mesh(new THREE.SphereGeometry(isWitchHouse?.48:.55,8,7),
+        new THREE.MeshLambertMaterial({color:isWitchHouse?0xa7cc6e:0x5e8e4a}));
+      shrub.position.set(sx*3.75,.62,5.18);g.add(shrub);
+    }
+    if(isWitchHouse){
+      for(let c=0;c<8;c++){
+        const gum=new THREE.Mesh(new THREE.SphereGeometry(.16,8,7),new THREE.MeshLambertMaterial({color:[0xe45a5a,0x74b7ff,0xf2d86d,0xaa7ae2][c%4]}));
+        gum.position.set(-4.05+c*1.15,5.55,4.28);g.add(gum);
+      }
+      const icing1=new THREE.Mesh(new THREE.BoxGeometry(10.9,.18,.16),new THREE.MeshLambertMaterial({color:0xf8f3eb}));icing1.position.set(0,5.95,4.28);g.add(icing1);
+      const icing2=new THREE.Mesh(new THREE.BoxGeometry(5.2,.14,.14),new THREE.MeshLambertMaterial({color:0xf8f3eb}));icing2.position.set(0,3.35,5.92);g.add(icing2);
+    }
     g.position.set(bx.x,gy,bx.z);
     g.lookAt(s.p.x,gy,s.p.z);
     scene.add(g);
     const houseOb=obstAdd(bx.x,bx.z,7.2,'house');
-    houseOb.group=g;houseOb.gy=gy;houseOb.witchTriggered=false;
+    houseOb.group=g;houseOb.gy=gy;houseOb.witchTriggered=false;houseOb.isWitchHouse=isWitchHouse;
     HOUSES.push(houseOb);
     if(i===1){ // trampoline
       const tr=new THREE.Group();
@@ -3520,7 +3577,7 @@ let fallsMat,mistMats=[],streamMat,FALLS_T=0;
 
 /* ---------------- DAM CLIFF, TRAILSIDE STREAM + GIFT TREE ---------------- */
 let damFallsMat=null,trailStreamMat=null;
-const DAM_MISTS=[],POWER_GIFTS=[];
+const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
 
 /* A long narrow stream parallels the trail through part of South Fork. It stays
    outside the driving corridor, so it reads as scenery without blocking the course. */
@@ -3706,6 +3763,39 @@ const DAM_MISTS=[],POWER_GIFTS=[];
     g.position.set(base.x+Math.cos(ang)*(2.5+(i%2)*.7),gy+.05,base.z+Math.sin(ang)*(2.5+(i%2)*.7));
     g.userData.ph=i;scene.add(g);POWER_GIFTS.push({g,taken:false});
   }
+})();
+
+/* Road chainsaw pickup at mid-course. Running it over arms the cart for 45 seconds,
+   letting it cut down trees simply by driving into them. */
+(function buildChainsawPickup(){
+  const t=.5,s=sampAt(t),gy=surfaceH(s.p.x,s.p.z);
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.15,.56,.48),
+    new THREE.MeshLambertMaterial({color:0xd84b16}));
+  body.position.y=.28;g.add(body);
+  const rear=new THREE.Mesh(new THREE.BoxGeometry(.38,.4,.42),
+    new THREE.MeshLambertMaterial({color:0x232323}));
+  rear.position.set(-.38,.3,0);g.add(rear);
+  const handleM=new THREE.MeshLambertMaterial({color:0x1d1d1d});
+  const topHandle=new THREE.Mesh(new THREE.TorusGeometry(.19,.05,6,14,Math.PI*1.2),handleM);
+  topHandle.rotation.z=Math.PI*.5;topHandle.position.set(-.08,.66,0);g.add(topHandle);
+  const rearHandle=new THREE.Mesh(new THREE.TorusGeometry(.17,.05,6,14,Math.PI*1.1),handleM);
+  rearHandle.rotation.set(0,0,-.6);rearHandle.position.set(-.46,.34,-.02);g.add(rearHandle);
+  const blade=new THREE.Mesh(new THREE.BoxGeometry(1.18,.18,.18),
+    new THREE.MeshLambertMaterial({color:0xc7d0d6}));
+  blade.position.set(.98,.27,0);g.add(blade);
+  const teeth=new THREE.Group();
+  for(let i=0;i<8;i++){
+    const tooth=new THREE.Mesh(new THREE.BoxGeometry(.08,.05,.05),
+      new THREE.MeshLambertMaterial({color:0x4d5660}));
+    tooth.position.set(.52+i*.13,(i%2?.1:-.1),0);teeth.add(tooth);
+  }
+  teeth.position.y=.27;g.add(teeth);
+  const glow=new THREE.Mesh(new THREE.CylinderGeometry(.92,.92,.08,18),
+    new THREE.MeshBasicMaterial({color:0xffc643,transparent:true,opacity:.55}));
+  glow.rotation.x=Math.PI/2;glow.position.y=.03;g.add(glow);
+  g.position.set(s.p.x,gy+.18,s.p.z);g.rotation.y=Math.atan2(s.tan.x,s.tan.z)+Math.PI*.5;g.userData={ph:1.7,baseY:gy+.18};
+  scene.add(g);CHAINSAW_PICKUPS.push({g,taken:false});
 })();
 
 /* jump ramps before the big descents */
@@ -4035,12 +4125,38 @@ const cartRewardHud=document.getElementById('cartRewardHud');
 const cartRewardHudWrap=document.getElementById('cartRewardHudWrap');
 let dashRewardCount=0;
 const DASH_REWARD_MAX=12;
+function calicoKittenDataUri(){
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 190">
+    <g stroke="#3b2a22" stroke-width="5" stroke-linejoin="round">
+      <path fill="#f6ead7" d="M50 80Q40 49 59 30L78 46Q90 38 104 46L126 29Q143 51 131 81Q148 101 141 132Q133 164 102 171Q72 177 48 158Q28 141 34 111Q37 94 50 80Z"/>
+      <path fill="#d97925" d="M52 79Q45 54 60 36L78 50L70 80Q61 89 52 79ZM96 45Q111 40 124 34Q139 53 128 78L108 72Z" stroke="none"/>
+      <path fill="#2f2a28" d="M72 48Q85 41 99 47L94 72L73 70ZM48 116Q58 103 73 111L71 145Q56 151 44 138Z" stroke="none"/>
+      <path fill="#d97925" d="M108 117Q129 106 141 121Q142 143 126 157L107 145Z" stroke="none"/>
+      <ellipse fill="#f6ead7" cx="88" cy="92" rx="48" ry="44"/>
+      <path fill="#d97925" d="M48 81Q54 57 75 49L80 78Q64 86 48 81Z" stroke="none"/>
+      <path fill="#2f2a28" d="M91 50Q110 48 126 65L118 83L95 76Z" stroke="none"/>
+      <path fill="#f0a3ad" d="M83 101L94 101L89 108Z" stroke="#3b2a22" stroke-width="3"/>
+      <ellipse fill="#72b9e8" cx="69" cy="91" rx="8" ry="10" stroke-width="3"/>
+      <ellipse fill="#72b9e8" cx="108" cy="91" rx="8" ry="10" stroke-width="3"/>
+      <ellipse fill="#171411" cx="69" cy="92" rx="3" ry="6" stroke="none"/>
+      <ellipse fill="#171411" cx="108" cy="92" rx="3" ry="6" stroke="none"/>
+      <path d="M88 109Q82 116 76 112M89 109Q96 116 102 112" fill="none" stroke-width="3"/>
+      <path d="M56 105L29 100M57 111L28 115M119 105L149 99M119 112L150 116" fill="none" stroke-width="3"/>
+      <path fill="#f6ead7" d="M61 132Q51 145 58 164Q65 177 78 165L85 143Z"/>
+      <path fill="#f6ead7" d="M113 132Q123 145 117 164Q111 177 98 165L91 143Z"/>
+      <path fill="#d97925" d="M56 153Q64 145 75 151L76 166Q63 176 57 164Z" stroke="none"/>
+      <path fill="#2f2a28" d="M106 151Q116 146 120 157Q120 168 111 173L101 163Z" stroke="none"/>
+      <path d="M125 151Q155 147 151 119Q148 101 134 105" fill="none" stroke="#d97925" stroke-width="13" stroke-linecap="round"/>
+    </g>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
 const CART_HIT_REWARDS={
   musubi:{src:"assets/img_002.png",x:'72.8%',y:'75.2%',w:'15.8%',rot:'-6deg',toast:'MUSUBI'},
   francesca:{src:"assets/img_003.png",x:'73.2%',y:'67.6%',w:'10.4%',rot:'0deg',toast:'BROOKLYN RAT'},
   antman:{src:"assets/img_004.png",x:'72.6%',y:'69.1%',w:'10.8%',rot:'0deg',toast:'ANT'},
   franny:{src:"assets/img_005.png",x:'74.0%',y:'68.4%',w:'15.4%',rot:'0deg',toast:'BUTTERFLY'},
-  izzy:{src:"assets/img_006.png",x:'71.2%',y:'64.0%',w:'12.6%',rot:'0deg',toast:'WEIRDO BABY'},
+  izzy:{src:calicoKittenDataUri(),x:'71.2%',y:'64.0%',w:'13.8%',rot:'0deg',toast:'CALICO KITTEN'},
   scotty:{src:"assets/img_007.png",x:'71.8%',y:'70.4%',w:'9.8%',rot:'0deg',toast:'SCOTTY T'},
   abruzzo:{src:"assets/img_008.png",x:'72.8%',y:'74.7%',w:'18.2%',rot:'0deg',toast:'ITALIAN BEEF'}
 };
@@ -4438,6 +4554,25 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)clearDriveI
 bindHold('gas','gas');bindHold('brake','brake');bindHold('left','left');bindHold('right','right');
 bindHold('rev','rev');
 bindHold('fire','fire');
+function recoverCartToTrail(){
+  if(!RUNNING)return;
+  if(cart.musky>0||cart.boom>0){toast('★ RECOVERY UNAVAILABLE DURING A CRASH',1100);return;}
+  const rn=roadExact(cart.x,cart.z);
+  if(rn.d<=ROAD_W+.55&&cart.airT===0){toast('★ CART IS ALREADY ON THE TRAIL',900);return;}
+  const s=sampAt(rn.t);
+  clearDriveInput();
+  cart.x=s.p.x;cart.z=s.p.z;cart.y=s.p.y+.03;
+  cart.heading=Math.atan2(s.tan.x,s.tan.z);
+  cart.v=0;cart.vy=0;cart.airT=0;cart.steerV=0;
+  cart.crash=0;cart.crashRoll=0;cart.stuckT=0;cart.stuckShoves=0;cart.hitCD=.2;
+  cart.lastNearT=rn.t;cart.camY=null;cart.camLookY=null;
+  cart.stuckAnchor={x:cart.x,z:cart.z};
+  const W=document.getElementById('wrongway');if(W){W.classList.remove('show');W.setAttribute('aria-hidden','true');}
+  ensureCartVisualIntegrity(true);sanitizeCartState();
+  toast('★ BACK ON THE TRAIL',1200);
+}
+const recoverEl=document.getElementById('recover');
+if(recoverEl)recoverEl.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();recoverCartToTrail();});
 function crtSet(v){ARCADE.on=v;
   document.getElementById('crt').classList.toggle('on',v);resize();}
 document.getElementById('crt').addEventListener('click',e=>{e.stopPropagation();crtSet(!ARCADE.on);});
@@ -4456,7 +4591,7 @@ const lapnEl=document.getElementById('lapn'),laptimeEl=document.getElementById('
       applesEl=document.getElementById('apples'),lostEl=document.getElementById('lostn'),
       goldEl=document.getElementById('gold'),rageEl=document.getElementById('rage'),
       goblinsEl=document.getElementById('goblins'),passengerCountEl=document.getElementById('passengerCount'),
-      stickyEl=document.getElementById('sticky');
+      stickyEl=document.getElementById('sticky'),chainsawEl=document.getElementById('chainsawStatus');
 let toastT=null;
 function toast(txt,ms=2400){
   toastEl.textContent=txt;toastEl.style.opacity=1;
@@ -5062,10 +5197,11 @@ function makeButterfly(){
 }
 function makeKitten(){
   const g=new THREE.Group();
-  const cream=new THREE.MeshLambertMaterial({color:0xf5ead8});
-  const ginger=new THREE.MeshLambertMaterial({color:0xd97c22});
-  const black=new THREE.MeshLambertMaterial({color:0x33302e});
-  const pink=new THREE.MeshLambertMaterial({color:0xe8a3a8});
+  const solid={transparent:false,opacity:1,depthWrite:true,depthTest:true};
+  const cream=new THREE.MeshLambertMaterial({color:0xf6ead7,...solid});
+  const ginger=new THREE.MeshLambertMaterial({color:0xd97925,...solid});
+  const black=new THREE.MeshLambertMaterial({color:0x2f2a28,...solid});
+  const pink=new THREE.MeshLambertMaterial({color:0xf0a3ad,...solid});
   const body=new THREE.Mesh(new THREE.SphereGeometry(.028,9,8),cream);
   body.scale.set(1.15,1,1);body.position.set(-.006,.028,0);g.add(body);
   // calico patches
@@ -5080,7 +5216,7 @@ function makeKitten(){
   for(const sd of[-1,1]){
     const ear=new THREE.Mesh(new THREE.ConeGeometry(.010,.016,4),sd>0?ginger:black);
     ear.position.set(.024,.066,sd*.012);ear.rotation.x=sd*.25;g.add(ear);
-    const eye=new THREE.Mesh(new THREE.SphereGeometry(.004,6,5),new THREE.MeshBasicMaterial({color:0x69c46f}));
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(.004,6,5),new THREE.MeshBasicMaterial({color:0x72b9e8,transparent:false,opacity:1,depthWrite:true}));
     eye.position.set(.040,.050,sd*.008);g.add(eye);
     const pup=new THREE.Mesh(new THREE.BoxGeometry(.0015,.005,.0015),new THREE.MeshBasicMaterial({color:0x120f0c}));
     pup.position.set(.043,.050,sd*.008);g.add(pup);
@@ -5451,7 +5587,7 @@ const cart={
   head:0,lap:1,lapStart:0,best:Infinity,started:false,lastZone:null,
   lastNearT:0,lapCheckpoint:0,
   crash:0,crashDir:1,crashRoll:0,wander:0,musky:0,
-  boom:0,boomSplash:false,lost:0,onDeck:false,hitCD:0,camY:null,camLookY:null,
+  boom:0,boomSplash:false,lost:0,onDeck:false,hitCD:0,camY:null,camLookY:null,chainsaw:0,
 };
 (function initCartPos(){
   const s=sampAt(0.003);
@@ -5546,6 +5682,11 @@ function clearFirePower(){
   FIRE_POWER.armed=false;FIRE_POWER.shots=0;FIRE_POWER.cool=0;input.fire=0;syncFireButton();
   while(FIREBALLS.length){const f=FIREBALLS.pop();scene.remove(f.m);}
 }
+function grantChainsawPower(secs=CHAINSAW_SECS){
+  cart.chainsaw=Math.max(cart.chainsaw||0,secs);
+  if(chainsawEl){chainsawEl.classList.add('show');chainsawEl.textContent='🪚 CHAINSAW · '+Math.ceil(cart.chainsaw)+'s';}
+  toast('🪚 CHAINSAW POWER — TREES FALL FOR '+Math.ceil(secs)+'s!',2200);
+}
 function fireBurst(pos){
   for(let i=0;i<7;i++){
     const p=new THREE.Mesh(new THREE.SphereGeometry(.12+Math.random()*.16,5,4),
@@ -5584,16 +5725,46 @@ function burnObstacle(o,dir,pos){
 }
 function makeWitch(){
   const g=new THREE.Group();
-  const robe=new THREE.MeshLambertMaterial({color:0x30204d}),skin=new THREE.MeshLambertMaterial({color:0x78a94d});
-  const black=new THREE.MeshLambertMaterial({color:0x17131d}),wood=new THREE.MeshLambertMaterial({color:0x704625}),straw=new THREE.MeshLambertMaterial({color:0xc69b51});
-  const body=new THREE.Mesh(new THREE.ConeGeometry(.46,1.35,7),robe);body.position.y=.2;g.add(body);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.29,8,7),skin);head.position.y=1.02;g.add(head);
-  const nose=new THREE.Mesh(new THREE.ConeGeometry(.075,.32,5),skin);nose.rotation.z=-Math.PI/2;nose.position.set(.28,1.0,0);g.add(nose);
-  const brim=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.08,10),black);brim.position.y=1.29;g.add(brim);
-  const hat=new THREE.Mesh(new THREE.ConeGeometry(.33,.82,8),black);hat.position.y=1.67;hat.rotation.z=.15;g.add(hat);
-  const broom=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,2.25,6),wood);broom.rotation.z=Math.PI/2;broom.position.set(0,-.12,0);g.add(broom);
-  const bristle=new THREE.Mesh(new THREE.ConeGeometry(.22,.62,8),straw);bristle.rotation.z=-Math.PI/2;bristle.position.set(-1.22,-.12,0);g.add(bristle);
-  g.scale.setScalar(.95);return g;
+  const skin=new THREE.MeshLambertMaterial({color:0x7fb253});
+  const black=new THREE.MeshLambertMaterial({color:0x111116});
+  const cloth=new THREE.MeshLambertMaterial({color:0x1b1a22});
+  const wood=new THREE.MeshLambertMaterial({color:0x6e4426});
+  const straw=new THREE.MeshLambertMaterial({color:0xc9a259});
+  const eyeBlue=new THREE.MeshBasicMaterial({color:0x8fc7ff});
+  const lipRed=new THREE.MeshBasicMaterial({color:0xb00f26});
+  const buckleM=new THREE.MeshLambertMaterial({color:0xe6c75b});
+
+  const skirt=new THREE.Mesh(new THREE.ConeGeometry(.72,2.55,10),cloth);skirt.position.y=1.2;g.add(skirt);
+  const torso=new THREE.Mesh(new THREE.CylinderGeometry(.34,.44,1.05,10),cloth);torso.position.y=2.18;g.add(torso);
+  const collar=new THREE.Mesh(new THREE.CylinderGeometry(.52,.34,.38,12,1,true),black);collar.position.y=2.72;g.add(collar);
+  const collarLip=new THREE.Mesh(new THREE.TorusGeometry(.42,.05,6,18),black);collarLip.rotation.x=Math.PI/2;collarLip.position.y=2.89;g.add(collarLip);
+  const belt=new THREE.Mesh(new THREE.BoxGeometry(.9,.12,.44),black);belt.position.set(0,1.84,.02);g.add(belt);
+  const buckle=new THREE.Mesh(new THREE.BoxGeometry(.22,.18,.08),buckleM);buckle.position.set(0,1.84,.24);g.add(buckle);
+
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.37,12,10),skin);head.position.y=3.28;g.add(head);
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(.11,.58,7),skin);nose.rotation.z=-Math.PI/2;nose.position.set(.48,3.23,.02);g.add(nose);
+  const chin=new THREE.Mesh(new THREE.SphereGeometry(.08,8,8),skin);chin.position.set(.23,2.93,.02);g.add(chin);
+  const wart=new THREE.Mesh(new THREE.SphereGeometry(.035,7,7),new THREE.MeshLambertMaterial({color:0x6d8f3b}));wart.position.set(.6,3.15,.08);g.add(wart);
+  for(const sx of[-1,1]){
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(.055,8,8),eyeBlue);eye.position.set(.17,3.36,sx*.11);g.add(eye);
+    const pupil=new THREE.Mesh(new THREE.SphereGeometry(.022,8,8),new THREE.MeshBasicMaterial({color:0x111111}));pupil.position.set(.205,3.35,sx*.11);g.add(pupil);
+    const sleeve=new THREE.Mesh(new THREE.CylinderGeometry(.08,.1,.8,6),cloth);sleeve.position.set(.18,2.28,sx*.43);sleeve.rotation.z=sx>0?.95:-.95;g.add(sleeve);
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(.075,8,8),skin);hand.position.set(.5,1.98,sx*.63);g.add(hand);
+  }
+  const lip=new THREE.Mesh(new THREE.BoxGeometry(.16,.035,.22),lipRed);lip.position.set(.22,3.02,.0);g.add(lip);
+  const cheek=new THREE.Mesh(new THREE.BoxGeometry(.04,.08,.44),lipRed);cheek.position.set(.17,3.05,0);g.add(cheek);
+  const hatBrim=new THREE.Mesh(new THREE.CylinderGeometry(.72,.72,.08,16),black);hatBrim.position.y=3.7;g.add(hatBrim);
+  const hatCone=new THREE.Mesh(new THREE.ConeGeometry(.46,1.45,10),black);hatCone.position.y=4.44;hatCone.rotation.z=.12;g.add(hatCone);
+  const hatBand=new THREE.Mesh(new THREE.TorusGeometry(.26,.04,6,16),new THREE.MeshLambertMaterial({color:0x5d0d1e}));hatBand.rotation.x=Math.PI/2;hatBand.position.y=4.0;g.add(hatBand);
+  for(const sx of[-1,1]){const ear=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),skin);ear.position.set(.02,3.25,sx*.29);g.add(ear);}
+
+  const broomStick=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,3.35,8),wood);
+  broomStick.rotation.z=Math.PI/2.25;broomStick.position.set(-.42,1.92,.18);g.add(broomStick);
+  const bristleBase=new THREE.Mesh(new THREE.CylinderGeometry(.13,.19,.36,8),new THREE.MeshLambertMaterial({color:0x8b6433}));
+  bristleBase.rotation.z=Math.PI/2.25;bristleBase.position.set(-1.68,1.24,.18);g.add(bristleBase);
+  const bristle=new THREE.Mesh(new THREE.ConeGeometry(.26,.82,10),straw);bristle.rotation.z=-Math.PI/2.25;bristle.position.set(-1.98,1.1,.18);g.add(bristle);
+
+  g.scale.setScalar(1.16);return g;
 }
 function spawnHouseWitches(o){
   if(!o||o.witchTriggered)return;o.witchTriggered=true;
@@ -5602,7 +5773,7 @@ function spawnHouseWitches(o){
     g.position.set(o.x+Math.cos(a)*2.8,(o.gy||surfaceH(o.x,o.z))+2.4+i*.25,o.z+Math.sin(a)*2.8);
     scene.add(g);WITCHES.push({g,life:22+i*1.5,atk:.7+i*.18,ph:i*1.7,orbit:a});
   }
-  toast('🧹 FOUR WITCHES! — THEY ARE COMING FOR YOU',1900);
+  toast((o&&o.isWitchHouse?'🍭 GINGERBREAD WITCH HOUSE! — ':'🧹 FOUR WITCHES! — ')+'THEY ARE COMING FOR YOU',1900);
 }
 function clearWitches(){while(WITCHES.length)scene.remove(WITCHES.pop().g);for(const h of HOUSES){h.witchTriggered=false;h.burned=false;}}
 function updateWitches(dt){
@@ -5616,7 +5787,7 @@ function updateWitches(dt){
     const targetY=cart.y+2.2+Math.sin(w.ph)*.55+(w.life<3?(3-w.life)*2.2:0);
     g.position.y+=(targetY-g.position.y)*Math.min(1,dt*3.2);
     g.lookAt(cart.x,g.position.y,cart.z);g.rotation.z=Math.sin(w.ph*1.4)*.12;
-    if(d<3.15&&w.atk<=0&&w.life>3){w.atk=1.05+Math.random()*.55;thunk();damage(4,'🧹 WITCH BROOM ATTACK!');
+    if(d<3.15&&w.atk<=0&&w.life>3){w.atk=1.05+Math.random()*.55;thunk();damage(1,'🧹 WITCH BROOM ATTACK!');
       const p=new THREE.Vector3(cart.x,cart.y+.8,cart.z);fireBurst(p);}
   }
 }
@@ -5666,7 +5837,7 @@ let animalsSaved=0;
    it must hold before the banner appears. */
 /* Sticky tires: a bear hit glues the cart to the trail for a while. The
    clamp is hard on purpose \u2014 you physically cannot leave the ribbon. */
-const STICKY_SECS=30, STICKY_MARGIN=.55;
+const STICKY_SECS=30, STICKY_MARGIN=.55, CHAINSAW_SECS=45;
 const WRONGWAY_MAX_D=ROAD_W+14, WRONGWAY_MIN_V=2.2,
       WRONGWAY_DOT=-.35, WRONGWAY_HOLD=1.0, WRONGWAY_HONK=false;
 const RACE_LAPS_N=(window.ACR&&window.ACR.RACE_LAPS)||1;
@@ -6160,7 +6331,9 @@ function tick(now){
      effectively trapped when stopped or facing the wrong way. Keep normal
      high-speed handling, but give the driver a tight arcade-style recovery
      turn at walking speed and while reversing. */
-  let steerIn=(input.right-input.left);
+  // Heading 0 points down +Z: LEFT must rotate toward -X (negative heading)
+  // and RIGHT toward +X (positive heading). Keep this shared for every cart.
+  let steerIn=(input.left-input.right);
   if(DRUNK){cart.wander=vnoise(clockT*.35,7.3)*2-1;steerIn+=cart.wander*1.15;}
   const speedAbs=Math.abs(cart.v);
   cart.steerV+=(steerIn-cart.steerV)*(1-Math.exp(-dt*(DRUNK?2.1:(MOBILE?9.5:7.8))));
@@ -6250,6 +6423,14 @@ function tick(now){
       stickyEl.textContent='\ud83c\udf6f STICKY TIRES \u00b7 '+Math.ceil(cart.sticky)+'s';
     }
     if(cart.sticky===0&&stickyEl)stickyEl.classList.remove('show');
+  }
+  if(cart.chainsaw>0){
+    cart.chainsaw=Math.max(0,cart.chainsaw-dt);
+    if(chainsawEl){
+      chainsawEl.classList.add('show');
+      chainsawEl.textContent='🪚 CHAINSAW · '+Math.ceil(cart.chainsaw)+'s';
+      if(cart.chainsaw===0)chainsawEl.classList.remove('show');
+    }
   }
 
   /* ---- vertical: ride the ground, launch off crests, land ---- */
@@ -6375,6 +6556,15 @@ function tick(now){
       /* Trees now have persistent hit points. Higher DEFENSE gives substantially
          more knock-down power; SPEED rating and real collision speed add damage. */
       if(o.kind==='tree'){
+        if(cart.chainsaw>0){
+          o.hp=0;o.dead=true;topple(o,-nx,-nz);
+          treeCrack();needleBurst(o.x,o.z,groundYAt(o.x,o.z).y);
+          fireBurst(new THREE.Vector3(o.x,groundYAt(o.x,o.z).y+.8,o.z));
+          cart.x=cart.x-nx*.42;cart.z=cart.z-nz*.42;
+          cart.v*=Math.max(.82,.72+ACTIVE_CART.armor*.012);
+          if(cart.hitCD<=0){cart.hitCD=.08;if(cart.boom<=0)toast('🪚 TREE CUT DOWN!',700);}
+          break;
+        }
         if(cart.hitCD<=0){
           cart.hitCD=.24;
           const treeDmg=treeImpactDamage(hitV);
@@ -6706,6 +6896,13 @@ function tick(now){
     const dx=gift.g.position.x-cart.x,dz=gift.g.position.z-cart.z;
     if(dx*dx+dz*dz<3.2){gift.taken=true;gift.g.visible=false;ding();grantFirePower(8);}
   }
+  for(const saw of CHAINSAW_PICKUPS){
+    if(saw.taken)continue;
+    saw.g.rotation.y+=dt*1.4;
+    saw.g.position.y=saw.g.userData.baseY+Math.sin(clockT*3+saw.g.userData.ph)*.08;
+    const dx=saw.g.position.x-cart.x,dz=saw.g.position.z-cart.z;
+    if(dx*dx+dz*dz<4.2){saw.taken=true;saw.g.visible=false;ding();grantChainsawPower(CHAINSAW_SECS);}
+  }
   updateWitches(dt);updateFirePower(dt);
   if(damFallsMat&&damFallsMat.map)damFallsMat.map.offset.y-=dt*1.65;
   if(trailStreamMat)trailStreamMat.opacity=.66+Math.sin(clockT*2.1)*.06;
@@ -6761,13 +6958,15 @@ function resetRun(){
   if(muskyRig){muskyRig.visible=false;muskyRig.rotation.z=0;setMuskyFrame(0);}
   muskyBelly=0;
   gobClear();GOB.hits=0;GOB.told=false;goblinKills=0;goblinsEl.textContent='👺 0';
-  animalsSaved=0;cart.raceStart=0;cart.finished=false;cart.wrongT=0;cart.sticky=0;
+  animalsSaved=0;cart.raceStart=0;cart.finished=false;cart.wrongT=0;cart.sticky=0;cart.chainsaw=0;
   clearBigfootPlush();
   if(stickyEl)stickyEl.classList.remove('show');
+  if(chainsawEl)chainsawEl.classList.remove('show');
   (function(){var W=document.getElementById('wrongway');if(W){W.classList.remove('show');W.setAttribute('aria-hidden','true');}})();cart.best=Infinity;bestEl.textContent='';
   clearPassengers();
   clearWitches();clearFirePower();
   for(const gift of POWER_GIFTS){gift.taken=false;gift.g.visible=true;}
+  for(const saw of CHAINSAW_PICKUPS){saw.taken=false;saw.g.visible=true;}
   rageT=0;rageCharge=0;
   crtMat.uniforms.uGold.value=0;rageEl.style.opacity=0;
   for(const c of COINS)scene.remove(c.m);COINS.length=0;
@@ -6813,8 +7012,9 @@ function stopRunAudio(){
 }
 function finishRace(totalTime){
   if(!RUNNING||cart.finished)return;
-  cart.finished=true;RUNNING=false;cart.wrongT=0;cart.sticky=0;
+  cart.finished=true;RUNNING=false;cart.wrongT=0;cart.sticky=0;cart.chainsaw=0;
   if(stickyEl)stickyEl.classList.remove('show');
+  if(chainsawEl)chainsawEl.classList.remove('show');
   (function(){var W=document.getElementById('wrongway');if(W){W.classList.remove('show');W.setAttribute('aria-hidden','true');}})();
   clearTimeout(quitEl._t);quitDisarm();
   stopRunAudio();
@@ -8125,6 +8325,19 @@ body.menuMode #wrongway{display:none!important}
 }
 #sticky.show{opacity:1}
 
+/* ================= CHAINSAW POWER ================= */
+#chainsawStatus{
+  position:fixed;left:50%;top:16.5%;transform:translateX(-50%);z-index:54;
+  font-family:inherit;font-variant:small-caps;letter-spacing:.14em;
+  font-size:clamp(12px,2.4vw,19px);font-weight:800;text-align:center;
+  color:#fff7dd;background:linear-gradient(180deg,#dc4f17,#81260f);
+  border:2px solid rgba(255,214,132,.6);border-radius:999px;
+  padding:7px 18px;white-space:nowrap;pointer-events:none;
+  box-shadow:0 8px 22px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.24);
+  text-shadow:0 1px 0 rgba(0,0,0,.45);
+  opacity:0;transition:opacity .18s ease;font-variant-numeric:tabular-nums;
+}
+#chainsawStatus.show{opacity:1}
 
 /* ================= PORTRAIT MOBILE DRIVE BAR 2026-08-08 =================
    Vertical-phone layout: Reverse · Left · Gas · Right · Stop.
