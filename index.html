@@ -39,7 +39,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-09f">
+<meta name="acr-build" content="2026-08-09g">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1413,6 +1413,18 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   padding:3px 7px;border-radius:6px;pointer-events:none;
 }
 </style>
+<style id="acr-diag-panel">
+/* The console is unreachable on a phone, so the leaderboard's own checks have
+   to report on screen — including raw HTTP status and the server's error text,
+   which is the part that actually identifies a failure. */
+#acrDiag{
+  margin:10px 0 2px;padding:10px 12px;border-radius:10px;
+  background:rgba(8,14,10,.72);border:1px solid rgba(243,234,216,.28);
+  color:#e8f0e2;font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;
+  white-space:pre-wrap;word-break:break-word;max-height:38vh;overflow:auto;
+  -webkit-user-select:text;user-select:text;
+}
+</style>
 </head>
 <body class="menuMode">
 <canvas id="c"></canvas>
@@ -1514,12 +1526,14 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
       </div>
       <div id="acrBoardBody" class="lb-list"></div>
       <div id="acrBoardEmpty" class="lb-empty">Finish a lap and your run lands here.</div>
+      <pre id="acrDiag" hidden></pre>
     </div>
 
     <div class="lb-bar">
       <button id="acrBoardRace" type="button" class="acr-primary small">&#9654; NEW RACE</button>
       <button id="acrBoardClose" type="button" class="acr-ghost2">&lsaquo; BACK</button>
       <button id="acrBoardRefresh" type="button" class="acr-ghost2">&#8635; REFRESH</button>
+      <button id="acrBoardDiag" type="button" class="acr-ghost2">&#9873; DIAGNOSE</button>
       <button id="acrBoardExport" type="button" class="acr-ghost2">&#11015; EXPORT</button>
       <button id="acrBoardWipe" type="button" class="acr-ghost2 danger">&#10005; CLEAR LOCAL</button>
     </div>
@@ -1547,7 +1561,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   </div>
 </div>
 
-<div id="acrBuildStamp">build 2026-08-09f</div>
+<div id="acrBuildStamp">build 2026-08-09g</div>
 <div id="title">
   <div class="sky-scene" aria-hidden="true">
     <span class="cloud c1"></span><span class="cloud c2"></span><span class="cloud c3"></span>
@@ -1728,7 +1742,7 @@ window.ACR_CONFIG = {
   var K_ACCT='acr_accounts_v1', K_SCORE='acr_scores_v1', K_SESS='acr_session_v1',
       K_TOK='acr_token_v1', K_PEND='acr_pending_v1';
   var RACE_LAPS=1;
-  var ACR_BUILD='2026-08-09f-board';   // bump me on every change; shown on the sign-in screen
+  var ACR_BUILD='2026-08-09g-board';   // bump me on every change; shown on the sign-in screen
 
   /* ---------- storage helpers ---------- */
   function read(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
@@ -2000,6 +2014,66 @@ window.ACR_CONFIG = {
           });
         }).then(function(d){ return (d&&d[0])||body; });
       },
+      /* One-tap self-test. Runs the exact three calls the leaderboard depends
+         on and reports each one's raw HTTP status plus the server's own error
+         text: an anonymous read, a read as the signed-in driver, and a real
+         insert. Whichever of the three is failing, and why, becomes visible
+         without a console or the SQL editor. */
+      diag:function(doInsert){
+        var out=[];
+        function raw(u,o){
+          return fetch(u,o||{}).then(function(res){
+            return res.text().then(function(t){ return {status:res.status,text:t}; });
+          },function(e){ return {status:0,text:'network error: '+String((e&&e.message)||e)}; });
+        }
+        var sel='/rest/v1/runs?select=id,user_id,screen,time_sec,created_at'
+               +'&order='+encodeURIComponent('created_at.desc')+'&limit=200';
+        function summarise(tag,r){
+          var rows=null;
+          try{ var d=JSON.parse(r.text); if(Object.prototype.toString.call(d)==='[object Array]')rows=d; }catch(e){}
+          if(rows){
+            var by={},names=[];
+            rows.forEach(function(x){ var k=x.screen||x.user_id||'?'; by[k]=(by[k]||0)+1; });
+            for(var k in by)names.push(k+' \u00d7'+by[k]);
+            out.push(tag+': HTTP '+r.status+'  \u2192 '+rows.length+' row'+(rows.length===1?'':'s'));
+            if(names.length)out.push('    drivers: '+names.join(', '));
+          }else{
+            out.push(tag+': HTTP '+r.status+'  \u2192 '+String(r.text).slice(0,240));
+          }
+        }
+        out.push('build      '+ACR_BUILD);
+        out.push('project    '+SUPA_URL.replace(/^https?:\/\//,''));
+        out.push('signed in  '+(TOK&&TOK.user?(TOK.user.email||TOK.user.id):'NO \u2014 guest runs never upload'));
+        out.push('');
+        return raw(SUPA_URL+sel,{headers:authHeaders()}).then(function(r){
+          summarise('read as anon',r);
+          if(!TOK) return null;
+          return fresh().then(function(t){
+            return raw(SUPA_URL+sel,{headers:authHeaders({'Authorization':'Bearer '+t.access_token})})
+              .then(function(r2){ summarise('read as you ',r2); return t; });
+          },function(e){ out.push('read as you : session refresh failed \u2014 '+e); return null; });
+        }).then(function(t){
+          if(!doInsert) return;
+          if(!t){ out.push('test insert : skipped (not signed in)'); return; }
+          var u=userOf();
+          /* Exactly the columns a real run sends, so a schema mismatch fails
+             here in exactly the way it fails after a race. */
+          var body={user_id:u.id,screen:u.screen,time_sec:999.9,animals:0,goblins:0,
+                    best_lap:null,wrecks:0,cart:'DIAGNOSTIC',laps:RACE_LAPS};
+          return raw(SUPA_URL+'/rest/v1/runs',{
+            method:'POST',
+            headers:authHeaders({'Authorization':'Bearer '+t.access_token,'Prefer':'return=representation'}),
+            body:JSON.stringify(body)
+          }).then(function(r){
+            out.push('');
+            if(r.status>=200&&r.status<300) out.push('test insert : HTTP '+r.status+'  \u2192 ACCEPTED (a 999.9 DIAGNOSTIC row was written)');
+            else out.push('test insert : HTTP '+r.status+'  \u2192 REJECTED\n    '+String(r.text).slice(0,400));
+          });
+        }).then(function(){ return out.join('\n'); },function(e){
+          out.push('diagnostic aborted: '+e); return out.join('\n');
+        });
+      },
+
       board:function(){
         /* Read as the SIGNED-IN driver whenever there is a session.
 
@@ -2394,7 +2468,22 @@ window.ACR_CONFIG = {
       closeBoard();
       if(back&&results){ results.classList.add('show'); results.setAttribute('aria-hidden','false'); }
     });
-    $('acrBoardRefresh').addEventListener('click',loadBoard);
+    $('acrBoardRefresh').addEventListener('click',function(){
+      var pre=$('acrDiag'); if(pre){pre.hidden=true;}
+      loadBoard();
+    });
+    $('acrBoardDiag').addEventListener('click',function(){
+      var pre=$('acrDiag');
+      pre.hidden=false;
+      pre.textContent='Running checks\u2026';
+      if(BACKEND.mode!=='supabase'){
+        pre.textContent='No shared board configured \u2014 this build is running the local backend only.';
+        return;
+      }
+      BACKEND.diag(true).then(function(txt){
+        pre.textContent=txt;
+      },function(e){ pre.textContent='Diagnostic failed: '+String(e); });
+    });
     $('acrBoardExport').addEventListener('click',exportBoard);
     $('acrBoardWipe').addEventListener('click',function(){
       if(confirm('Clear this device\u2019s local copy of the records? The shared board is not affected.')){
