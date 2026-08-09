@@ -987,7 +987,11 @@
   }
 
 
-  /* ==========================================================================\n     GAMEPLAY HUD CLEANUP + JULIANO/MUSUBI COCKPIT PASS 2026-08-07\n     A dedicated top safe-zone keeps every title/counter readable above all\n     cockpit artwork. Juliano gets one movable wheel; Musubi uses exterior colors.\n     ========================================================================== */
+  /* ==========================================================================
+     GAMEPLAY HUD CLEANUP + JULIANO/MUSUBI COCKPIT PASS 2026-08-07
+     A dedicated top safe-zone keeps every title/counter readable above all
+     cockpit artwork. Juliano gets one movable wheel; Musubi uses exterior colors.
+     ========================================================================== */
   #hudSafeTop{
     position:absolute;left:0;right:0;top:0;height:164px;z-index:7;pointer-events:none;
     background:linear-gradient(180deg,rgba(8,12,18,.94) 0%,rgba(8,12,18,.84) 72%,rgba(8,12,18,.18) 92%,rgba(8,12,18,0) 100%);
@@ -8604,6 +8608,71 @@ body.menuMode #wrongway{display:none!important}
 body.menuMode #sticky{display:none!important}
 </style>
 
-\n<style id="startup-mobile-final-20260809">\n#crt{display:none!important}\n@media (orientation:landscape) and (max-width:1024px){\n  body.mob #hudSafeTop{background:transparent!important;box-shadow:none!important}\n  body.mob #speed{top:8px!important}\n  body.mob #laps{top:8px!important}\n  body.mob #toggles{top:auto!important;bottom:calc(90px + env(safe-area-inset-bottom,0px))!important;right:calc(10px + env(safe-area-inset-right,0px))!important;display:grid!important;grid-template-columns:repeat(2,44px)!important;gap:8px!important}\n  body.mob #toggles button{width:44px!important;height:44px!important;font-size:19px!important}\n}\n@media (orientation:portrait) and (max-width:760px){\n  body.mob #cockpitStage{left:0!important;right:0!important;top:0!important;bottom:0!important;width:100vw!important;height:100vh!important;transform:none!important;overflow:hidden!important}\n  body.mob #cockpitArt{left:0!important;top:0!important;bottom:0!important;width:100%!important;height:100%!important;transform:none!important;object-fit:contain!important;object-position:center top!important}\n  body.mob #hudSafeTop{height:116px!important;background:linear-gradient(180deg,rgba(8,12,18,.80),rgba(8,12,18,.42) 62%,rgba(8,12,18,0))!important}\n  body.mob #speed{top:8px!important}\n  body.mob #laps{top:8px!important;right:10px!important;max-width:45vw!important}\n  body.mob #map{top:58px!important;left:10px!important;width:80px!important;height:80px!important}\n  body.mob #toggles{top:58px!important;right:10px!important;display:grid!important;grid-template-columns:repeat(2,42px)!important;gap:8px!important}\n  body.mob #toggles button{width:42px!important;height:42px!important;font-size:18px!important}\n}\n</style>\n
+
+<style id="startup-mobile-final-20260809">
+#crt{display:none!important}
+@media (orientation:landscape) and (max-width:1024px){
+  body.mob #hudSafeTop{background:transparent!important;box-shadow:none!important}
+  body.mob #speed{top:8px!important}
+  body.mob #laps{top:8px!important}
+  body.mob #toggles{top:auto!important;bottom:calc(90px + env(safe-area-inset-bottom,0px))!important;right:calc(10px + env(safe-area-inset-right,0px))!important;display:grid!important;grid-template-columns:repeat(2,44px)!important;gap:8px!important}
+  body.mob #toggles button{width:44px!important;height:44px!important;font-size:19px!important}
+}
+@media (orientation:portrait) and (max-width:760px){
+  body.mob #cockpitStage{left:0!important;right:0!important;top:0!important;bottom:0!important;width:100vw!important;height:100vh!important;transform:none!important;overflow:hidden!important}
+  body.mob #cockpitArt{left:0!important;top:0!important;bottom:0!important;width:100%!important;height:100%!important;transform:none!important;object-fit:contain!important;object-position:center top!important}
+  body.mob #hudSafeTop{height:116px!important;background:linear-gradient(180deg,rgba(8,12,18,.80),rgba(8,12,18,.42) 62%,rgba(8,12,18,0))!important}
+  body.mob #speed{top:8px!important}
+  body.mob #laps{top:8px!important;right:10px!important;max-width:45vw!important}
+  body.mob #map{top:58px!important;left:10px!important;width:80px!important;height:80px!important}
+  body.mob #toggles{top:58px!important;right:10px!important;display:grid!important;grid-template-columns:repeat(2,42px)!important;gap:8px!important}
+  body.mob #toggles button{width:42px!important;height:42px!important;font-size:18px!important}
+}
+</style>
+
+
+<style id="cockpit-orientation-final">
+/* ==========================================================================
+   COCKPIT FRAMING — FINAL WORD
+   Nine earlier rules target #cockpitArt and several use !important, so this
+   block sits last and restates the outcome for both orientations.
+
+   PORTRAIT: the plate is filled to the whole window. `contain` (what the
+   earlier rules used) preserves the aspect and pins the art to the bottom,
+   which parks the ceiling somewhere in mid-screen and leaves the poles ending
+   in mid-air. Filling stretches the plate vertically, so the ceiling sits on
+   the top edge and the poles lengthen to meet it — for every cart, since this
+   targets the shared element rather than any one plate.
+
+   LANDSCAPE: keep the aspect (contain) and sit it on the bottom edge, so the
+   canopy and both poles stay framed and the world shows past the open sides.
+   ========================================================================== */
+@media (orientation:portrait){
+  #cockpitArt{
+    position:absolute !important;
+    left:0 !important; right:0 !important; top:0 !important; bottom:0 !important;
+    inset:0 !important;
+    width:100% !important; height:100% !important;
+    min-width:0 !important; max-width:none !important; max-height:none !important;
+    transform:none !important;
+    object-fit:fill !important;          /* ceiling to the top, poles stretch to it */
+    object-position:center center !important;
+    margin:0 !important;
+    display:block !important;
+  }
+}
+@media (orientation:landscape){
+  #cockpitArt{
+    position:absolute !important;
+    left:0 !important; right:0 !important; top:0 !important; bottom:0 !important;
+    width:100% !important; height:100% !important;
+    max-height:none !important; max-width:none !important;
+    transform:none !important;
+    object-fit:contain !important;
+    object-position:center bottom !important;
+    margin:0 !important;
+  }
+}
+</style>
 </body>
 </html>
