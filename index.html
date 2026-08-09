@@ -1801,13 +1801,37 @@ window.ACR_CONFIG = {
      ====================================================================== */
   var SupaBackend = (function(){
     function authHeaders(extra){
-      var h={'apikey':SUPA_KEY,'Content-Type':'application/json'};
+      /* Supabase needs BOTH headers. With the newer sb_publishable_ keys, sending
+         only `apikey` gets rejected ("No API key found" / 401), which is why
+         sign-in and sign-up were failing. supabase-js always sends both, so we do
+         too. Calls made on behalf of a signed-in driver override Authorization
+         with that driver's access token. */
+      var h={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
       for(var k in (extra||{}))h[k]=extra[k];
       return h;
     }
     function errText(d,res){
-      return (d&&(d.error_description||d.msg||d.message||d.error||d.hint))
-             || ('Request failed ('+(res?res.status:'network')+').');
+      var raw=(d&&(d.error_description||d.msg||d.message||d.error||d.hint))||'';
+      var code=res?res.status:0;
+      var low=String(raw).toLowerCase();
+      /* Translate the handful of failures people actually hit into plain english,
+         and always keep the status code so a problem can be diagnosed. */
+      if(low.indexOf('email not confirmed')>=0)
+        return 'Check your inbox and click the confirmation link, then sign in.';
+      if(low.indexOf('invalid login')>=0)
+        return 'Wrong email or password.';
+      if(low.indexOf('already registered')>=0||low.indexOf('already been registered')>=0)
+        return 'That email already has an account \u2014 switch to SIGN IN.';
+      if(low.indexOf('no api key')>=0||code===401)
+        return 'The leaderboard key was rejected (401). Check the publishable key in ACR_CONFIG.';
+      if(code===403)
+        return 'Permission denied (403) \u2014 check the Row Level Security policy on the runs table.';
+      if(code===404)
+        return 'Endpoint not found (404) \u2014 check the Supabase project URL.';
+      if(code===422&&low.indexOf('password')>=0)
+        return 'Password is too short \u2014 Supabase needs at least 6 characters.';
+      if(raw) return raw+(code?' ('+code+')':'');
+      return 'Request failed'+(code?' ('+code+')':' \u2014 no network')+'.';
     }
     function jfetch(url,opts){
       opts=opts||{};
@@ -2185,6 +2209,47 @@ window.ACR_CONFIG = {
       b.addEventListener('click',function(){ openBoard(b.dataset.sort); });
     });
 
+    /* ------------------------------------------------------------------
+       Hand-off into the game.
+
+       The sign-in screen loads before the 3D engine does, so a driver can be
+       through the gate while THREE is still downloading. Previously we set a
+       pending flag and hoped the game would notice; if the engine finished
+       before the flag was set, or failed outright, the player was left staring
+       at a closed gate with nothing behind it. Now the auth screen owns the
+       hand-off: it keeps asking until the game takes over, and says plainly
+       what is happening if it cannot.
+       ------------------------------------------------------------------ */
+    var enterTimer=null, enterTries=0;
+    function enterGame(){
+      window.ACR_PENDING_ENTRY=true;
+      if(enterTimer){clearInterval(enterTimer);enterTimer=null;}
+      enterTries=0;
+      var tick=function(){
+        enterTries++;
+        if(window.ACR_GAME_READY&&typeof window.ACR_OPEN_CART_PICKER==='function'){
+          window.ACR_PENDING_ENTRY=false;
+          if(enterTimer){clearInterval(enterTimer);enterTimer=null;}
+          try{ window.ACR_OPEN_CART_PICKER(); }
+          catch(e){ console.error('[ACR] could not open the cart picker:',e); }
+          return;
+        }
+        if(typeof window.ACR_ENTER_GAME==='function'&&window.ACR_ENTER_GAME())
+          { if(enterTimer){clearInterval(enterTimer);enterTimer=null;} return; }
+        var ls=document.getElementById('loadstatus');
+        if(ls&&!ls.classList.contains('error'))
+          ls.textContent = enterTries>60 ? 'STILL LOADING THE 3D ENGINE\u2026' : 'LOADING 3D ENGINE\u2026';
+        if(enterTries===150&&ls){                 // ~30s: something is wrong
+          ls.classList.add('error');
+          ls.textContent='3D ENGINE DID NOT LOAD \u2014 CHECK YOUR CONNECTION AND RELOAD';
+          if(enterTimer){clearInterval(enterTimer);enterTimer=null;}
+        }
+      };
+      tick();
+      if(!window.ACR_GAME_READY) enterTimer=setInterval(tick,200);
+    }
+    window.ACR_FORCE_ENTER=enterGame;   // the game calls this once it is ready
+
     $('acrSubmit').addEventListener('click',function(){
       if(busy)return;
       var id=$('acrUser').value, p=$('acrPass').value;
@@ -2201,16 +2266,14 @@ window.ACR_CONFIG = {
       job.then(function(u){
         setBusy(false); setUser(u); closeGate(); clearFields();
         flushQueue();
-        window.ACR_PENDING_ENTRY=true;
-        if(typeof window.ACR_ENTER_GAME==='function')window.ACR_ENTER_GAME();
+        enterGame();
       },function(e){ setBusy(false); setErr(String(e)); });
     });
 
     $('acrGuest').addEventListener('click',function(){
       if(busy)return;
       setUser({id:'guest',screen:'GUEST',guest:true}); closeGate(); clearFields();
-      window.ACR_PENDING_ENTRY=true;
-      if(typeof window.ACR_ENTER_GAME==='function')window.ACR_ENTER_GAME();
+      enterGame();
     });
     ['acrUser','acrPass','acrPass2','acrScreen'].forEach(function(id){
       $(id).addEventListener('keydown',function(e){ if(e.key==='Enter')$('acrSubmit').click(); });
@@ -7538,7 +7601,10 @@ derbyStartEl.addEventListener('click',startRaceNow);
       goButton.textContent='▶ ENTER DERBY';
       loadStatus.classList.remove('error');
       loadStatus.textContent='READY TO RIDE';
-      if(window.ACR_PENDING_ENTRY) setTimeout(function(){window.ACR_ENTER_GAME();},0);
+      if(window.ACR_PENDING_ENTRY) setTimeout(function(){
+        if(typeof window.ACR_FORCE_ENTER==='function') window.ACR_FORCE_ENTER();
+        else window.ACR_ENTER_GAME();
+      },0);
     }catch(err){
       console.error('Apple Canyon Run failed to initialize:',err);
       loadStatus.classList.add('error');
