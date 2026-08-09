@@ -8124,6 +8124,65 @@ body.menuMode #wrongway{display:none!important}
   opacity:0;transition:opacity .18s ease;font-variant-numeric:tabular-nums;
 }
 #sticky.show{opacity:1}
+
+
+/* ================= PORTRAIT MOBILE DRIVE BAR 2026-08-08 =================
+   Vertical-phone layout: Reverse · Left · Gas · Right · Stop.
+   Keeps all five primary driving controls in one centered bottom row. */
+@media (orientation:portrait) and (max-width:760px){
+  body.mob #rotate{display:none!important}
+
+  body.mob #rev,
+  body.mob #left,
+  body.mob #gas,
+  body.mob #right,
+  body.mob #brake{
+    position:fixed!important;
+    bottom:calc(14px + env(safe-area-inset-bottom,0px))!important;
+    width:54px!important;
+    height:54px!important;
+    min-width:54px!important;
+    min-height:54px!important;
+    margin:0!important;
+    padding:0!important;
+    font-size:22px!important;
+    line-height:54px!important;
+    z-index:60!important;
+    transform:none;
+    touch-action:none;
+  }
+
+  /* Exact requested order: Reverse, Left, Up/Gas, Right, Stop. */
+  body.mob #rev  {left:calc(50% - 145px)!important}
+  body.mob #left {left:calc(50% - 86px)!important}
+  body.mob #gas  {left:calc(50% - 27px)!important}
+  body.mob #right{left:calc(50% + 32px)!important}
+  body.mob #brake{left:calc(50% + 91px)!important}
+
+  body.mob #pedalstack{gap:0!important}
+}
+
+@media (orientation:portrait) and (max-width:340px){
+  body.mob #rev,
+  body.mob #left,
+  body.mob #gas,
+  body.mob #right,
+  body.mob #brake{
+    width:50px!important;
+    height:50px!important;
+    min-width:50px!important;
+    min-height:50px!important;
+    font-size:21px!important;
+    line-height:50px!important;
+  }
+  body.mob #rev  {left:calc(50% - 135px)!important}
+  body.mob #left {left:calc(50% - 80px)!important}
+  body.mob #gas  {left:calc(50% - 25px)!important}
+  body.mob #right{left:calc(50% + 30px)!important}
+  body.mob #brake{left:calc(50% + 85px)!important}
+}
+/* ================= END PORTRAIT MOBILE DRIVE BAR ================= */
+
 body.menuMode #sticky{display:none!important}
 </style>
 
