@@ -36,6 +36,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="description" content="Apple Canyon Run — a 3D golf cart trail game around Apple Canyon Lake.">
 <meta name="theme-color" content="#0c1a10">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="acr-build" content="2026-08-09d">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1399,6 +1403,16 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 /* ===== END CART HIT REWARD HUD ===== */
 
 </style>
+<style id="acr-build-stamp">
+/* A visible build id: the only reliable way to tell a real fix from a cached
+   copy of the previous upload on GitHub Pages. */
+#acrBuildStamp{
+  position:fixed;right:8px;bottom:6px;z-index:99;
+  font:11px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;
+  color:rgba(243,234,216,.55);background:rgba(10,18,12,.42);
+  padding:3px 7px;border-radius:6px;pointer-events:none;
+}
+</style>
 </head>
 <body class="menuMode">
 <canvas id="c"></canvas>
@@ -1419,6 +1433,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   <button id="horn" title="horn">📯</button>
   <button id="recover" title="return cart to the trail" aria-label="Return cart to the trail">★</button>
   <button id="fire" title="fire power — hold to shoot">🔥</button>
+  <button id="invsteer" title="invert steering">⇄</button>
 </div>
 <div id="radioname"></div>
 <div class="pad" id="steerpad"><button id="left">◀</button><button id="right">▶</button></div>
@@ -1532,6 +1547,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   </div>
 </div>
 
+<div id="acrBuildStamp">build 2026-08-09d</div>
 <div id="title">
   <div class="sky-scene" aria-hidden="true">
     <span class="cloud c1"></span><span class="cloud c2"></span><span class="cloud c3"></span>
@@ -1552,7 +1568,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
       <span class="chip"><b>▲ W</b> drive</span>
       <span class="chip"><b>▼ S</b> brake</span>
       <span class="chip"><b>Z</b> reverse</span>
-      <span class="chip"><b>◀ ▶</b> steer</span>
+      <span class="chip"><b>◀ ▶ A D</b> steer</span>
       <span class="chip"><b>H</b> horn</span>
       <span class="chip"><b>R</b> radio</span>
     </div>
@@ -4656,6 +4672,23 @@ applyCartStyle();
 
 /* ---------------- input & toggles ---------------- */
 const input={gas:0,brake:0,left:0,right:0,rev:0,fire:0};
+/* Steering direction is derived from the camera basis and verified, but the
+   switch below lets the driver flip it without waiting on a new build. The
+   choice is remembered on this device. */
+let STEER_INVERT=false;
+try{STEER_INVERT=localStorage.getItem('acr-steer-invert')==='1';}catch(_){}
+function paintSteerInvert(){
+  const b=document.getElementById('invsteer');
+  if(!b)return;
+  b.style.background=STEER_INVERT?'rgba(220,170,60,.55)':'';
+  b.title=STEER_INVERT?'steering inverted — tap to restore':'invert steering';
+}
+function setSteerInvert(v,announce){
+  STEER_INVERT=!!v;
+  try{localStorage.setItem('acr-steer-invert',STEER_INVERT?'1':'0');}catch(_){}
+  paintSteerInvert();
+  if(announce)try{toast(STEER_INVERT?'⇄ steering inverted':'⇄ steering normal',1400);}catch(_){}
+}
 let DRUNK=false;
 const keymap={ArrowUp:'gas',KeyW:'gas',ArrowDown:'brake',KeyS:'brake',Space:'brake',
   ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',
@@ -4678,6 +4711,7 @@ function acrTypingTarget(e){
 addEventListener('keydown',e=>{if(acrTypingTarget(e))return;const k=keymap[e.code];if(k){input[k]=1;e.preventDefault();}
   if(e.code==='KeyR')radioCycle();if(e.code==='KeyH')honk();
   if(e.code==='KeyF')crtSet(!ARCADE.on);
+  if(e.code==='KeyI')setSteerInvert(!STEER_INVERT,true);
   });
 addEventListener('keyup',e=>{if(acrTypingTarget(e))return;const k=keymap[e.code];if(k)input[k]=0;});
 function bindHold(id,key){
@@ -4695,6 +4729,11 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)clearDriveI
 bindHold('gas','gas');bindHold('brake','brake');bindHold('left','left');bindHold('right','right');
 bindHold('rev','rev');
 bindHold('fire','fire');
+(function(){
+  const b=document.getElementById('invsteer');
+  if(b)b.addEventListener('click',()=>setSteerInvert(!STEER_INVERT,true));
+  paintSteerInvert();
+})();
 function recoverCartToTrail(){
   if(!RUNNING)return;
   if(cart.musky>0||cart.boom>0){toast('★ RECOVERY UNAVAILABLE DURING A CRASH',1100);return;}
@@ -6519,6 +6558,7 @@ function tick(now){
      POSITIVE when the driver asks for right. The previous line had it the
      other way round, which is why the buttons drove the cart backwards. */
   let steerIn=(input.right-input.left);
+  if(STEER_INVERT)steerIn=-steerIn;   // player-side override, persisted
   if(DRUNK){cart.wander=vnoise(clockT*.35,7.3)*2-1;steerIn+=cart.wander*1.15;}
   const speedAbs=Math.abs(cart.v);
   cart.steerV+=(steerIn-cart.steerV)*(1-Math.exp(-dt*(DRUNK?2.1:(MOBILE?9.5:7.8))));
@@ -6539,7 +6579,10 @@ function tick(now){
     steerMotion=Math.max(steerMotion,.52+.38*recoveryBlend);
   else if(cart.airT===0&&Math.abs(steerIn)>.06&&speedAbs<.35)
     steerMotion=Math.max(steerMotion,.24); // small stationary correction
-  const reverseIntent=cart.v<-.15||((input.rev||input.brake)&&!input.gas&&cart.v<.35);
+  /* Only a cart that is genuinely rolling BACKWARDS steers inverted. The old
+     test also fired on brake/reverse while still creeping forward (v<.35),
+     so braking down to walking pace silently swapped left and right. */
+  const reverseIntent=cart.v<-.15||(input.rev&&!input.gas&&cart.v<=0);
   cart.heading+=yawRate*dt*steerMotion*(reverseIntent?-1:1);
   if(!DRUNK&&g.onTrail&&speedAbs>10&&Math.abs(steerIn)<.08&&cart.airT===0){
     const ts=sampAt(g.re.t);let target=Math.atan2(ts.tan.x,ts.tan.z);
@@ -8945,5 +8988,102 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   else start();
 })();
 </script>
+
+<style id="acr-portrait-pads-match-landscape">
+/* ==========================================================================
+   PORTRAIT DRIVE CONTROLS — same layout as landscape
+
+   Portrait used a one-off bar of five fixed-position buttons strung across the
+   bottom centre (rev · left · gas · right · brake), which put the steering in
+   a different place, at a different size, from the layout the player learns in
+   landscape. This restores the landscape arrangement in portrait:
+
+       steer pad bottom-LEFT  : (left) (right)
+       pedal pad bottom-RIGHT : [brake over reverse] (gas)
+
+   The five buttons go back to being flex children of #steerpad / #pedals, so
+   the shared `.pad` rules position them and the only thing that varies is
+   button size, stepped down on narrower phones so the two pads never collide.
+   ========================================================================== */
+@media (orientation:portrait) and (max-width:760px){
+
+  /* the pads themselves: identical geometry to landscape */
+  body.mob #steerpad,
+  body.mob #pedals{
+    position:absolute!important;
+    top:auto!important;
+    bottom:calc(18px + env(safe-area-inset-bottom,0px))!important;
+    display:flex!important;
+    gap:12px!important;
+    align-items:flex-end!important;
+    width:auto!important;height:auto!important;
+    transform:none!important;
+    z-index:10!important;
+  }
+  body.mob #steerpad{left:calc(16px + env(safe-area-inset-left,0px))!important;right:auto!important}
+  body.mob #pedals  {right:calc(16px + env(safe-area-inset-right,0px))!important;left:auto!important}
+
+  body.mob #pedalstack{
+    position:static!important;
+    display:flex!important;flex-direction:column!important;
+    gap:10px!important;width:auto!important;height:auto!important;
+    transform:none!important;
+  }
+
+  /* buttons flow inside the pads again instead of being pinned to the viewport */
+  body.mob #left,body.mob #right,body.mob #gas,
+  body.mob #brake,body.mob #rev{
+    position:static!important;
+    left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+    margin:0!important;padding:0!important;
+    line-height:normal!important;
+    transform:none!important;
+    z-index:auto!important;
+    touch-action:none;
+  }
+
+  /* full landscape sizing wherever the width allows it */
+  body.mob #left,body.mob #right,body.mob #gas{
+    width:82px!important;height:82px!important;
+    min-width:82px!important;min-height:82px!important;
+    font-size:29px!important;
+  }
+  body.mob #brake,body.mob #rev{
+    width:64px!important;height:64px!important;
+    min-width:64px!important;min-height:64px!important;
+    font-size:22px!important;
+  }
+}
+
+/* Narrower phones: the two pads together need 2*S+12 + (P+12+S) + 32px of
+   margin to clear each other, so step the buttons down rather than let them
+   overlap in the middle of the screen. */
+@media (orientation:portrait) and (max-width:379px){
+  body.mob #left,body.mob #right,body.mob #gas{
+    width:70px!important;height:70px!important;
+    min-width:70px!important;min-height:70px!important;
+    font-size:25px!important;
+  }
+  body.mob #brake,body.mob #rev{
+    width:54px!important;height:54px!important;
+    min-width:54px!important;min-height:54px!important;
+    font-size:19px!important;
+  }
+}
+@media (orientation:portrait) and (max-width:340px){
+  body.mob #steerpad,body.mob #pedals{gap:10px!important}
+  body.mob #pedalstack{gap:8px!important}
+  body.mob #left,body.mob #right,body.mob #gas{
+    width:62px!important;height:62px!important;
+    min-width:62px!important;min-height:62px!important;
+    font-size:22px!important;
+  }
+  body.mob #brake,body.mob #rev{
+    width:48px!important;height:48px!important;
+    min-width:48px!important;min-height:48px!important;
+    font-size:17px!important;
+  }
+}
+</style>
 </body>
 </html>
