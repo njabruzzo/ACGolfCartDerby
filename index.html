@@ -39,7 +39,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-09d">
+<meta name="acr-build" content="2026-08-09f">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1547,7 +1547,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   </div>
 </div>
 
-<div id="acrBuildStamp">build 2026-08-09d</div>
+<div id="acrBuildStamp">build 2026-08-09f</div>
 <div id="title">
   <div class="sky-scene" aria-hidden="true">
     <span class="cloud c1"></span><span class="cloud c2"></span><span class="cloud c3"></span>
@@ -1720,11 +1720,15 @@ window.ACR_CONFIG = {
   var SUPA_KEY = CFG.supabasePublishableKey||CFG.supabaseAnonKey||'';
   var REMOTE   = !!(SUPA_URL && SUPA_KEY);
   var LIMIT    = CFG.boardLimit || 100;
+  /* Pull far more rows than the board shows: the visible list is one line per
+     driver, so a driver with 60 runs must not push everyone else off the query
+     before the collapse below has a chance to run. */
+  var FETCH_LIMIT = Math.max(LIMIT*5, 500);
 
   var K_ACCT='acr_accounts_v1', K_SCORE='acr_scores_v1', K_SESS='acr_session_v1',
       K_TOK='acr_token_v1', K_PEND='acr_pending_v1';
   var RACE_LAPS=1;
-  var ACR_BUILD='2026-08-08k-fixed-blue-sky';   // bump me on every change; shown on the sign-in screen
+  var ACR_BUILD='2026-08-09f-board';   // bump me on every change; shown on the sign-in screen
 
   /* ---------- storage helpers ---------- */
   function read(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
@@ -1997,14 +2001,24 @@ window.ACR_CONFIG = {
         }).then(function(d){ return (d&&d[0])||body; });
       },
       board:function(){
+        /* Read as the SIGNED-IN driver whenever there is a session.
+
+           This is the whole bug. A SELECT policy scoped to the `authenticated`
+           role — which is what most Supabase quickstarts produce — answers an
+           anonymous read with HTTP 200 and an empty array. RLS denial is not an
+           error, so reading with only the anon key made a perfectly healthy
+           shared board look like it held nothing but this device's own runs.
+           Anon is still the fallback for a public-read policy. */
         var url=SUPA_URL+'/rest/v1/runs?select=id,user_id,screen,time_sec,animals,goblins,best_lap,wrecks,cart,created_at'
-              +'&order='+encodeURIComponent('time_sec.asc')+'&limit='+LIMIT;
-        return jfetch(url,{headers:authHeaders()}).then(function(rows){
-          return (rows||[]).map(function(r){
-            r.apples=r.wrecks|0;
-            return r;
-          });
-        });
+              +'&order='+encodeURIComponent('time_sec.asc')+'&limit='+FETCH_LIMIT;
+        function map(rows){
+          return (rows||[]).map(function(r){ r.apples=r.wrecks|0; return r; });
+        }
+        function go(h){ return jfetch(url,{headers:h}).then(map); }
+        if(!TOK) return go(authHeaders());
+        return fresh().then(function(t){
+          return go(authHeaders({'Authorization':'Bearer '+t.access_token}));
+        },function(){ return go(authHeaders()); });
       }
     };
   })();
@@ -2106,6 +2120,29 @@ window.ACR_CONFIG = {
       seen[k]=1; out.push(r);
     });
     out.sort(function(a,b){ return (+a.time_sec||Infinity)-(+b.time_sec||Infinity); });
+    return out;
+  }
+
+  /* The board is a table of DRIVERS, not of runs. Listing every run meant one
+     enthusiastic driver's fifty attempts could fill the whole board and hide
+     everybody else — which reads exactly like other players' scores missing.
+     Each driver now gets their best run, with their run count alongside. */
+  function bestPerDriver(rows){
+    var seen={}, order=[];
+    (rows||[]).forEach(function(r){
+      var k=String(r.user_id||r.screen||'?').toLowerCase();
+      var e=seen[k];
+      if(!e){ seen[k]={row:r,runs:1}; order.push(k); return; }
+      e.runs++;
+      if((+r.time_sec||Infinity)<(+e.row.time_sec||Infinity)) e.row=r;
+    });
+    var out=order.map(function(k){
+      var e=seen[k], c={};
+      for(var f in e.row) c[f]=e.row[f];
+      c._runs=e.runs;
+      return c;
+    });
+    out.sort(function(a,b){ return (+a.time_sec||Infinity)-(+b.time_sec||Infinity); });
     return out.slice(0,LIMIT);
   }
 
@@ -2114,7 +2151,8 @@ window.ACR_CONFIG = {
     list.forEach(function(r){
       var mine=CURRENT&&!CURRENT.guest&&r.user_id===CURRENT.id;
       out+='<div class="lb-row'+(mine?' me':'')+'">'+
-        '<div class="lb-cell lb-name" data-label="USER NAME">'+esc(r.screen||r.user_id||'DRIVER')+'</div>'+
+        '<div class="lb-cell lb-name" data-label="USER NAME" title="'+((r._runs||1)+((r._runs||1)===1?' run':' runs')+' recorded')+'">'+
+          esc(r.screen||r.user_id||'DRIVER')+'</div>'+
         '<div class="lb-cell lb-cart" data-label="CART">'+esc(r.cart||'—')+'</div>'+
         '<div class="lb-cell lb-time" data-label="TIME">'+fmt(r.time_sec)+'</div>'+
         '<div class="lb-cell lb-num" data-label="ANIMALS SAVED">'+(r.animals|0)+'</div>'+
@@ -2128,34 +2166,62 @@ window.ACR_CONFIG = {
     empty.style.display = list.length ? 'none' : '';
     empty.className = 'lb-empty'+(isError?' err':'');
     empty.textContent = noteText || 'Finish a race and your run lands here.';
-    $('acrBoardCount').textContent = list.length ? (list.length+(list.length===1?' run':' runs')) : 'no runs yet';
-    $('acrBoardMode').textContent = BACKEND.mode==='supabase' ? 'shared + saved locally' : BACKEND.label;
+    var runs=0;
+    list.forEach(function(r){ runs+=(r._runs||1); });
+    $('acrBoardCount').textContent = list.length
+      ? (list.length+(list.length===1?' driver':' drivers')+' \u00b7 '+runs+(runs===1?' run':' runs'))
+      : 'no runs yet';
+    $('acrBoardMode').textContent = BACKEND.mode==='supabase'
+      ? (lastRemoteCount+' shared \u00b7 '+lastLocalCount+' on this device')
+      : BACKEND.label;
 
     var you=$('acrBoardYou');
     if(CURRENT&&!CURRENT.guest&&list.length){
       var idx=list.findIndex(function(r){ return r.user_id===CURRENT.id; });
       if(idx>=0){
-        you.innerHTML='YOUR BEST <b>'+fmt(list[idx].time_sec)+'</b> · #'+(idx+1)+' of '+list.length;
+        you.innerHTML='YOUR BEST <b>'+fmt(list[idx].time_sec)+'</b> · #'+(idx+1)+' of '+list.length+' drivers';
         you.hidden=false;
       } else you.hidden=true;
     } else you.hidden=true;
   }
 
+  var lastRemoteCount=0, lastLocalCount=0;
   function loadBoard(){
     $('acrBoardYou').hidden=true;
     $('acrBoardBody').innerHTML='';
     var empty=$('acrBoardEmpty');
     empty.style.display=''; empty.className='lb-empty'; empty.textContent='Reading the timing tower…';
     if(BACKEND.mode!=='supabase'){
-      return LocalBackend.board().then(function(list){ lastRows=list||[]; renderRows(lastRows); });
+      return LocalBackend.board().then(function(list){
+        lastRemoteCount=0; lastLocalCount=(list||[]).length;
+        lastRows=bestPerDriver(list||[]); renderRows(lastRows);
+      });
     }
     return Promise.all([
       BACKEND.board().then(function(x){return {ok:true,rows:x||[]};},function(e){return {ok:false,error:e,rows:[]};}),
       LocalBackend.board().then(function(x){return x||[];})
     ]).then(function(parts){
-      lastRows=mergeRows(parts[0].rows,parts[1]);
-      var note=parts[0].ok?'':String(parts[0].error||'Shared board unavailable.')+' Showing saved runs from this device.';
-      renderRows(lastRows,note,!parts[0].ok);
+      lastRemoteCount=parts[0].rows.length;
+      lastLocalCount=parts[1].length;
+      lastRows=bestPerDriver(mergeRows(parts[0].rows,parts[1]));
+
+      var note='', isErr=false;
+      if(!parts[0].ok){
+        note=String(parts[0].error||'Shared board unavailable.')+' Showing saved runs from this device.';
+        isErr=true;
+      }else if(lastRemoteCount===0){
+        /* 200 OK with zero rows is ambiguous: either nobody has raced yet, or
+           the SELECT policy is filtering every row out. Say so rather than
+           quietly showing a board that looks broken. */
+        note=(CURRENT&&!CURRENT.guest)
+          ? 'The shared board returned no rows. If other drivers have finished races, the SELECT policy on the runs table is hiding them \u2014 it needs to allow reads of all rows, not just your own.'
+          : 'The shared board returned no rows. Sign in rather than playing as a guest: guest runs are never uploaded, and the shared board may only be readable to signed-in drivers.';
+        isErr=true;
+      }
+      console.log('[ACR] board: shared='+lastRemoteCount+' local='+lastLocalCount+
+                  ' drivers='+lastRows.length+' signedIn='+!!(CURRENT&&!CURRENT.guest)+
+                  ' ok='+parts[0].ok+(parts[0].ok?'':' err='+parts[0].error));
+      renderRows(lastRows,note,isErr);
     });
   }
   function openBoard(sort,fromResults){
@@ -3948,46 +4014,9 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
   scene.add(g);CHAINSAW_PICKUPS.push({g,taken:false});
 })();
 
-/* jump ramps before the big descents */
+/* Jump ramps are built after the ford below, once every feature that can veto
+   a location exists. Only the array is declared here so later references bind. */
 const RAMPS=[];
-(function(){
-  const plankM=new THREE.MeshLambertMaterial({color:0x8a6034,map:TEX.rep(TEX.plank,2,2)});
-  const sideM=new THREE.MeshLambertMaterial({color:0x5a4028,map:TEX.rep(TEX.timber,1,3)});
-  for(const cp of [3,9,13,19,7,23]){
-    const t=((tOfCP(cp)-3/TRACKLEN)%1+1)%1;
-    if(inBridge(t))continue;
-    const s=sampAt(t);
-    const g=new THREE.Group();
-    const deck=new THREE.Mesh(new THREE.BoxGeometry(ROAD_W*2-0.6,.25,6.5),plankM);
-    deck.position.set(0,1.0,0);deck.rotation.x=-.31;g.add(deck);
-    for(const sd of[-1,1]){
-      const side=new THREE.Mesh(new THREE.BoxGeometry(.25,1.7,6.5),sideM);
-      side.position.set(sd*(ROAD_W-0.35),.85,0);side.rotation.x=-.31;g.add(side);
-      const post=new THREE.Mesh(new THREE.BoxGeometry(.3,2.0,.3),sideM);
-      post.position.set(sd*(ROAD_W-0.5),1.0,2.6);g.add(post);
-    }
-    g.position.copy(s.p);
-    g.lookAt(s.p.clone().add(s.tan));
-    scene.add(g);
-    // chevron warning board before the lip
-    const cvv=document.createElement('canvas');cvv.width=256;cvv.height=64;
-    const cx=cvv.getContext('2d');
-    cx.fillStyle='#f2b64a';cx.fillRect(0,0,256,64);
-    cx.fillStyle='#2a1d0c';
-    for(let k=0;k<5;k++){cx.beginPath();cx.moveTo(k*54-10,64);cx.lineTo(k*54+22,0);
-      cx.lineTo(k*54+42,0);cx.lineTo(k*54+10,64);cx.closePath();cx.fill();}
-    const sgn=sampAt(t-9/TRACKLEN);
-    const board=new THREE.Mesh(new THREE.BoxGeometry(2.6,.66,.1),
-      new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(cvv)}));
-    const bp=sgn.p.clone().addScaledVector(sgn.right,ROAD_W+1.6);
-    board.position.set(bp.x,surfaceH(bp.x,bp.z)+1.5,bp.z);
-    board.lookAt(bp.clone().sub(sgn.tan).setY(board.position.y));
-    scene.add(board);
-    const bpost=new THREE.Mesh(new THREE.BoxGeometry(.16,1.6,.16),sideM);
-    bpost.position.set(bp.x,surfaceH(bp.x,bp.z)+.8,bp.z);scene.add(bpost);
-    RAMPS.push({t});
-  }
-})();
 
 /* the ford — shallow water across the trail below Apple Falls */
 let FORD_T=0,fordMat=null;
@@ -4030,6 +4059,118 @@ let FORD_T=0,fordMat=null;
     st.rotation.set(Math.random()*2,Math.random()*3,Math.random()*2);
     scene.add(st);
   }
+})();
+
+/* ==================== JUMP RAMPS — STRAIGHTAWAYS ONLY ====================
+   Ramps used to sit on six fixed control points regardless of what the trail
+   was doing there, so several of them launched the cart straight into a bend:
+   the flight was fine, the road simply turned out from under it and the
+   landing was in the trees.
+
+   Placement is now earned. The whole loop is scanned for runs that hold their
+   heading over a full flight's worth of road, and ramps go at the straightest
+   of those, spaced apart, never on a bridge, in the ford, or across the line.
+   Each ramp also records how much straight road it actually has in front of
+   it, which the launch uses to make sure the cart cannot outfly the runway.
+   ========================================================================= */
+(function buildRamps(){
+  const MPS=TRACKLEN/NS;                       // metres per track sample
+  const hdgAt=i=>{const S=SAMP[((i%NS)+NS)%NS];return Math.atan2(S.tan.x,S.tan.z);};
+  const wrapA=a=>Math.atan2(Math.sin(a),Math.cos(a));
+  const wrapT=d=>((d%1)+1.5)%1-.5;             // shortest signed loop distance
+
+  const MIN_GAP=120;                           // m between ramps
+  const RUN_BACK=14;                           // m of straight run-in to the lip
+  const backN=Math.max(2,Math.round(RUN_BACK/MPS));
+
+  /* For each sample: how far the road runs on before it bends more than
+     `maxBend` away from the heading at that point. */
+  function scan(maxBend,runAhead){
+    const aheadN=Math.max(2,Math.round(runAhead/MPS));
+    const bend=new Float32Array(NS),run=new Float32Array(NS);
+    for(let i=0;i<NS;i++){
+      const h0=hdgAt(i);
+      let worst=0,k=1;
+      for(;k<=aheadN;k++){
+        const d=Math.abs(wrapA(hdgAt(i+k)-h0));
+        if(d>maxBend)break;
+        if(d>worst)worst=d;
+      }
+      run[i]=(k-1)*MPS;
+      for(let b=1;b<=backN;b++)worst=Math.max(worst,Math.abs(wrapA(hdgAt(i-b)-h0)));
+      bend[i]=worst;
+    }
+    return {bend,run,aheadN};
+  }
+
+  function blocked(i,aheadN){
+    for(let k=-backN;k<=aheadN;k++)if(inBridge((((i+k)%NS)+NS)%NS/NS))return true;
+    const t=i/NS;
+    if(Math.abs(wrapT(t-FORD_T))*TRACKLEN<60)return true;    // not through the ford
+    if(Math.abs(wrapT(t))*TRACKLEN<70)return true;           // keep the line clear
+    return false;
+  }
+
+  /* Progressively relax if the authored trail is tighter than hoped, so a
+     twisty course still gets ramps — just on its least-bent sections. */
+  let picks=[];
+  for(const [maxBend,runAhead,want] of [[.105,46,6],[.15,40,5],[.22,32,4],[.32,26,3]]){
+    const {bend,run,aheadN}=scan(maxBend,runAhead);
+    const cand=[];
+    for(let i=0;i<NS;i++){
+      if(run[i]<runAhead-MPS)continue;         // must clear the whole flight
+      if(blocked(i,aheadN))continue;
+      cand.push({i,bend:bend[i],run:run[i]});
+    }
+    cand.sort((a,b)=>a.bend-b.bend);
+    picks=[];
+    for(const c of cand){
+      if(picks.length>=6)break;
+      let ok=true;
+      for(const q of picks)if(Math.abs(wrapT(c.i/NS-q.i/NS))*TRACKLEN<MIN_GAP){ok=false;break;}
+      if(ok)picks.push(c);
+    }
+    if(picks.length>=want)break;
+  }
+  picks.sort((a,b)=>a.i-b.i);
+
+  const plankM=new THREE.MeshLambertMaterial({color:0x8a6034,map:TEX.rep(TEX.plank,2,2)});
+  const sideM=new THREE.MeshLambertMaterial({color:0x5a4028,map:TEX.rep(TEX.timber,1,3)});
+
+  for(const pick of picks){
+    const t=pick.i/NS;
+    const s=sampAt(t);
+    const g=new THREE.Group();
+    const deck=new THREE.Mesh(new THREE.BoxGeometry(ROAD_W*2-0.6,.25,6.5),plankM);
+    deck.position.set(0,1.0,0);deck.rotation.x=-.31;g.add(deck);
+    for(const sd of[-1,1]){
+      const side=new THREE.Mesh(new THREE.BoxGeometry(.25,1.7,6.5),sideM);
+      side.position.set(sd*(ROAD_W-0.35),.85,0);side.rotation.x=-.31;g.add(side);
+      const post=new THREE.Mesh(new THREE.BoxGeometry(.3,2.0,.3),sideM);
+      post.position.set(sd*(ROAD_W-0.5),1.0,2.6);g.add(post);
+    }
+    g.position.copy(s.p);
+    g.lookAt(s.p.clone().add(s.tan));
+    scene.add(g);
+    // chevron warning board before the lip
+    const cvv=document.createElement('canvas');cvv.width=256;cvv.height=64;
+    const cx=cvv.getContext('2d');
+    cx.fillStyle='#f2b64a';cx.fillRect(0,0,256,64);
+    cx.fillStyle='#2a1d0c';
+    for(let k=0;k<5;k++){cx.beginPath();cx.moveTo(k*54-10,64);cx.lineTo(k*54+22,0);
+      cx.lineTo(k*54+42,0);cx.lineTo(k*54+10,64);cx.closePath();cx.fill();}
+    const sgn=sampAt(t-9/TRACKLEN);
+    const board=new THREE.Mesh(new THREE.BoxGeometry(2.6,.66,.1),
+      new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(cvv)}));
+    const bp=sgn.p.clone().addScaledVector(sgn.right,ROAD_W+1.6);
+    board.position.set(bp.x,surfaceH(bp.x,bp.z)+1.5,bp.z);
+    board.lookAt(bp.clone().sub(sgn.tan).setY(board.position.y));
+    scene.add(board);
+    const bpost=new THREE.Mesh(new THREE.BoxGeometry(.16,1.6,.16),sideM);
+    bpost.position.set(bp.x,surfaceH(bp.x,bp.z)+.8,bp.z);scene.add(bpost);
+    RAMPS.push({t,run:pick.run});
+  }
+  if(!RAMPS.length)console.warn('[ACR] no straightaway cleared the ramp test');
 })();
 
 /* Final trail-safety pass. Trees are generated in several forest systems; any
@@ -7045,14 +7186,45 @@ function tick(now){
       const swept=(fwdSpan>0&&fwdSpan<.05&&rel>0&&rel<=fwdSpan);
       const near=Math.abs(((nearT-R.t+1.5)%1)-.5)*TRACKLEN<3.4;
       if(swept||near){
-        cart.vy=Math.max(cart.vy,clamp((cart.v*.42+2.2)*ACTIVE_CART.air,3.5,15*ACTIVE_CART.air));  // selected cart airtime bonus
-        cart.y+=.25;cart.airT=.01;cart._rampCd=.9;
+        /* The deck is walled by its own side rails, so a cart crossing it is
+           physically squared up and centred before it leaves the lip. Doing
+           that here is what makes the landing land on the road. */
+        const rs=sampAt(R.t);
+        let rth=Math.atan2(rs.tan.x,rs.tan.z);
+        if(Math.cos(rth-cart.heading)<0)rth+=Math.PI;   // running the loop backwards
+        cart.heading=rth;
+        const off=(cart.x-rs.p.x)*rs.right.x+(cart.z-rs.p.z)*rs.right.z;
+        const lim=clamp(off,-ROAD_W*.45,ROAD_W*.45);
+        cart.x+=(lim-off)*rs.right.x;cart.z+=(lim-off)*rs.right.z;
+
+        let rvy=clamp((cart.v*.42+2.2)*ACTIVE_CART.air,3.5,15*ACTIVE_CART.air);  // selected cart airtime bonus
+        /* Flight distance is v * 2*vy/g (g = 19). Cap the launch so the arc
+           always comes down inside the straight this ramp was placed on. */
+        const runway=Math.max(18,(R.run||46)-6);
+        rvy=Math.max(3.2,Math.min(rvy,runway*19/(2*Math.max(cart.v,1))));
+        cart.vy=Math.max(cart.vy,rvy);
+        cart.y+=.25;cart.airT=.01;cart._rampCd=.9;cart._rampAir=1;
         if(SND)thunk();
         toast(cart.v>16?'SEND IT!':'ramp!',1200);
         break;
       }
     }
   }
+  /* ---- ramp flight: hold the line all the way to the landing ----
+     Air steering stays available (it is already damped to .26), but a cart
+     launched off a ramp is eased back onto the trail's heading and centre so
+     it comes down on the road rather than beside it. */
+  if(cart._rampAir&&cart.airT>0){
+    const sA=sampAt(nearT);
+    let ath=Math.atan2(sA.tan.x,sA.tan.z);
+    if(Math.cos(ath-cart.heading)<0)ath+=Math.PI;
+    const dh=Math.atan2(Math.sin(ath-cart.heading),Math.cos(ath-cart.heading));
+    cart.heading+=dh*Math.min(1,dt*2.6);
+    const offA=(cart.x-sA.p.x)*sA.right.x+(cart.z-sA.p.z)*sA.right.z;
+    const pull=clamp(-offA,-1.4,1.4)*Math.min(1,dt*2.4);
+    cart.x+=pull*sA.right.x;cart.z+=pull*sA.right.z;
+  }else if(cart.airT===0)cart._rampAir=0;
+
   cart._rampCd=Math.max(0,(cart._rampCd||0)-dt);
   cart._rt=nearT;
 
