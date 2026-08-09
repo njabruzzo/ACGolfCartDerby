@@ -2942,6 +2942,32 @@ const TEX=(function(){
     for(let i=0;i<120;i++){x.fillStyle=g(190+R()*50);x.fillRect(R()*S,R()*S,1,1);}
   });
 
+  /* --- brick (chimneys) -----------------------------------------
+     This was referenced by the house builder but never actually created, so
+     TEX.brick came back undefined and rep() threw on `t.clone()`. That
+     exception happened during startAppleCanyonRun(), which is why the game
+     never started at all. ----------------------------------------- */
+  const brick=mk(128,(x,S)=>{
+    const rows=10,rh=S/rows;
+    x.fillStyle='#6d4234';x.fillRect(0,0,S,S);            // mortar bed
+    for(let r=0;r<rows;r++){
+      const off=(r%2)*(S/8);
+      for(let c=-1;c<9;c++){
+        const shade=118+R()*46;
+        x.fillStyle='rgb('+Math.round(shade)+','+Math.round(shade*0.52)+','+Math.round(shade*0.42)+')';
+        x.fillRect(c*(S/8)+off+1.2, r*rh+1.2, S/8-2.4, rh-2.4);
+        if(R()<.30){                                       // weathering
+          x.fillStyle='rgba(255,240,225,.10)';
+          x.fillRect(c*(S/8)+off+1.2, r*rh+1.2, S/8-2.4, (rh-2.4)*.45);
+        }
+      }
+    }
+    for(let i=0;i<90;i++){                                 // soot and grit
+      x.fillStyle='rgba(40,28,22,'+(0.05+R()*0.12).toFixed(2)+')';
+      x.fillRect(R()*S,R()*S,1+R()*2,1+R()*2);
+    }
+  });
+
   /* --- asphalt shingle ----------------------------------------- */
   const shingle=mk(128,(x,S)=>{
     const rows=8,rh=S/rows;
@@ -2993,14 +3019,17 @@ const TEX=(function(){
   });
 
   /* clone with its own repeat (textures share repeat otherwise) */
-  function rep(t,u,v){const c=t.clone();c.needsUpdate=true;
+  function rep(t,u,v){
+    if(!t){ console.warn('[ACR] rep(): missing texture, using ground'); t=ground; }
+    const c=t.clone();c.needsUpdate=true;
     c.wrapS=c.wrapT=THREE.RepeatWrapping;c.repeat.set(u,v===undefined?u:v);return c;}
   /* mipmaps for anything seen at extreme distance -- kills the shimmer
      while magFilter stays NEAREST so close-up is still chunky */
-  function mip(t){t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;
+  function mip(t){ if(!t){ console.warn('[ACR] mip(): missing texture'); return null; }
+    t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;
     t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t;}
 
-  return {ground,bark,needle,leaf,plank,timber,rock,fur,siding,shingle,turf,sand,ripple,rep,mip};
+  return {ground,bark,needle,leaf,plank,timber,rock,fur,siding,shingle,brick,turf,sand,ripple,rep,mip};
 })();
 
 /* terrain */
