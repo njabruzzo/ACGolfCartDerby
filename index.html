@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- SHOVE REMOVAL + SLOW U-TURN FIX 2026-08-09: removed automatic anti-stuck shoves/tows; every cart now retains guaranteed turning authority at low speed. -->
 <!-- STARTUP HARDENING + MOBILE/WITCH PASS 2026-08-09: immediate auth gate, nonblocking restore, guest/login direct-to-picker, timed multi-CDN Three.js failover, stable widescreen renderer, mobile cockpit/HUD refinements, upgraded witches. -->
 <!-- GAME UI MATCH 2026-08-08: login, results and leaderboard now share the bright canyon/checker/card styling of the title and cart picker. -->
 <!-- FINISH/RESTART FIX 2026-08-08: finish requires ordered forward checkpoints before the line counts; leaderboard gets a working NEW RACE path and replay uses direct race launch instead of a synthetic click. -->
@@ -39,7 +40,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-09i">
+<meta name="acr-build" content="2026-08-09k">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1578,7 +1579,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   </div>
 </div>
 
-<div id="acrBuildStamp">build 2026-08-09i</div>
+<div id="acrBuildStamp">build 2026-08-09j</div>
 <div id="title">
   <div class="sky-scene" aria-hidden="true">
     <span class="cloud c1"></span><span class="cloud c2"></span><span class="cloud c3"></span>
@@ -2282,15 +2283,29 @@ window.ACR_CONFIG = {
   }
 
   var lastRemoteCount=0, lastLocalCount=0;
-  function loadBoard(){
-    $('acrBoardYou').hidden=true;
-    $('acrBoardBody').innerHTML='';
-    var empty=$('acrBoardEmpty');
-    empty.style.display=''; empty.className='lb-empty'; empty.textContent='Reading the timing tower…';
+  /* A live board polls, so most reloads must be invisible: `quiet` skips the
+     clear-and-spinner, and renderRows is skipped entirely when the data has
+     not changed. Without that the list would blink every few seconds. */
+  var lastSig='';
+  function sigOf(rows){
+    return (rows||[]).map(function(r){
+      return (r.user_id||r.screen)+':'+r.time_sec+':'+(r._runs||1);
+    }).join('|');
+  }
+  function loadBoard(quiet){
+    if(!quiet){
+      $('acrBoardYou').hidden=true;
+      $('acrBoardBody').innerHTML='';
+      lastSig='';
+      var empty=$('acrBoardEmpty');
+      empty.style.display=''; empty.className='lb-empty'; empty.textContent='Reading the timing tower…';
+    }
     if(BACKEND.mode!=='supabase'){
       return LocalBackend.board().then(function(list){
         lastRemoteCount=0; lastLocalCount=(list||[]).length;
-        lastRows=bestPerDriver(list||[]); renderRows(lastRows);
+        lastRows=bestPerDriver(list||[]);
+        var sig=sigOf(lastRows);
+        if(sig!==lastSig){ lastSig=sig; renderRows(lastRows); }
       });
     }
     return Promise.all([
@@ -2314,6 +2329,9 @@ window.ACR_CONFIG = {
           : 'The shared board returned no rows. Sign in rather than playing as a guest: guest runs are never uploaded, and the shared board may only be readable to signed-in drivers.';
         isErr=true;
       }
+      var sig=sigOf(lastRows)+'|'+note;
+      if(sig===lastSig) return;      // nothing moved; leave the DOM alone
+      lastSig=sig;
       console.log('[ACR] board: shared='+lastRemoteCount+' local='+lastLocalCount+
                   ' drivers='+lastRows.length+' signedIn='+!!(CURRENT&&!CURRENT.guest)+
                   ' ok='+parts[0].ok+(parts[0].ok?'':' err='+parts[0].error));
@@ -2328,8 +2346,31 @@ window.ACR_CONFIG = {
     });
     board.classList.add('show'); board.setAttribute('aria-hidden','false');
     loadBoard();
+    startBoardPoll();
   }
+  /* ---------- live board ----------
+     Poll while the board is on screen and stop the moment it is not, so a
+     phone left on the leaderboard is not still hitting the server in a pocket.
+     A hidden tab pauses too and catches up when it comes back. */
+  var boardPoll=null;
+  var POLL_MS=10000;
+  function boardVisible(){ return !!(board&&board.classList.contains('show')); }
+  function startBoardPoll(){
+    stopBoardPoll();
+    boardPoll=setInterval(function(){
+      if(!boardVisible()){ stopBoardPoll(); return; }
+      if(document.hidden) return;                 // resumes on visibilitychange
+      loadBoard(true);
+    },POLL_MS);
+  }
+  function stopBoardPoll(){ if(boardPoll){ clearInterval(boardPoll); boardPoll=null; } }
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden&&boardVisible())loadBoard(true);
+  });
+  window.addEventListener('focus',function(){ if(boardVisible())loadBoard(true); });
+
   function closeBoard(){
+    stopBoardPoll();
     board.classList.remove('show'); board.setAttribute('aria-hidden','true');
     boardCameFromResults=false;
     /* Opened from the sign-in screen, BACK has to land back on sign-in rather
@@ -2370,6 +2411,7 @@ window.ACR_CONFIG = {
       }
       return BACKEND.submit(CURRENT,run).then(function(){
         $('acrResultRank').textContent='Saved locally and synced to the shared leaderboard.';
+        if(boardVisible())loadBoard(true);   // your own run lands without waiting
       },function(err){
         var msg=String(err||'');
         queueRun(run);
@@ -5004,9 +5046,8 @@ function recoverCartToTrail(){
   cart.x=s.p.x;cart.z=s.p.z;cart.y=s.p.y+.03;
   cart.heading=Math.atan2(s.tan.x,s.tan.z);
   cart.v=0;cart.vy=0;cart.airT=0;cart.steerV=0;
-  cart.crash=0;cart.crashRoll=0;cart.stuckT=0;cart.stuckShoves=0;cart.hitCD=.2;
+  cart.crash=0;cart.crashRoll=0;cart.hitCD=.2;
   cart.lastNearT=rn.t;cart.camY=null;cart.camLookY=null;
-  cart.stuckAnchor={x:cart.x,z:cart.z};
   const W=document.getElementById('wrongway');if(W){W.classList.remove('show');W.setAttribute('aria-hidden','true');}
   ensureCartVisualIntegrity(true);sanitizeCartState();
   toast('★ BACK ON THE TRAIL',1200);
@@ -6028,7 +6069,7 @@ function boomSfx(splash){
 
 /* ---------------- FREE-ROAM cart with hitpoints ---------------- */
 const cart={
-  x:0,z:0,y:0,vy:0,airT:0,heading:0,v:0,steerV:0,hp:100,stuckT:0,stuckShoves:0,stuckAnchor:null,
+  x:0,z:0,y:0,vy:0,airT:0,heading:0,v:0,steerV:0,hp:100,
   head:0,lap:1,lapStart:0,best:Infinity,started:false,lastZone:null,
   lastNearT:0,lapCheckpoint:0,
   crash:0,crashDir:1,crashRoll:0,wander:0,musky:0,
@@ -6692,7 +6733,7 @@ function respawn(){
   cart.x=s.p.x;cart.z=s.p.z;
   cart.heading=Math.atan2(s.tan.x,s.tan.z);
   cart.y=s.p.y+.02;cart.vy=0;cart.airT=0;
-  cart.v=0;cart.hp=cartMaxHP();cart.crash=0;cart.steerV=0;cart.musky=0;cart.stuckT=0;cart.stuckShoves=0;cart.hitCD=0;cart.camY=null;cart.camLookY=null;if(muskyRig)muskyRig.visible=false;hpDraw();
+  cart.v=0;cart.hp=cartMaxHP();cart.crash=0;cart.steerV=0;cart.musky=0;cart.hitCD=0;cart.camY=null;cart.camLookY=null;if(muskyRig)muskyRig.visible=false;hpDraw();
   gobClear();GOB.hits=0;rageT=0;rageCharge=0;
   crtMat.uniforms.uGold.value=0;rageEl.style.opacity=0;
   document.getElementById('fade').style.opacity=0;
@@ -6822,9 +6863,13 @@ function tick(now){
   if(DRUNK){cart.wander=vnoise(clockT*.35,7.3)*2-1;steerIn+=cart.wander*1.15;}
   const speedAbs=Math.abs(cart.v);
   cart.steerV+=(steerIn-cart.steerV)*(1-Math.exp(-dt*(DRUNK?2.1:(MOBILE?9.5:7.8))));
-  const recoveryBlend=1-clamp(speedAbs/7,0,1); // fades out completely by ~16 mph
+  const recoveryBlend=1-clamp(speedAbs/8,0,1); // fades out completely by ~18 mph
   let steerAuthority=(1.18+ACTIVE_CART.handling*.045)/(1+speedAbs*.035)+.14;
   steerAuthority*=1+recoveryBlend*(.92+ACTIVE_CART.handling*.018);
+  /* Handling ratings still matter at racing speed, but no cart may fall below
+     this shared low-speed floor. This guarantees a complete U-turn while
+     crawling without teleporting, shoving or changing the cart's heading. */
+  steerAuthority=Math.max(steerAuthority,1.45+1.55*recoveryBlend);
   if(!g.onTrail)steerAuthority*=.82+.12*recoveryBlend;
   let yawRate=-cart.steerV*steerAuthority;
   if(cart.airT>0)yawRate*=.26;
@@ -6836,7 +6881,7 @@ function tick(now){
   const pedalIntent=!!(input.gas||input.brake||input.rev);
   let steerMotion=clamp(speedAbs/1.55,0,1);
   if(cart.airT===0&&Math.abs(steerIn)>.06&&pedalIntent)
-    steerMotion=Math.max(steerMotion,.52+.38*recoveryBlend);
+    steerMotion=Math.max(steerMotion,.58+.36*recoveryBlend);
   else if(cart.airT===0&&Math.abs(steerIn)>.06&&speedAbs<.35)
     steerMotion=Math.max(steerMotion,.24); // small stationary correction
   /* Only a cart that is genuinely rolling BACKWARDS steers inverted. The old
@@ -6961,58 +7006,6 @@ function tick(now){
     splashRing(new THREE.Vector3(cart.x,WATER_Y+.3,cart.z));
     muskyRumble();
     toast('…something big below…',1400);
-  }
-
-  /* ---- ANTI-STUCK: nothing may trap the cart permanently ----
-     Escape is judged by GROUND COVERED, not by speed: bouncing off a tree
-     produces speed but no progress, which is exactly the trap case.      */
-  {
-    const cinematic=(cart.boom>0||cart.crash>0||cart.musky>0);
-    const wantsToMove=(input.gas||input.brake||input.rev);
-    if(cinematic){
-      cart.stuckT=0;cart.stuckShoves=0;cart.stuckAnchor=null;
-    }else{
-      if(!cart.stuckAnchor)cart.stuckAnchor={x:cart.x,z:cart.z};
-      const escaped=Math.hypot(cart.x-cart.stuckAnchor.x,cart.z-cart.stuckAnchor.z);
-      if(escaped>7){                       // genuinely got away: forget everything
-        cart.stuckAnchor={x:cart.x,z:cart.z};
-        cart.stuckT=0;cart.stuckShoves=0;
-      }else if(wantsToMove&&cart.airT===0){
-        cart.stuckT=(cart.stuckT||0)+dt;   // asking to move but going nowhere
-      }
-
-      // stage 1 - shove clear of whatever is holding us
-      if(cart.stuckT>1.2&&(cart.stuckShoves||0)<2){
-        cart.stuckT=0;cart.stuckShoves=(cart.stuckShoves||0)+1;
-        let pushX=0,pushZ=0,found=false;
-        for(const o of obstNear(cart.x,cart.z)){
-          if(o.dead)continue;
-          const dx=cart.x-o.x,dz=cart.z-o.z,d=Math.hypot(dx,dz)||1;
-          if(d<o.r+2.6){pushX+=dx/d;pushZ+=dz/d;found=true;}
-        }
-        const re0=roadExact(cart.x,cart.z),sN0=SAMP[re0.i];
-        if(!found){pushX=sN0.p.x-cart.x;pushZ=sN0.p.z-cart.z;}
-        const L=Math.hypot(pushX,pushZ)||1;
-        cart.x+=pushX/L*2.4;cart.z+=pushZ/L*2.4;
-        cart.y=groundYAt(cart.x,cart.z).y+.06;cart.vy=0;
-        cart.heading=Math.atan2(pushX/L,pushZ/L);   // face the escape route
-        cart.v=4.0;
-        thunk();
-        toast('shoving free\u2026',900);
-      }
-
-      // stage 2 - two shoves and still pinned: free tow back to the trail
-      if((cart.stuckShoves||0)>=2&&cart.stuckT>1.4){
-        cart.stuckT=0;cart.stuckShoves=0;
-        const re=roadExact(cart.x,cart.z),sN=SAMP[re.i];
-        cart.x=sN.p.x;cart.z=sN.p.z;
-        cart.y=sN.p.y+.06;cart.vy=0;cart.v=0;
-        cart.heading=Math.atan2(sN.tan.x,sN.tan.z);
-        cart.crash=0;cart.crashRoll=0;cart.airT=0;
-        cart.stuckAnchor={x:cart.x,z:cart.z};
-        toast('TOWED BACK TO THE TRAIL',1800);
-      }
-    }
   }
 
   /* ---- obstacle collisions: trees, houses, rocks ---- */
@@ -7471,7 +7464,7 @@ function resetRun(){
   cart.x=st.p.x;cart.z=st.p.z;cart.y=st.p.y+.02;
   cart.heading=Math.atan2(st.tan.x,st.tan.z);
   cart.v=0;cart.vy=0;cart.airT=0;cart.steerV=0;
-  cart.hp=cartMaxHP();cart.crash=0;cart.crashRoll=0;cart.boom=0;cart.musky=0;cart.stuckT=0;cart.stuckShoves=0;cart.hitCD=0;cart.camY=null;cart.camLookY=null;
+  cart.hp=cartMaxHP();cart.crash=0;cart.crashRoll=0;cart.boom=0;cart.musky=0;cart.hitCD=0;cart.camY=null;cart.camLookY=null;
   cart.lap=1;cart.lapStart=0;cart.started=false;cart.lost=0;cart.lastZone=null;
   cart.lastNearT=0.003;cart.lapCheckpoint=0;
   if(muskyRig){muskyRig.visible=false;muskyRig.rotation.z=0;setMuskyFrame(0);}
