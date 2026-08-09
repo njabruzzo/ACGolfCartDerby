@@ -1407,7 +1407,11 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 /* A visible build id: the only reliable way to tell a real fix from a cached
    copy of the previous upload on GitHub Pages. */
 #acrBuildStamp{
-  position:fixed;right:8px;bottom:6px;z-index:99;
+  /* The sign-in gate, leaderboard and results panels are all fixed, opaque and
+     sit at z-index 6000+, so a stamp at 99 was buried under the very first
+     screen you see. It has to outrank every one of them or it cannot do its
+     job, which is telling you which build is actually loaded. */
+  position:fixed;right:8px;bottom:6px;z-index:99999;
   font:11px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;
   color:rgba(243,234,216,.55);background:rgba(10,18,12,.42);
   padding:3px 7px;border-radius:6px;pointer-events:none;
