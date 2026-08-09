@@ -39,7 +39,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-09g">
+<meta name="acr-build" content="2026-08-09i">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1429,6 +1429,18 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   -webkit-user-select:text;user-select:text;
 }
 </style>
+<style id="acr-gate-board-btn">
+/* Sign-in is the first thing anyone sees, so the board has to be reachable
+   from it — including for a driver who has not signed in yet. */
+#acrGateBoard{
+  margin-top:10px;width:100%;display:block;
+  font-size:12px;letter-spacing:.12em;
+}
+#acrGateBoard .lbicon{font-size:14px}
+</style>
+<style id="acr-sync-err">
+.acr-sync-err{color:#c0231a;font-weight:700}
+</style>
 </head>
 <body class="menuMode">
 <canvas id="c"></canvas>
@@ -1506,6 +1518,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 
       <button id="acrSubmit" type="button" class="acr-primary">&#9654; ENTER THE CANYON</button>
       <button id="acrGuest" type="button" class="acr-ghost">race as guest &mdash; no score saved</button>
+      <button id="acrGateBoard" type="button" class="acr-ghost2 gate-board">&#127942; CANYON RECORDS &mdash; view the leaderboard</button>
 
       <p class="acr-note" id="acrNote"></p>
     </div>
@@ -1565,7 +1578,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   </div>
 </div>
 
-<div id="acrBuildStamp">build 2026-08-09g</div>
+<div id="acrBuildStamp">build 2026-08-09i</div>
 <div id="title">
   <div class="sky-scene" aria-hidden="true">
     <span class="cloud c1"></span><span class="cloud c2"></span><span class="cloud c3"></span>
@@ -1746,7 +1759,12 @@ window.ACR_CONFIG = {
   var K_ACCT='acr_accounts_v1', K_SCORE='acr_scores_v1', K_SESS='acr_session_v1',
       K_TOK='acr_token_v1', K_PEND='acr_pending_v1';
   var RACE_LAPS=1;
-  var ACR_BUILD='2026-08-09g-board';   // bump me on every change; shown on the sign-in screen
+  var ACR_BUILD=(function(){
+    /* Read the stamp rather than keeping a second copy: these two drifted apart
+       and the diagnostic reported a different build from the one on screen. */
+    var el=document.querySelector('meta[name="acr-build"]');
+    return (el&&el.getAttribute('content'))||'unknown';
+  })();   // bump me on every change; shown on the sign-in screen
 
   /* ---------- storage helpers ---------- */
   function read(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
@@ -2314,6 +2332,9 @@ window.ACR_CONFIG = {
   function closeBoard(){
     board.classList.remove('show'); board.setAttribute('aria-hidden','true');
     boardCameFromResults=false;
+    /* Opened from the sign-in screen, BACK has to land back on sign-in rather
+       than dropping an unauthenticated driver onto the title. */
+    if(gate&&!CURRENT)gate.classList.add('show');
   }
 
   /* ---------- results ---------- */
@@ -2352,7 +2373,11 @@ window.ACR_CONFIG = {
       },function(err){
         var msg=String(err||'');
         queueRun(run);
-        $('acrResultRank').textContent='Saved on this device — shared sync will retry next sign-in.';
+        /* Show WHY. "Saved on this device" hid a hard database rejection for
+           days: every upload was failing a check constraint and nothing on
+           screen ever said so. */
+        $('acrResultRank').textContent='Saved on this device — shared upload REJECTED: '+msg.slice(0,180);
+        $('acrResultRank').className='acr-sync-err';
         console.error('[ACR] shared run sync failed:',msg,run);
       });
     },function(err){
@@ -2454,6 +2479,7 @@ window.ACR_CONFIG = {
       },function(e){ setBusy(false); setErr(String(e)); });
     });
 
+    $('acrGateBoard').addEventListener('click',function(){ openBoard('time',false); });
     $('acrGuest').addEventListener('click',function(){
       if(busy)return;
       setUser({id:'guest',screen:'GUEST',guest:true}); closeGate(); clearFields();
