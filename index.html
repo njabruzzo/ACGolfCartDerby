@@ -653,32 +653,53 @@
      the cart read as a floating dash. Fit the whole plate instead, pinned to the
      bottom, and let the world show through the open sides.
      ========================================================================== */
+  /* ==========================================================================
+     COCKPIT FRAMING
+     Landscape: fit the whole plate by height and pin it to the bottom, so the
+     canopy and both pillars stay on screen and the world shows past the open
+     sides. Portrait: stretch the plate to the full window so the roof sits on
+     the top edge and the pillars grow to reach it.
+     ========================================================================== */
   #cockpitArt{
     left:50%; bottom:0; transform:translateX(-50%);
     width:auto; height:auto;
-    max-width:none;                 /* allow it to be as wide as it needs */
-    min-width:100%;                 /* never narrower than the viewport */
-    max-height:82%;                 /* canopy + pillars stay on screen */
+    max-width:none;
+    min-width:100%;
+    max-height:82%;
     object-fit:contain;
     object-position:center bottom;
   }
-  /* Wide desktop: scale by height so the roof is always visible, and the
-     narrower plate leaves the outside world visible either side of the cart. */
+  /* Wide screens: scale by height so the roof is always visible and the
+     narrower plate leaves the outside world open either side of the cart. */
   @media (min-aspect-ratio:16/10){
     #cockpitArt{
       width:auto; min-width:0;
-      height:78%;
-      max-width:132vh;              /* keeps the sides open on ultrawide */
+      height:80%;
+      max-width:132vh;
     }
   }
   @media (min-aspect-ratio:21/9){
-    #cockpitArt{height:74%; max-width:124vh}
+    #cockpitArt{height:76%; max-width:124vh}
   }
-  /* Phones in portrait: the plate is tall relative to the screen, so fill the
-     width and keep the dash readable rather than shrinking it to fit the roof. */
+
+  /* ---- PORTRAIT: roof on the top edge, pillars stretched to meet it ----
+     The plate is a single image, so filling the window vertically is what
+     lengthens the pillars; the roof lands on the top edge and the dash stays
+     seated on the bottom. object-fit:fill is deliberate here - `contain` would
+     leave the roof floating mid-screen and `cover` crops it away entirely. */
   @media (max-aspect-ratio:1/1){
-    #cockpitArt{width:100%; min-width:100%; height:auto; max-height:62%;
-      object-fit:cover; object-position:center bottom}
+    #cockpitArt{
+      left:0; transform:none;
+      width:100%; min-width:0; max-width:none;
+      height:100%; max-height:100%;
+      top:0; bottom:0;
+      object-fit:fill;
+      object-position:center center;
+    }
+  }
+  /* very tall phones stretch a lot, so ease the dash back down a touch */
+  @media (max-aspect-ratio:9/16){
+    #cockpitArt{height:100%}
   }
 
   /* new cart liveries */
@@ -1389,7 +1410,6 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 <div id="toast"></div>
 <div id="flash"></div>
 <div id="toggles">
-  <button id="crt" class="on" title="arcade filter">📺</button>
   <button id="radio" title="radio">📻</button>
   <button id="drunk" title="drunk mode">🍺</button>
   <button id="horn" title="horn">📯</button>
@@ -2668,6 +2688,9 @@ const camera=new THREE.PerspectiveCamera(72,1,0.1,1800);
    Geometry stays rock-solid float -- no PS1 vertex snapping. ============== */
 /* phones default to widescreen fill -- a 4:3 window on a 19.5:9 panel wastes
    most of the glass. V (or the \u2b1c button) switches back to the cabinet. */
+/* The arcade filter is always on and always fills the screen. The 4:3 cabinet
+   mode letterboxed the view, which is what put black bars at the top of the
+   picture, so it is gone along with its toggle button. */
 const ARCADE={on:true,wide:true,W:496,H:384};
 const lowRT=new THREE.WebGLRenderTarget(ARCADE.W,ARCADE.H,{
   minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,
@@ -2734,17 +2757,15 @@ crtQuad.frustumCulled=false;crtScene.add(crtQuad);
 
 let vpX=0,vpY=0,vpW=1,vpH=1;
 function crtViewport(){
-  if(!ARCADE.on||ARCADE.wide){vpX=0;vpY=0;vpW=innerWidth;vpH=innerHeight;return;}
-  const ar=ARCADE.W/ARCADE.H;
-  if(innerWidth/innerHeight>ar){vpH=innerHeight;vpW=Math.round(vpH*ar);}
-  else {vpW=innerWidth;vpH=Math.round(vpW/ar);}
-  vpX=Math.round((innerWidth-vpW)/2);vpY=Math.round((innerHeight-vpH)/2);
+  /* Always full-bleed: the picture covers every pixel of the window, top edge
+     included. No pillar/letterboxing, so no black band anywhere. */
+  vpX=0;vpY=0;vpW=innerWidth;vpH=innerHeight;
 }
 function resize(){
   renderer.setSize(innerWidth,innerHeight);
   if(ARCADE.on){
     ARCADE.H=384;
-    ARCADE.W=ARCADE.wide?Math.max(64,Math.round(384*innerWidth/innerHeight/2)*2):496;
+    ARCADE.W=Math.max(64,Math.round(384*innerWidth/innerHeight/2)*2);
     lowRT.setSize(ARCADE.W,ARCADE.H);
     crtMat.uniforms.uRes.value.set(ARCADE.W,ARCADE.H);
     camera.aspect=ARCADE.W/ARCADE.H;
@@ -4645,8 +4666,7 @@ function acrTypingTarget(e){
 addEventListener('keydown',e=>{if(acrTypingTarget(e))return;const k=keymap[e.code];if(k){input[k]=1;e.preventDefault();}
   if(e.code==='KeyR')radioCycle();if(e.code==='KeyH')honk();
   if(e.code==='KeyF')crtSet(!ARCADE.on);
-  if(e.code==='KeyV'){ARCADE.wide=!ARCADE.wide;resize();
-    toast(ARCADE.wide?'WIDESCREEN':'4:3 CABINET');}});
+  });
 addEventListener('keyup',e=>{if(acrTypingTarget(e))return;const k=keymap[e.code];if(k)input[k]=0;});
 function bindHold(id,key){
   const el=document.getElementById(id);
@@ -4682,9 +4702,14 @@ function recoverCartToTrail(){
 }
 const recoverEl=document.getElementById('recover');
 if(recoverEl)recoverEl.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();recoverCartToTrail();});
-function crtSet(v){ARCADE.on=v;
-  document.getElementById('crt').classList.toggle('on',v);resize();}
-document.getElementById('crt').addEventListener('click',e=>{e.stopPropagation();crtSet(!ARCADE.on);});
+function crtSet(v){
+  ARCADE.on=v;
+  const b=document.getElementById('crt');        // button removed; guard anyway
+  if(b)b.classList.toggle('on',v);
+  resize();
+}
+{ const b=document.getElementById('crt');
+  if(b)b.addEventListener('click',e=>{e.stopPropagation();crtSet(!ARCADE.on);}); }
 document.getElementById('radio').addEventListener('click',e=>{e.stopPropagation();radioCycle();});
 document.getElementById('horn').addEventListener('click',e=>{e.stopPropagation();honk();});
 document.getElementById('drunk').addEventListener('click',e=>{
