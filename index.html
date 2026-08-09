@@ -6511,9 +6511,14 @@ function tick(now){
      effectively trapped when stopped or facing the wrong way. Keep normal
      high-speed handling, but give the driver a tight arcade-style recovery
      turn at walking speed and while reversing. */
-  // Heading 0 points down +Z: LEFT must rotate toward -X (negative heading)
-  // and RIGHT toward +X (positive heading). Keep this shared for every cart.
-  let steerIn=(input.left-input.right);
+  /* STEERING SIGN — corrected 2026-08-09.
+     The camera looks along f=(sin h,0,cos h) with up=+Y, so its screen-right
+     vector is cross(f,up)=(-cos h,0,sin h) and df/dh = -that. INCREASING the
+     heading therefore swings the view to the LEFT, and a RIGHT turn requires
+     the heading to DECREASE. yawRate is -steerV*authority, so steerV must be
+     POSITIVE when the driver asks for right. The previous line had it the
+     other way round, which is why the buttons drove the cart backwards. */
+  let steerIn=(input.right-input.left);
   if(DRUNK){cart.wander=vnoise(clockT*.35,7.3)*2-1;steerIn+=cart.wander*1.15;}
   const speedAbs=Math.abs(cart.v);
   cart.steerV+=(steerIn-cart.steerV)*(1-Math.exp(-dt*(DRUNK?2.1:(MOBILE?9.5:7.8))));
@@ -7035,7 +7040,7 @@ function tick(now){
   if(wheel)wheel.rotation.z=-cart.steerV*1.6;
   if(steerHudWheel){
     const hudCfg=(typeof COCKPIT_HUD!=='undefined'?(COCKPIT_HUD[ACTIVE_CART.key]||COCKPIT_HUD.default):{rotate:88});
-    const ang=-cart.steerV*(hudCfg.rotate||88);
+    const ang=cart.steerV*(hudCfg.rotate||88);   // +deg = clockwise = right turn
     steerHudWheel.style.transform=`translate(-50%,-50%) rotate(${ang}deg)`;
   }
 
@@ -8778,5 +8783,167 @@ body.menuMode #cockpitRoof,
 body.menuMode #cockpitPoles,
 body.menuMode #cockpitFascia{display:none !important}
 </style>
+
+<style id="acr-portrait-cabin-20260809">
+/* ==========================================================================
+   PORTRAIT COCKPIT — real painted roof on the top edge, real poles connecting
+
+   Every cockpit plate (img_009..img_016) is one transparent 3:2 image holding
+   three stacked parts: the canopy roof, two support poles over open air, and
+   the dash. `contain` parks the whole thing mid-screen on a tall phone (roof
+   floating); `fill` stretches the dash into a smear; `cover` throws the roof
+   away. None of those is the cabin the player should see.
+
+   So the plate is drawn as three slices instead, in JS (acrCabinLayout):
+     - roof slice  : image rows [0 .. roof]      natural aspect, pinned to top
+     - pole slice  : image rows [roof .. mid]    stretched to bridge the gap
+     - dash slice  : image rows [mid .. 1]       natural aspect, pinned to bottom
+   Only the pole band stretches, and poles are near-vertical, so the stretch is
+   invisible while the roof lands hard on the top edge and the poles meet the
+   dash. The dash slice is the existing #cockpitStage clipped from the top,
+   which keeps the steering-wheel overlay in its original plate coordinates.
+   ========================================================================== */
+#acrCabinRoof,#acrCabinPoles{
+  position:absolute;left:0;display:none;overflow:hidden;
+  pointer-events:none;z-index:4;
+}
+#acrCabinRoof img,#acrCabinPoles img{
+  position:absolute;left:0;display:block;max-width:none;max-height:none;
+  object-fit:fill;pointer-events:none;
+}
+/* the old flat CSS roof/pole bars are replaced by the painted art above */
+#cockpitRoof,#cockpitPoles,#cockpitFascia{display:none!important}
+body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
+</style>
+<script>
+(function(){
+  /* Slice fractions measured off each supplied plate's alpha channel: `roof` is
+     just under the canopy, `mid` is just above the dash/windshield, so the band
+     between them is poles and open air only. */
+  var CABIN={
+    'default'  :{roof:0.160,mid:0.600,scale:1.25},
+    'abruzzo'  :{roof:0.155,mid:0.630,scale:1.28},
+    'scotty'   :{roof:0.200,mid:0.430,scale:1.30},
+    'franny'   :{roof:0.180,mid:0.460,scale:1.37},
+    'antman'   :{roof:0.160,mid:0.600,scale:1.32},
+    'francesca':{roof:0.130,mid:0.550,scale:1.40},
+    'izzy'     :{roof:0.210,mid:0.420,scale:1.45},
+    'juliano'  :{roof:0.190,mid:0.600,scale:1.42},
+    'musubi'   :{roof:0.120,mid:0.620,scale:1.24}
+  };
+  var PLATE_AR=1.5;                 // every plate is 1536x1024
+  /* Drawn at exactly screen width the cabin reads small on a tall phone, so the
+     plate is blown up and centred. Each cart's `scale` is the largest value
+     that still leaves both support poles at least 2% of the screen width in
+     from the edge, measured off that cart's own art. */
+  var roofWrap,roofImg,poleWrap,poleImg,lastSrc='';
+  var STAGE_PROPS=['left','right','top','bottom','width','height','transform','clip-path','-webkit-clip-path','overflow'];
+  var ART_PROPS=['position','left','right','top','bottom','width','height','min-width','max-width','max-height','transform','object-fit','object-position','margin'];
+
+  function build(){
+    if(roofWrap)return;
+    roofWrap=document.createElement('div');roofWrap.id='acrCabinRoof';
+    roofImg=document.createElement('img');roofImg.alt='';roofImg.setAttribute('aria-hidden','true');
+    roofWrap.appendChild(roofImg);
+    poleWrap=document.createElement('div');poleWrap.id='acrCabinPoles';
+    poleImg=document.createElement('img');poleImg.alt='';poleImg.setAttribute('aria-hidden','true');
+    poleWrap.appendChild(poleImg);
+    document.body.appendChild(poleWrap);
+    document.body.appendChild(roofWrap);
+  }
+  function imp(el,k,v){el.style.setProperty(k,v,'important');}
+  function clr(el,list){for(var i=0;i<list.length;i++)el.style.removeProperty(list[i]);}
+
+  function layout(){
+    var stage=document.getElementById('cockpitStage');
+    var art=document.getElementById('cockpitArt');
+    if(!stage||!art)return;
+    build();
+    var W=document.documentElement.clientWidth||window.innerWidth;
+    var H=document.documentElement.clientHeight||window.innerHeight;
+    var src=art.getAttribute('src')||'';
+    var cfg=CABIN[stage.dataset.cart]||CABIN['default'];
+    var plateW=W*(cfg.scale||1.25);
+    var plateH=plateW/PLATE_AR;
+    var offX=-(plateW-W)/2;           // keep the widened plate centred
+    var roofH=plateH*cfg.roof;
+    var gap=H-plateH*(1-cfg.mid)-roofH;   // free height between roof and dash
+
+    /* landscape, no art yet, or a viewport too short to need the extension:
+       hand the layout straight back to the stylesheet. */
+    if(H<=W||!src||gap<24){
+      roofWrap.style.display='none';poleWrap.style.display='none';
+      clr(stage,STAGE_PROPS);clr(art,ART_PROPS);
+      return;
+    }
+
+    /* dash slice: the plate at its true 3:2, sat on the bottom edge, with the
+       roof + pole rows clipped away because they are redrawn above. */
+    imp(stage,'left',offX+'px');imp(stage,'right','auto');imp(stage,'top','auto');
+    imp(stage,'bottom','0px');imp(stage,'width',plateW+'px');imp(stage,'height',plateH+'px');
+    imp(stage,'transform','none');imp(stage,'overflow','visible');
+    var clip='inset('+(cfg.mid*100).toFixed(3)+'% 0 0 0)';
+    imp(stage,'clip-path',clip);imp(stage,'-webkit-clip-path',clip);
+    imp(art,'position','absolute');imp(art,'left','0px');imp(art,'right','auto');
+    imp(art,'top','0px');imp(art,'bottom','auto');
+    imp(art,'width',plateW+'px');imp(art,'height',plateH+'px');
+    imp(art,'min-width','0');imp(art,'max-width','none');imp(art,'max-height','none');
+    imp(art,'transform','none');imp(art,'margin','0');
+    imp(art,'object-fit','fill');imp(art,'object-position','center center');
+
+    if(src!==lastSrc){roofImg.src=src;poleImg.src=src;lastSrc=src;}
+
+    /* roof slice: hard against the top edge, undistorted. */
+    roofWrap.style.display='block';
+    roofWrap.style.top='0px';
+    roofWrap.style.left=offX+'px';
+    roofWrap.style.width=plateW+'px';
+    roofWrap.style.height=roofH+'px';
+    roofImg.style.width=plateW+'px';
+    roofImg.style.height=plateH+'px';
+    roofImg.style.top='0px';
+
+    /* pole slice: the only stretched band, bridging roof to dash. */
+    var span=cfg.mid-cfg.roof;
+    var poleH=gap/span;
+    poleWrap.style.display='block';
+    poleWrap.style.top=roofH+'px';
+    poleWrap.style.left=offX+'px';
+    poleWrap.style.width=plateW+'px';
+    poleWrap.style.height=gap+'px';
+    poleImg.style.width=plateW+'px';
+    poleImg.style.height=poleH+'px';
+    poleImg.style.top=(-cfg.roof*poleH)+'px';
+  }
+
+  var pending=false;
+  function schedule(){
+    if(pending)return;pending=true;
+    requestAnimationFrame(function(){pending=false;try{layout();}catch(e){console.warn('[ACR] cabin:',e);}});
+  }
+  window.acrCabinLayout=schedule;
+
+  function start(){
+    schedule();
+    addEventListener('resize',schedule);
+    addEventListener('orientationchange',function(){setTimeout(schedule,120);setTimeout(schedule,420);});
+    if(window.visualViewport)visualViewport.addEventListener('resize',schedule);
+    var stage=document.getElementById('cockpitStage');
+    var art=document.getElementById('cockpitArt');
+    /* the cart can change between runs: watch the plate src and the stage's
+       cart key so the slices follow whichever cockpit is on screen. */
+    if(window.MutationObserver){
+      /* watch `src` only: layout() writes inline styles on the art itself, so
+         observing `style` here would re-trigger this every single frame. */
+      if(art)new MutationObserver(schedule).observe(art,{attributes:true,attributeFilter:['src']});
+      if(stage)new MutationObserver(schedule).observe(stage,{attributes:true,attributeFilter:['data-cart']});
+      new MutationObserver(schedule).observe(document.body,{attributes:true,attributeFilter:['class']});
+    }
+    setInterval(schedule,900);   // cheap safety net for mobile chrome resizes
+  }
+  if(document.readyState==='loading')addEventListener('DOMContentLoaded',start);
+  else start();
+})();
+</script>
 </body>
 </html>
