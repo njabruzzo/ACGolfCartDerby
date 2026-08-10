@@ -2954,6 +2954,28 @@ function sampAt(t){
     right:new THREE.Vector3().lerpVectors(A.right,B.right,u).normalize()
   };
 }
+
+/* The painted checker strip is the authoritative finish line.  Track-nearest
+   progress can wrap from .99 to .00 a little before or after that mesh on a
+   curved spline, so relying on the wrap alone occasionally let a cart drive
+   across the visible line without ending the race.  Test the cart's actual
+   movement segment against the finite ground-line plane instead. */
+const FINISH_FRAME=sampAt(0);
+const FINISH_TAN=new THREE.Vector3(FINISH_FRAME.tan.x,0,FINISH_FRAME.tan.z).normalize();
+const FINISH_RIGHT=new THREE.Vector3(FINISH_FRAME.right.x,0,FINISH_FRAME.right.z).normalize();
+function crossedCheckeredGroundForward(x0,z0,x1,z1){
+  const aX=x0-FINISH_FRAME.p.x,aZ=z0-FINISH_FRAME.p.z;
+  const bX=x1-FINISH_FRAME.p.x,bZ=z1-FINISH_FRAME.p.z;
+  const side0=aX*FINISH_TAN.x+aZ*FINISH_TAN.z;
+  const side1=bX*FINISH_TAN.x+bZ*FINISH_TAN.z;
+  const moveForward=(x1-x0)*FINISH_TAN.x+(z1-z0)*FINISH_TAN.z;
+  if(moveForward<=.0005||side0>0||side1<=0)return false;
+  const u=clamp(-side0/(side1-side0||1),0,1);
+  const crossX=x0+(x1-x0)*u-FINISH_FRAME.p.x;
+  const crossZ=z0+(z1-z0)*u-FINISH_FRAME.p.z;
+  const lateral=crossX*FINISH_RIGHT.x+crossZ*FINISH_RIGHT.z;
+  return Math.abs(lateral)<=ROAD_W+.45;
+}
 function tOfCP(i){ // exact loop fraction of a control point
   let bd=1e9,bt=0;
   for(let k=0;k<NS;k++){
@@ -7915,17 +7937,25 @@ function tick(now){
      and being mistaken for a completed lap. */
   const rn2=roadExact(cart.x,cart.z);
   const nearT=rn2.t;
-  if(cart.started&&rn2.d<24){
+  const crossedCheckeredGround=cart.started&&
+    crossedCheckeredGroundForward(px,pz,cart.x,cart.z);
+  if(cart.started&&(rn2.d<24||crossedCheckeredGround)){
     const nearSample=roadFrame(rn2);
     const moveX=cart.x-px, moveZ=cart.z-pz;
     const forwardProgress=!!nearSample && (moveX*nearSample.tan.x+moveZ*nearSample.tan.z)>.0005;
     const checkpoints=[.25,.50,.75];
     const cp=checkpoints[cart.lapCheckpoint];
-    if(forwardProgress&&cp!==undefined&&cart.lastNearT<cp&&nearT>=cp){
+    /* A short forward checkpoint window also recovers a gate when the cart
+       briefly left the trail or the nearest-road solution jumped across the
+       exact fraction.  Gates must still be collected in order. */
+    const inCheckpointWindow=cp!==undefined&&nearT>=cp&&nearT<cp+.035;
+    if(forwardProgress&&cp!==undefined&&
+       ((cart.lastNearT<cp&&nearT>=cp)||inCheckpointWindow)){
       cart.lapCheckpoint++;
     }
 
-    const crossedFinishForward=forwardProgress&&cart.lastNearT>.90&&nearT<.10;
+    const crossedFinishForward=crossedCheckeredGround||
+      (forwardProgress&&cart.lastNearT>.90&&nearT<.10);
     if(cart.lapCheckpoint>=checkpoints.length&&crossedFinishForward){
       const lapTime=clockT-cart.lapStart;
       cart.lapStart=clockT;cart.lap++;
