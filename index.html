@@ -44,7 +44,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-10d">
+<meta name="acr-build" content="2026-08-10g">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -660,6 +660,16 @@
   .cart-card[data-accent="panda"]  .meter i{background:#b3441f}
   .cart-card[data-accent="panda"].selected{box-shadow:0 16px 34px rgba(16,22,34,.3),0 0 0 3px #b3441f}
   .cart-card[data-accent="panda"]  .pick-ribbon{background:#b3441f}
+  /* casino red + gold */
+  .cart-card[data-accent="casino"]  .fixed-cart-head{background:#a5231b; border-bottom:3px solid #d8b45c}
+  .cart-card[data-accent="casino"]  .meter i{background:#a5231b}
+  .cart-card[data-accent="casino"].selected{box-shadow:0 16px 34px rgba(16,22,34,.3),0 0 0 3px #a5231b}
+  .cart-card[data-accent="casino"]  .pick-ribbon{background:#a5231b}
+  /* brushed platinum */
+  .cart-card[data-accent="platinum"]  .fixed-cart-head{background:#4a4f55; border-bottom:3px solid #c9ced4}
+  .cart-card[data-accent="platinum"]  .meter i{background:#6b7078}
+  .cart-card[data-accent="platinum"].selected{box-shadow:0 16px 34px rgba(16,22,34,.3),0 0 0 3px #6b7078}
+  .cart-card[data-accent="platinum"]  .pick-ribbon{background:#4a4f55}
 
   /* ==========================================================================
      COCKPIT FRAMING — on a wide screen the painted interior was cropped by
@@ -1652,6 +1662,17 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
       <div class="stat fixed-stat"><span>BRAKING</span><b>10/10</b><div class="meter"><i style="--v:100%"></i></div></div>
     </div>
   </button>
+      <button class="cart-card" data-cart="anthony" data-accent="casino" type="button"><span class="pick-ribbon">SELECTED</span>
+    <div class="fixed-cart-head"><div><h3>Anthony's Cruiser</h3><div class="cart-desc">CASINO LUXURY &middot; SLEEK &amp; SMOOTH</div></div><span class="seat-badge">6 SEATS</span></div>
+    <div class="cart-art-frame"><img class="cart-art" src="assets/img_049.webp" alt="Anthony's Cruiser" loading="lazy" decoding="async"><span class="art-fade"></span></div>
+    <div class="stats fixed-stats">
+      <div class="stat fixed-stat"><span>SPEED</span><b>5/10</b><div class="meter"><i style="--v:50%"></i></div></div>
+      <div class="stat fixed-stat"><span>HANDLING</span><b>8/10</b><div class="meter"><i style="--v:80%"></i></div></div>
+      <div class="stat fixed-stat"><span>ACCELERATION</span><b>7/10</b><div class="meter"><i style="--v:70%"></i></div></div>
+      <div class="stat fixed-stat"><span>DEFENSE</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
+      <div class="stat fixed-stat"><span>BRAKING</span><b>9/10</b><div class="meter"><i style="--v:90%"></i></div></div>
+    </div>
+  </button>
   <button class="cart-card" data-cart="antman" data-accent="ink" type="button"><span class="pick-ribbon">SELECTED</span>
     <div class="fixed-cart-head"><div><h3>Antman's Express</h3><div class="cart-desc">BLACK LOW RIDER</div></div><span class="seat-badge">4 SEATS</span></div>
     <div class="cart-art-frame"><img class="cart-art" src="assets/img_004.webp" alt="Antman's Express" loading="lazy" decoding="async"><span class="art-fade"></span></div>
@@ -1705,6 +1726,17 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
       <div class="stat fixed-stat"><span>ACCELERATION</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
       <div class="stat fixed-stat"><span>DEFENSE</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
       <div class="stat fixed-stat"><span>BRAKING</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
+    </div>
+  </button>
+      <button class="cart-card" data-cart="ry" data-accent="platinum" type="button"><span class="pick-ribbon">SELECTED</span>
+    <div class="fixed-cart-head"><div><h3>Ry's Ceo Stylin</h3><div class="cart-desc">ULTRALUXURY &middot; QUIET &amp; REFINED</div></div><span class="seat-badge">6 SEATS</span></div>
+    <div class="cart-art-frame"><img class="cart-art" src="assets/img_051.webp" alt="Ry's Ceo Stylin" loading="lazy" decoding="async"><span class="art-fade"></span></div>
+    <div class="stats fixed-stats">
+      <div class="stat fixed-stat"><span>SPEED</span><b>5/10</b><div class="meter"><i style="--v:50%"></i></div></div>
+      <div class="stat fixed-stat"><span>HANDLING</span><b>10/10</b><div class="meter"><i style="--v:100%"></i></div></div>
+      <div class="stat fixed-stat"><span>ACCELERATION</span><b>5/10</b><div class="meter"><i style="--v:50%"></i></div></div>
+      <div class="stat fixed-stat"><span>DEFENSE</span><b>10/10</b><div class="meter"><i style="--v:100%"></i></div></div>
+      <div class="stat fixed-stat"><span>BRAKING</span><b>10/10</b><div class="meter"><i style="--v:100%"></i></div></div>
     </div>
   </button>
 
@@ -2683,7 +2715,16 @@ const DERBY_CARTS={
      better than anything except the Scotty T. Her dash starts empty: every
      critter she saves rides home on the tray (see CART_HIT_REWARDS). */
   claire:{key:'claire',name:"CLAIRE'S PANDA",speed:5,handling:8,accel:7,brakes:9,armor:6,air:1.24,color:0xb3441f,
-    passengerMode:'animal',laugh:false,fuzzyDice:false}
+    passengerMode:'animal',laugh:false,fuzzyDice:false},
+  /* Anthony's Cruiser — the casino barge. Same shape as Claire: modest top end,
+     strong brakes, turns well, thin armour for something this big. */
+  anthony:{key:'anthony',name:"ANTHONY'S CRUISER",speed:5,handling:8,accel:7,brakes:9,armor:6,air:1.22,color:0x14161a,
+    passengerMode:'default',laugh:false,fuzzyDice:false},
+  /* Ry's Ceo Stylin — perfect handling, braking and armour, and it is slow.
+     Nothing else on the grid maxes three stats, so the speed and acceleration
+     have to stay where the card says or it is simply the best cart. */
+  ry:{key:'ry',name:"RY'S CEO STYLIN",speed:5,handling:10,accel:5,brakes:10,armor:10,air:1.10,color:0x9aa1a8,
+    passengerMode:'default',laugh:false,fuzzyDice:false}
 };
 /* Livery used by the interface: main body colour + trim accent, matched to the
    painted cart art so the menus and HUD read as the same vehicle. */
@@ -2696,7 +2737,9 @@ const CART_UI={
   izzy     :{main:'#d97c22',trim:'#fdf3e6',ink:'#ffffff'}, // calico orange, cream trim
   juliano  :{main:'#555a60',trim:'#d3d6d8',ink:'#ffffff'}, // brushed silver, charcoal trim
   musubi   :{main:'#c72a1f',trim:'#f2d2ca',ink:'#ffffff'}, // musubi red, rice-cream trim
-  claire   :{main:'#b3441f',trim:'#f0dcc8',ink:'#ffffff'}  // red-panda rust, cream mask trim
+  claire   :{main:'#b3441f',trim:'#f0dcc8',ink:'#ffffff'}, // red-panda rust, cream mask trim
+  anthony  :{main:'#a5231b',trim:'#d8b45c',ink:'#ffffff'}, // casino red, table-felt gold
+  ry       :{main:'#6b7078',trim:'#d7dbe0',ink:'#ffffff'}  // brushed platinum
 };
 let SELECTED_CART_KEY='abruzzo';
 let ACTIVE_CART=DERBY_CARTS[SELECTED_CART_KEY];
@@ -4661,7 +4704,16 @@ const CART_HIT_REWARDS={
   /* Claire collects her pandas one animal at a time. The tray is a wide flat
      shelf, so they line up three across and stack backwards up the dash. */
   claire:{src:"assets/img_047.png",x:'71.5%',y:'78.5%',w:'15.0%',rot:'0deg',
-          cols:12,dx:3.7,dy:0,scale:.74,toast:'RED PANDA'}
+          cols:12,dx:3.7,dy:0,scale:.74,toast:'RED PANDA'},
+  /* Both luxury carts have a wide flat shelf across the right of the dash, so
+     the winnings line up along it exactly the way Claire's pandas do. */
+  /* Scales differ because the two photos do: the chip stack is tall and narrow,
+     the cash brick is wide and flat. Both are sized to sit inside the dash
+     shelf rather than to a shared number. */
+  anthony:{src:"assets/img_054.png",x:'71.5%',y:'80.2%',w:'15.0%',rot:'0deg',
+           cols:12,dx:3.7,dy:0,scale:.62,toast:'POKER CHIPS'},
+  ry:{src:"assets/img_053.png",x:'71.5%',y:'79.8%',w:'15.0%',rot:'0deg',
+      cols:12,dx:3.7,dy:0,scale:1.05,toast:'STACK OF CASH'}
 };
 function clearDashRewards(){
   dashRewardCount=0;
@@ -4807,7 +4859,9 @@ const COCKPIT_VIEW={
   izzy    :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.04) contrast(1.03) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
   juliano :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.02) contrast(1.04) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
   musubi  :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.06) contrast(1.04) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
-  claire  :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.05) contrast(1.03) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'}
+  claire  :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.05) contrast(1.03) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
+  anthony :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.04) contrast(1.05) brightness(1.02)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
+  ry      :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.02) contrast(1.04) brightness(1.02)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'}
 };
 
 function applyCockpitView(art){
@@ -4827,7 +4881,9 @@ const COCKPIT_FASCIA={
   izzy    :{h:'16%',bg:'linear-gradient(180deg,#d89134 0%,#bf6d1d 24%,#7f4a16 46%,#18120e 100%)',top:'linear-gradient(180deg,#f8efe2 0%,rgba(248,239,226,.34) 100%)',accentW:'18%',accentH:'30%',accentBg:'linear-gradient(180deg,#fff0d9 0%,#dcb28c 100%)'},
   juliano :{h:'23%',bg:'radial-gradient(120% 110% at 50% -6%,#9aa1a8 0%,#6e757d 22%,#383f46 42%,#181d23 74%,#0f1318 100%)',top:'linear-gradient(180deg,#14181d 0%,#323940 100%)',accentW:'54%',accentH:'40%',accentBg:'linear-gradient(180deg,#1a1f25 0%,#090b0e 100%)',shadow:'inset 0 1px 0 rgba(255,255,255,.22), inset 0 26px 44px rgba(233,214,184,.16), 0 -12px 26px rgba(0,0,0,.30)'},
   musubi  :{h:'18%',bg:'linear-gradient(180deg,#f5efe6 0%,#ede3d4 26%,#ddd0bf 52%,#c8b59d 72%,#15110d 100%)',top:'linear-gradient(180deg,#cf4735 0%,#9f2318 100%)',accentW:'16%',accentH:'58%',accentBg:'linear-gradient(180deg,#20251f 0%,#0b0d0b 100%)',shadow:'inset 0 1px 0 rgba(255,255,255,.22),0 -12px 24px rgba(0,0,0,.22)'},
-  claire  :{h:'17%',bg:'linear-gradient(180deg,#c2551f 0%,#93381a 26%,#4a2114 58%,#150f0b 100%)',top:'linear-gradient(180deg,#f4e2cc 0%,rgba(244,226,204,.38) 100%)',accentW:'20%',accentH:'32%',accentBg:'linear-gradient(180deg,#e8c489 0%,#a97a35 100%)'}
+  claire  :{h:'17%',bg:'linear-gradient(180deg,#c2551f 0%,#93381a 26%,#4a2114 58%,#150f0b 100%)',top:'linear-gradient(180deg,#f4e2cc 0%,rgba(244,226,204,.38) 100%)',accentW:'20%',accentH:'32%',accentBg:'linear-gradient(180deg,#e8c489 0%,#a97a35 100%)'},
+  anthony :{h:'17%',bg:'linear-gradient(180deg,#26282d 0%,#15171b 30%,#0a0b0d 100%)',top:'linear-gradient(180deg,#e0be6b 0%,rgba(224,190,107,.30) 100%)',accentW:'22%',accentH:'30%',accentBg:'linear-gradient(180deg,#e6c473 0%,#9d7a2c 100%)'},
+  ry      :{h:'17%',bg:'linear-gradient(180deg,#9aa1a8 0%,#6d747c 28%,#33383d 62%,#14161a 100%)',top:'linear-gradient(180deg,#e8ecef 0%,rgba(232,236,239,.34) 100%)',accentW:'22%',accentH:'30%',accentBg:'linear-gradient(180deg,#e9edf1 0%,#8d949b 100%)'}
 };
 
 const COCKPIT_FRAME={
@@ -4840,7 +4896,9 @@ const COCKPIT_FRAME={
   izzy    :{roofBg:'linear-gradient(180deg,#dd9737 0%,#bf6e1e 72%,#5f3510 100%)',poleBg:'linear-gradient(180deg,#fff0dc 0%,#c07d28 22%,#2a180a 100%)'},
   juliano :{roofTop:'164px',roofW:'86%',roofH:'34px',roofBg:'linear-gradient(180deg,#9aa1a8 0%,#71777f 72%,#30363d 100%)',roofUnder:'linear-gradient(180deg,rgba(233,214,184,.38),rgba(0,0,0,.12))',poleTop:'180px',poleBottom:'22%',poleLX:'28%',poleRX:'72%',poleW:'18px',poleBg:'linear-gradient(180deg,#959ba1 0%,#687079 25%,#262c33 100%)',poleLRot:'-4deg',poleRRot:'4deg'},
   musubi  :{roofBg:'linear-gradient(180deg,#d14938 0%,#b0281a 74%,#f0e7db 75%,#dbcbb6 100%)',roofUnder:'linear-gradient(180deg,rgba(24,28,24,.52),rgba(0,0,0,.10))',poleBg:'linear-gradient(180deg,#222822 0%,#121712 100%)'},
-  claire  :{roofBg:'linear-gradient(180deg,#c2551f 0%,#8e3617 72%,#3a1a0e 100%)',roofUnder:'linear-gradient(180deg,rgba(120,120,124,.55),rgba(0,0,0,.12))',poleBg:'linear-gradient(180deg,#e9dcc6 0%,#9b8a72 24%,#2a231a 100%)'}
+  claire  :{roofBg:'linear-gradient(180deg,#c2551f 0%,#8e3617 72%,#3a1a0e 100%)',roofUnder:'linear-gradient(180deg,rgba(120,120,124,.55),rgba(0,0,0,.12))',poleBg:'linear-gradient(180deg,#e9dcc6 0%,#9b8a72 24%,#2a231a 100%)'},
+  anthony :{roofBg:'linear-gradient(180deg,#1d1f24 0%,#0b0c0f 74%,#d8b45c 75%,#8d6f28 100%)',roofUnder:'linear-gradient(180deg,rgba(10,11,13,.60),rgba(0,0,0,.14))',poleBg:'linear-gradient(180deg,#2a2d33 0%,#0d0e11 100%)'},
+  ry      :{roofBg:'linear-gradient(180deg,#c3c9cf 0%,#8e959c 72%,#4a4f55 100%)',roofUnder:'linear-gradient(180deg,rgba(60,64,69,.52),rgba(0,0,0,.12))',poleBg:'linear-gradient(180deg,#eef1f4 0%,#a9b0b7 26%,#40454a 100%)'}
 };
 
 const COCKPIT_HUD={
@@ -4853,7 +4911,9 @@ const COCKPIT_HUD={
   izzy    :{x:'34.11%',y:'68.7%',size:'19.0%',rotate:88},
   juliano :{x:'30.15%',y:'78.0%',size:'19.0%',rotate:96},
   musubi  :{x:'29.17%',y:'82.6%',size:'20.0%',rotate:90},
-  claire  :{x:'27.90%',y:'81.80%',size:'20.5%',rotate:90}
+  claire  :{x:'27.90%',y:'81.80%',size:'20.5%',rotate:90},
+  anthony :{x:'28.50%',y:'83.80%',size:'19.5%',rotate:90},
+  ry      :{x:'28.50%',y:'83.80%',size:'19.5%',rotate:90}
 };
 
 function applyCockpitFrame(){
@@ -4955,6 +5015,8 @@ COCKPIT_ART["izzy"]='assets/img_014.webp';
 COCKPIT_ART["juliano"]='assets/img_015.webp';
 COCKPIT_ART["musubi"]='assets/img_016.webp';
 COCKPIT_ART["claire"]='assets/img_048.webp';
+COCKPIT_ART["anthony"]='assets/img_050.webp';
+COCKPIT_ART["ry"]='assets/img_052.webp';
 const UNIVERSAL_STEERING_WHEEL='assets/img_017.webp';
 /* ===== END USER SUPPLIED INTERIOR OVERRIDES ===== */
 /* FINAL HOTFIX 2026-08-07: Abruzzo/Franny supplied art refreshed, butterfly front ornaments removed, race-intro title lifted above countdown lights, Abruzzo wheel placement refined, and cockpit art rendering corrected. */
@@ -5023,7 +5085,7 @@ function applyCartStyle(){
     }
   }
   const label=document.getElementById('hplabel');
-  if(label)label.textContent=ACTIVE_CART.key==='abruzzo'?'ABRUZZO':ACTIVE_CART.key==='scotty'?'SCOTTY T':ACTIVE_CART.key==='franny'?'BUTTERFLY':ACTIVE_CART.key==='antman'?'ANTMAN':ACTIVE_CART.key==='francesca'?'BROOKLYN':ACTIVE_CART.key==='izzy'?'WEIRDO BABY':ACTIVE_CART.key==='juliano'?'EARTHROAMER':ACTIVE_CART.key==='musubi'?'MUSUBI':ACTIVE_CART.key==='claire'?'RED PANDA':'CART';
+  if(label)label.textContent=ACTIVE_CART.key==='abruzzo'?'ABRUZZO':ACTIVE_CART.key==='scotty'?'SCOTTY T':ACTIVE_CART.key==='franny'?'BUTTERFLY':ACTIVE_CART.key==='antman'?'ANTMAN':ACTIVE_CART.key==='francesca'?'BROOKLYN':ACTIVE_CART.key==='izzy'?'WEIRDO BABY':ACTIVE_CART.key==='juliano'?'EARTHROAMER':ACTIVE_CART.key==='musubi'?'MUSUBI':ACTIVE_CART.key==='claire'?'RED PANDA':ACTIVE_CART.key==='anthony'?'CRUISER':ACTIVE_CART.key==='ry'?'CEO':'CART';
 }
 
 applyCartStyle();
@@ -5580,7 +5642,8 @@ const dashRiders=new THREE.Group();camera.add(dashRiders);
 const RIDER_PERCH={
   abruzzo:{y:-.205,z:-.95}, scotty:{y:-.190,z:-.95}, franny:{y:-.235,z:-.97},
   antman:{y:-.215,z:-.95},  francesca:{y:-.215,z:-.95}, izzy:{y:-.215,z:-.95},
-  juliano:{y:-.190,z:-.90}, musubi:{y:-.215,z:-.95}, claire:{y:-.215,z:-.95}
+  juliano:{y:-.190,z:-.90}, musubi:{y:-.215,z:-.95}, claire:{y:-.215,z:-.95},
+  anthony:{y:-.205,z:-.95}, ry:{y:-.205,z:-.95}
 };
 function layoutPassengers(){
   PASSENGERS.forEach((P,i)=>{
@@ -8475,8 +8538,14 @@ body.menuMode #map,body.menuMode #tach{display:none!important}
 #cartselect .cart-card[data-cart="musubi"] .cart-art-frame{
   overflow:hidden!important;
 }
+#cartselect .cart-card[data-cart="anthony"],
+#cartselect .cart-card[data-cart="ry"],
 #cartselect .cart-card[data-cart="claire"]{height:auto!important;max-height:none!important}
+#cartselect .cart-card[data-cart="anthony"] .cart-art-frame,
+#cartselect .cart-card[data-cart="ry"] .cart-art-frame,
 #cartselect .cart-card[data-cart="claire"] .cart-art-frame{overflow:hidden!important}
+#cartselect .cart-card[data-cart="anthony"] .cart-art,
+#cartselect .cart-card[data-cart="ry"] .cart-art,
 #cartselect .cart-card[data-cart="claire"] .cart-art{
   width:100%!important;height:100%!important;
   object-fit:contain!important;object-position:center center!important;
@@ -9239,7 +9308,9 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
     'izzy'     :{roof:0.210,mid:0.420,scale:1.45},
     'juliano'  :{roof:0.190,mid:0.600,scale:1.42},
     'musubi'   :{roof:0.120,mid:0.620,scale:1.24},
-    'claire'   :{roof:0.210,mid:0.620,scale:1.28}
+    'claire'   :{roof:0.210,mid:0.620,scale:1.28},
+    'anthony'  :{roof:0.210,mid:0.670,scale:1.30},
+    'ry'       :{roof:0.210,mid:0.670,scale:1.30}
   };
   var PLATE_AR=1.5;                 // every plate is 1536x1024
   /* Drawn at exactly screen width the cabin reads small on a tall phone, so the
