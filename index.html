@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- PERMANENT BLUE SKY LOCK 2026-08-09: sky, fog horizon, sky dome, and post-processing output remain the same blue in every gameplay state. -->
 <!-- ORIGINAL CART INTERFACE ROLLBACK + START-LIGHT FIX 2026-08-09: removed the forced gameplay-interface override and made the countdown lights reliably auto-hide. -->
 <!-- HOUSE GROUNDING FIX 2026-08-09: terrain-footprint anchoring plus a small foundation sink prevents billboard houses from floating on uneven yards. -->
 <!-- SUPPLIED HOUSE ART UPDATE 2026-08-09: replaced procedural homes with transparent lakeside cabin, fishing lodge, stone cottage, and gingerbread witch-house sprites. -->
@@ -43,7 +44,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-09q">
+<meta name="acr-build" content="2026-08-09r">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -2954,7 +2955,8 @@ const crtMat=new THREE.ShaderMaterial({
     tDiffuse:{value:lowRT.texture},
     uRes:{value:new THREE.Vector2(ARCADE.W,ARCADE.H)},
     uCurve:{value:1.0},
-    uGold:{value:0.0}
+    uGold:{value:0.0},
+    uSky:{value:new THREE.Color(SKY)}
   },
   vertexShader:'varying vec2 vUv;\nvoid main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
   fragmentShader:[
@@ -2963,6 +2965,7 @@ const crtMat=new THREE.ShaderMaterial({
 'uniform vec2 uRes;',
 'uniform float uCurve;',
 'uniform float uGold;',
+'uniform vec3 uSky;',
 'varying vec2 vUv;',
 'float bayer2(vec2 a){a=floor(a);return fract(a.x/2.0+a.y*a.y*0.75);}',
 'vec2 curve(vec2 uv){',
@@ -2974,7 +2977,9 @@ const crtMat=new THREE.ShaderMaterial({
 'void main(){',
 '  vec2 uv=curve(vUv);',
 '  if(uv.x<0.0||uv.x>1.0||uv.y<0.0||uv.y>1.0){gl_FragColor=vec4(0.0,0.0,0.0,1.0);return;}',
-'  vec3 col=texture2D(tDiffuse,uv).rgb;',
+'  vec3 raw=texture2D(tDiffuse,uv).rgb;',
+'  float skyMask=1.0-smoothstep(0.025,0.085,distance(raw,uSky));',
+'  vec3 col=raw;',
 '#ifdef BLOOM',
 '  vec2 px=1.0/uRes;',
 '  vec3 nb=texture2D(tDiffuse,uv+vec2(px.x,0.0)).rgb;',
@@ -2999,7 +3004,9 @@ const crtMat=new THREE.ShaderMaterial({
 '    vec3 au=vec3(lum*1.55+0.10,lum*1.20+0.05,lum*0.40);',
 '    col=mix(col,au,uGold);',
 '  }',
-'  gl_FragColor=vec4(clamp(col*1.13,0.0,1.0),1.0);',
+'  col=clamp(col*1.13,0.0,1.0);',
+'  col=mix(col,uSky,skyMask);',
+'  gl_FragColor=vec4(col,1.0);',
 '}'].join('\n')
 });
 const crtQuad=new THREE.Mesh(new THREE.PlaneGeometry(2,2),crtMat);
@@ -3056,6 +3063,16 @@ sun.position.set(-300,380,200);scene.add(sun);
 const hemi=scene.children.find(o=>o.isHemisphereLight);
 const fillLight=new THREE.AmbientLight(0xdce7d6,.24);scene.add(fillLight);
 const SKY_C=new THREE.Color(SKY),DEEP_C=new THREE.Color(0x384b3e);
+let fixedSkyDome=null;
+function lockBlueSky(){
+  if(!scene.background||!scene.background.isColor)scene.background=SKY_C.clone();
+  else scene.background.copy(SKY_C);
+  if(scene.fog&&scene.fog.color)scene.fog.color.copy(SKY_C);
+  if(fixedSkyDome&&fixedSkyDome.material&&fixedSkyDome.material.color)
+    fixedSkyDome.material.color.copy(SKY_C);
+  if(crtMat&&crtMat.uniforms&&crtMat.uniforms.uSky)
+    crtMat.uniforms.uSky.value.copy(SKY_C);
+}
 const FOG_BASE={near:62,far:470},FOG_DEEP={near:30,far:215};
 let dimCur=0;
 
@@ -6755,6 +6772,7 @@ let last=performance.now(),clockT=0;
 let RUNNING=false;
 function tick(now){
   if(!RUNNING)return;
+  lockBlueSky();
   const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;clockT+=dt;
   sanitizeCartState();
   if(cart.musky<=0)ensureCartVisualIntegrity();
@@ -7638,9 +7656,10 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
     // Fixed solid-blue sky dome. Keeping one blue at every viewing angle prevents
     // hills, camera pitch, and horizon position from making the sky appear to change color.
     (function(){
-      const dome=new THREE.Mesh(new THREE.SphereGeometry(1400,18,12),
+      fixedSkyDome=new THREE.Mesh(new THREE.SphereGeometry(1400,18,12),
         new THREE.MeshBasicMaterial({color:SKY,side:THREE.BackSide,fog:false,depthWrite:false}));
-      dome.renderOrder=-1000;scene.add(dome);
+      fixedSkyDome.renderOrder=-1000;scene.add(fixedSkyDome);
+      lockBlueSky();
     })();
 
     /* ---------- 3. convert the world to toon materials ---------- */
