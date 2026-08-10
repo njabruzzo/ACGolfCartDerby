@@ -44,7 +44,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-10k">
+<meta name="acr-build" content="2026-08-10m">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1505,6 +1505,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 <div id="rotate">↻ turn the phone sideways</div>
 <div id="sticky" aria-hidden="true">&#127855; STICKY TIRES</div>
 <div id="chainsawStatus" aria-hidden="true">&#129690; CHAINSAW</div>
+<div id="broomFlightStatus" aria-hidden="true">&#129529; FLYING</div>
 <div id="wrongway" aria-hidden="true">&#8634; TURN AROUND &mdash; YOU&#8217;RE GOING THE WRONG WAY!</div>
 
 <!-- ============ DRIVER LOGIN + LEADERBOARD (added 2026-08-08) ============ -->
@@ -3030,6 +3031,25 @@ const JUMP_ROAD=makeAuxCurve('jumpLanding',[
   landingMid,beforeRejoin,REJOIN.p.clone()
 ],150,approachT1,REJOIN_T);
 
+/* Precise nearest frame on a named auxiliary road. The traffic-circle jump
+   uses this to capture the cart on the landing ribbon and guide it all the
+   way back to the normal trail, even if a low frame rate would otherwise
+   carry the cart a few feet past the landing edge. */
+function closestAuxFrame(road,x,z){
+  const n=road.samples.length,segN=road.closed?n:n-1;
+  let best=null,bd=Infinity;
+  for(let k=0;k<segN;k++){
+    const A=road.samples[k],B=road.samples[(k+1)%n];
+    const abx=B.p.x-A.p.x,abz=B.p.z-A.p.z;
+    const u=clamp(((x-A.p.x)*abx+(z-A.p.z)*abz)/(abx*abx+abz*abz||1),0,1);
+    const px=A.p.x+abx*u,pz=A.p.z+abz*u,d=Math.hypot(x-px,z-pz);
+    if(d>=bd)continue;
+    bd=d;best={d,p:A.p.clone().lerp(B.p,u),tan:A.tan.clone().lerp(B.tan,u).normalize(),
+      right:A.right.clone().lerp(B.right,u).normalize(),progress:(k+u)/segN};
+  }
+  return best;
+}
+
 const WINDING_SECTIONS=WINDING_SEGMENTS.map(i=>({segment:i,start:tOfCP(i),end:tOfCP((i+1)%NCP)}));
 window.ACR_COURSE_FEATURES={
   windingSections:WINDING_SECTIONS.map(w=>({segment:w.segment,start:w.start,end:w.end})),
@@ -4534,13 +4554,130 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
   const glow=new THREE.Mesh(new THREE.CylinderGeometry(.92,.92,.08,18),
     new THREE.MeshBasicMaterial({color:0xffc643,transparent:true,opacity:.55}));
   glow.rotation.x=Math.PI/2;glow.position.y=.03;g.add(glow);
-  g.position.set(s.p.x,gy+.18,s.p.z);g.rotation.y=Math.atan2(s.tan.x,s.tan.z)+Math.PI*.5;g.userData={ph:1.7,baseY:gy+.18};
+  /* A tall orange beacon and oversized model keep the pickup readable from a
+     racing-speed approach instead of hiding it in the road texture. */
+  const beacon=new THREE.Mesh(new THREE.CylinderGeometry(.18,.72,6.8,16,1,true),
+    new THREE.MeshBasicMaterial({color:0xff8a28,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide}));
+  beacon.position.y=3.1;g.add(beacon);
+  const halo=new THREE.Mesh(new THREE.TorusGeometry(1.05,.11,9,28),
+    new THREE.MeshBasicMaterial({color:0xffd75c,transparent:true,opacity:.86,depthWrite:false}));
+  halo.rotation.x=Math.PI/2;halo.position.y=.16;g.add(halo);
+  g.scale.setScalar(1.45);
+  g.position.set(s.p.x,s.p.y+.28,s.p.z);g.rotation.y=Math.atan2(s.tan.x,s.tan.z)+Math.PI*.5;g.userData={ph:1.7,baseY:s.p.y+.28};
   scene.add(g);CHAINSAW_PICKUPS.push({g,taken:false});
 })();
 
 /* Jump ramps are built after the ford below, once every feature that can veto
    a location exists. Only the array is declared here so later references bind. */
 const RAMPS=[];
+
+/* ---------------- ROCKY-FORD ALLIGATOR ----------------
+   A bright, fully modeled alligator patrols the shallow stream bed. It is not
+   a hard obstacle (so it cannot wedge a cart between the rocks), but its jaw
+   animation produces an exact five-point bite whenever the cart stays close. */
+const ALLIGATORS=[];
+function makeAlligator(){
+  const g=new THREE.Group();g.userData.creature='alligator';
+  const hide=new THREE.MeshPhongMaterial({color:0x416f2c,shininess:34,specular:0x7da55c});
+  const dark=new THREE.MeshPhongMaterial({color:0x24451f,shininess:22});
+  const belly=new THREE.MeshPhongMaterial({color:0x91a85d,shininess:18});
+  const mouthM=new THREE.MeshPhongMaterial({color:0x6e1b24,shininess:24});
+  const toothM=new THREE.MeshPhongMaterial({color:0xfff4c9,shininess:60});
+  const eyeM=new THREE.MeshBasicMaterial({color:0xffdb39});
+  const pupilM=new THREE.MeshBasicMaterial({color:0x050703});
+
+  const body=new THREE.Mesh(new THREE.SphereGeometry(1,18,12),hide);
+  body.scale.set(.88,.48,2.25);body.position.y=.62;g.add(body);
+  const bellyPlate=new THREE.Mesh(new THREE.SphereGeometry(.91,16,9),belly);
+  bellyPlate.scale.set(.75,.22,1.78);bellyPlate.position.set(0,.39,.18);g.add(bellyPlate);
+
+  const head=new THREE.Group();head.position.set(0,.68,2.0);g.add(head);
+  const skull=new THREE.Mesh(new THREE.BoxGeometry(1.42,.64,1.35),hide);
+  skull.position.z=.34;skull.scale.x=.92;head.add(skull);
+  const brow=new THREE.Mesh(new THREE.BoxGeometry(1.34,.27,.58),dark);
+  brow.position.set(0,.32,.04);head.add(brow);
+  const lowerJaw=new THREE.Group();lowerJaw.position.set(0,-.22,-.13);head.add(lowerJaw);
+  const jaw=new THREE.Mesh(new THREE.BoxGeometry(1.30,.23,1.42),mouthM);
+  jaw.position.z=.65;lowerJaw.add(jaw);
+  for(const sx of[-1,1])for(let i=0;i<4;i++){
+    const upper=new THREE.Mesh(new THREE.ConeGeometry(.055,.20,7),toothM);
+    upper.position.set(sx*.47,.02,.08+i*.31);upper.rotation.x=Math.PI;head.add(upper);
+    const lower=new THREE.Mesh(new THREE.ConeGeometry(.05,.16,7),toothM);
+    lower.position.set(sx*.43,.14,.12+i*.29);lowerJaw.add(lower);
+  }
+  for(const sx of[-1,1]){
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(.15,10,8),eyeM);
+    eye.position.set(sx*.47,.49,.08);head.add(eye);
+    const pupil=new THREE.Mesh(new THREE.SphereGeometry(.057,8,7),pupilM);
+    pupil.position.set(sx*.47,.50,.205);pupil.scale.y=1.45;head.add(pupil);
+    const nostril=new THREE.Mesh(new THREE.SphereGeometry(.045,7,6),pupilM);
+    nostril.position.set(sx*.31,.28,.99);head.add(nostril);
+  }
+
+  // Four low, clawed legs make the silhouette unmistakably an alligator.
+  const legs=[];
+  for(const sx of[-1,1])for(const z of[-1.15,.95]){
+    const leg=new THREE.Group();leg.position.set(sx*.72,.42,z);g.add(leg);legs.push(leg);
+    const upper=new THREE.Mesh(new THREE.CylinderGeometry(.16,.22,.72,8),hide);
+    upper.rotation.z=sx*Math.PI*.40;upper.position.x=sx*.27;leg.add(upper);
+    const foot=new THREE.Mesh(new THREE.BoxGeometry(.52,.14,.31),dark);
+    foot.position.set(sx*.55,-.21,.08);leg.add(foot);
+    for(let k=-1;k<=1;k++){
+      const claw=new THREE.Mesh(new THREE.ConeGeometry(.035,.18,6),toothM);
+      claw.rotation.x=Math.PI/2;claw.position.set(sx*.73,-.21,.08+k*.10);leg.add(claw);
+    }
+  }
+
+  const tails=[];
+  for(let i=0;i<3;i++){
+    const pivot=new THREE.Group();pivot.position.set(0,.58,-1.85-i*1.05);g.add(pivot);tails.push(pivot);
+    const seg=new THREE.Mesh(new THREE.ConeGeometry(.62-i*.15,2.35-i*.30,12),hide);
+    seg.rotation.x=-Math.PI/2;seg.position.z=-.78;seg.scale.x=1-i*.08;pivot.add(seg);
+  }
+  for(let i=0;i<7;i++){
+    const ridge=new THREE.Mesh(new THREE.ConeGeometry(.14+(i%2)*.035,.32,6),dark);
+    ridge.position.set(0,1.05,-1.35+i*.47);g.add(ridge);
+  }
+  const shadow=new THREE.Mesh(new THREE.CircleGeometry(2.45,22),
+    new THREE.MeshBasicMaterial({color:0x071008,transparent:true,opacity:.25,depthWrite:false}));
+  shadow.rotation.x=-Math.PI/2;shadow.scale.z=.62;shadow.position.y=.03;g.add(shadow);
+  g.userData.jaw=lowerJaw;g.userData.head=head;g.userData.tail=tails;g.userData.legs=legs;
+  g.scale.setScalar(1.18);return g;
+}
+function updateAlligators(dt){
+  for(const a of ALLIGATORS){
+    a.cooldown=Math.max(0,a.cooldown-dt);a.phase+=dt;
+    const across=Math.sin(a.phase*.72+a.seed)*(ROAD_W-2.0);
+    const along=1.7+Math.sin(a.phase*.39+a.seed)*1.25;
+    const target=a.center.clone().addScaledVector(a.right,across).addScaledVector(a.tan,along);
+    const dx=cart.x-target.x,dz=cart.z-target.z,d=Math.hypot(dx,dz)||.001;
+    const verticalNear=Math.abs(cart.y-a.g.position.y)<2.8;
+    if(a.attack<=0&&verticalNear&&d<4.4&&a.cooldown<=0){a.attack=.72;a.hitDone=false;}
+    let lunge=0,open=.08+Math.abs(Math.sin(a.phase*2.2))*.05;
+    if(a.attack>0){
+      a.attack=Math.max(0,a.attack-dt);const p=1-a.attack/.72;
+      lunge=Math.sin(p*Math.PI)*1.25;open=Math.sin(p*Math.PI)*.52;
+      if(!a.hitDone&&p>.43&&verticalNear&&d<4.25){
+        a.hitDone=true;chompSfx();damage(5,'🐊 ALLIGATOR BITE — 5 DAMAGE!',true);
+      }
+      if(a.attack===0)a.cooldown=1.15;
+    }
+    const ux=dx/d,uz=dz/d;
+    a.g.position.set(target.x+ux*lunge,groundYAt(target.x,target.z).y+.02,target.z+uz*lunge);
+    if(a.attack>0)a.g.lookAt(cart.x,a.g.position.y,cart.z);
+    else{
+      const dir=Math.cos(a.phase*.72+a.seed)>=0?1:-1;
+      a.g.rotation.y=Math.atan2(a.right.x*dir,a.right.z*dir);
+    }
+    if(a.g.userData.jaw)a.g.userData.jaw.rotation.x=open;
+    if(a.g.userData.head)a.g.userData.head.rotation.y=Math.sin(a.phase*1.15)*.045;
+    a.g.userData.tail.forEach((t,i)=>t.rotation.y=Math.sin(a.phase*2.0-i*.72)*(.15+i*.05));
+    a.g.userData.legs.forEach((leg,i)=>leg.rotation.z=Math.sin(a.phase*2.7+i*Math.PI)*.08);
+  }
+}
+function resetAlligators(){
+  for(const a of ALLIGATORS){a.attack=0;a.hitDone=false;a.cooldown=.55;a.phase=0;a.g.visible=true;}
+}
 
 /* the ford — shallow water across the trail below Apple Falls */
 let FORD_T=0,fordMat=null;
@@ -4583,6 +4720,13 @@ let FORD_T=0,fordMat=null;
     st.rotation.set(Math.random()*2,Math.random()*3,Math.random()*2);
     scene.add(st);
   }
+  const alligator=makeAlligator();
+  const center=s.p.clone();center.y=s.p.y+.02;
+  alligator.position.copy(center).addScaledVector(s.right,-(ROAD_W-2));
+  alligator.position.y=groundYAt(alligator.position.x,alligator.position.z).y+.02;
+  scene.add(alligator);
+  ALLIGATORS.push({g:alligator,center,tan:new THREE.Vector3(s.tan.x,0,s.tan.z).normalize(),
+    right:s.right.clone().setY(0).normalize(),phase:0,seed:1.37,cooldown:.55,attack:0,hitDone:false});
 })();
 
 /* ==================== JUMP RAMPS — STRAIGHTAWAYS ONLY ====================
@@ -5471,7 +5615,8 @@ const lapnEl=document.getElementById('lapn'),laptimeEl=document.getElementById('
       applesEl=document.getElementById('apples'),lostEl=document.getElementById('lostn'),
       goldEl=document.getElementById('gold'),rageEl=document.getElementById('rage'),
       goblinsEl=document.getElementById('goblins'),passengerCountEl=document.getElementById('passengerCount'),
-      stickyEl=document.getElementById('sticky'),chainsawEl=document.getElementById('chainsawStatus');
+      stickyEl=document.getElementById('sticky'),chainsawEl=document.getElementById('chainsawStatus'),
+      broomFlightEl=document.getElementById('broomFlightStatus');
 let toastT=null;
 function toast(txt,ms=2400){
   toastEl.textContent=txt;toastEl.style.opacity=1;
@@ -5506,7 +5651,36 @@ function drawMap(px,pz){
 const CREATURE_SPRITES = {"goblin": ['assets/img_018.webp','assets/img_019.webp','assets/img_020.webp'], "beaver": ["assets/img_010.png", "assets/img_011.png", "assets/img_010.png", "assets/img_012.png"], "turkey": ["assets/img_013.png", "assets/img_014.png", "assets/img_013.png", "assets/img_015.png"], "deer": ["assets/img_016.png", "assets/img_017.png", "assets/img_016.png", "assets/img_018.png"], "snake": ["assets/img_019.png", "assets/img_020.png", "assets/img_021.png", "assets/img_022.png"], "mountainlion": ["assets/img_023.png", "assets/img_024.png", "assets/img_023.png", "assets/img_025.png"], "fox": ["assets/img_026.png", "assets/img_027.png", "assets/img_026.png", "assets/img_028.png"], "coyote": ["assets/img_029.png", "assets/img_030.png", "assets/img_029.png", "assets/img_031.png"], "bobcat": ["assets/img_032.png", "assets/img_033.png", "assets/img_032.png", "assets/img_034.png"], "bigfoot": ["assets/img_035.png", "assets/img_036.png", "assets/img_035.png", "assets/img_037.png"], "frog": ["assets/img_038.png", "assets/img_039.png", "assets/img_038.png", "assets/img_039.png"], "mouse": ["assets/img_040.png", "assets/img_041.png", "assets/img_040.png", "assets/img_042.png"]};
 
 const _creatureTextureCache = Object.create(null);
-function spriteTex(url){
+function drawBigfootFallback(cv,frame){
+  cv.width=256;cv.height=256;
+  const x=cv.getContext('2d',{alpha:true});x.clearRect(0,0,256,256);
+  x.save();x.translate(128,236);x.lineJoin='round';x.lineCap='round';
+  const stride=[-12,10,3][frame%3]||0;
+  x.strokeStyle='#25150d';x.lineWidth=11;x.fillStyle='#6b3a1f';
+  // massive legs and feet
+  x.beginPath();x.moveTo(-34,-80);x.lineTo(-42+stride,-18);x.lineTo(-65+stride,0);x.stroke();
+  x.beginPath();x.moveTo(30,-80);x.lineTo(38-stride,-18);x.lineTo(65-stride,0);x.stroke();
+  x.fillStyle='#3a2114';
+  x.beginPath();x.ellipse(-61+stride,-1,26,10,-.12,0,Math.PI*2);x.fill();
+  x.beginPath();x.ellipse(61-stride,-1,26,10,.12,0,Math.PI*2);x.fill();
+  // broad shaggy torso
+  x.fillStyle='#704024';x.strokeStyle='#28160d';x.lineWidth=8;
+  x.beginPath();x.moveTo(-54,-82);x.quadraticCurveTo(-66,-150,-42,-182);x.quadraticCurveTo(0,-212,42,-182);
+  x.quadraticCurveTo(66,-150,54,-82);x.quadraticCurveTo(0,-52,-54,-82);x.closePath();x.fill();x.stroke();
+  // long swinging arms
+  x.strokeStyle='#4b2a18';x.lineWidth=25;
+  x.beginPath();x.moveTo(-43,-164);x.quadraticCurveTo(-78,-116,-75-stride*.4,-55);x.stroke();
+  x.beginPath();x.moveTo(43,-164);x.quadraticCurveTo(78,-116,75+stride*.4,-55);x.stroke();
+  x.fillStyle='#2d190f';for(const sx of[-1,1]){x.beginPath();x.arc(sx*(75+stride*.4),-51,15,0,Math.PI*2);x.fill();}
+  // head, brow and readable face
+  x.fillStyle='#5a311c';x.strokeStyle='#28160d';x.lineWidth=7;x.beginPath();x.ellipse(0,-196,38,43,0,0,Math.PI*2);x.fill();x.stroke();
+  x.fillStyle='#b88458';x.beginPath();x.ellipse(0,-190,23,27,0,0,Math.PI*2);x.fill();
+  x.strokeStyle='#2a160d';x.lineWidth=7;x.beginPath();x.moveTo(-22,-207);x.quadraticCurveTo(0,-218,22,-207);x.stroke();
+  x.fillStyle='#fff2bf';for(const sx of[-1,1]){x.beginPath();x.arc(sx*10,-202,3.4,0,Math.PI*2);x.fill();}
+  x.fillStyle='#27140d';x.beginPath();x.ellipse(0,-188,8,6,0,0,Math.PI*2);x.fill();
+  x.restore();
+}
+function spriteTex(url,key,frame){
   if(_creatureTextureCache[url]) return _creatureTextureCache[url];
 
   // Use a canvas-backed texture so very large embedded data-URI PNGs decode
@@ -5532,12 +5706,15 @@ function spriteTex(url){
     cx.drawImage(img,0,0,w,h);
     tex.needsUpdate=true;
   };
-  img.onerror=()=>console.warn('Creature sprite failed to decode');
+  img.onerror=()=>{
+    if(key==='bigfoot'){drawBigfootFallback(cv,frame);tex.needsUpdate=true;}
+    else console.warn('Creature sprite failed to decode');
+  };
   img.src=url;
 
   return _creatureTextureCache[url]=tex;
 }
-function spriteFrames(name){ return CREATURE_SPRITES[name].map(spriteTex); }
+function spriteFrames(name){ return CREATURE_SPRITES[name].map((url,i)=>spriteTex(url,name,i)); }
 const CREATURES={
   goblin:       {sheet:'goblin',       scale:1.55, shadow:.38, frameCycle:[0,1,2,1], attackFrames:[0,1,2,1], dashScale:.36, big:false},
   beaver:       {sheet:'beaver',       scale:1.10, shadow:.48, frameCycle:[0,1,2,1], dashScale:.28, big:false},
@@ -5548,7 +5725,7 @@ const CREATURES={
   fox:          {sheet:'fox',          scale:1.62, shadow:.66, frameCycle:[0,1,2,1], dashScale:.31, big:false},
   coyote:       {sheet:'coyote',       scale:1.70, shadow:.72, frameCycle:[0,1,2,1], dashScale:.33, big:false},
   bobcat:       {sheet:'bobcat',       scale:1.48, shadow:.62, frameCycle:[0,1,2,1], dashScale:.30, big:false},
-  bigfoot:      {sheet:'bigfoot',      scale:2.25, shadow:.92, frameCycle:[0,1,2,1], dashScale:.40, big:true},
+  bigfoot:      {sheet:'bigfoot',      scale:3.20, shadow:1.18, frameCycle:[0,1,2,1], dashScale:.44, big:true},
   frog:         {sheet:'frog',         scale:1.18, shadow:.40, frameCycle:[0,1,2,1], dashScale:.26, big:false},
   mouse:        {sheet:'mouse',        scale:.92, shadow:.28, frameCycle:[0,1,2,1], dashScale:.22, big:false},
 };
@@ -5857,7 +6034,7 @@ const ANIMAL_TYPES=[
   {name:'BEAR',build:()=>makeHoneyBear(),speed:3.4,r:1.05,dmg:14,big:true,gait:'upright',weight:3,sticky:true},
 ];
 const BIGFOOT_TYPE=ANIMAL_TYPES.find(t=>t.name==='BIGFOOT')||ANIMAL_TYPES[0];
-const BIGFOOT_EVT={timer:58+Math.random()*36,seen:false,done:false,cave:null};
+const BIGFOOT_EVT={timer:12+Math.random()*7,seen:false,done:false,cave:null};
 function makeCaveEntrance(){
   const g=new THREE.Group();
   const rockM=new THREE.MeshLambertMaterial({color:0x4e453b});
@@ -5898,6 +6075,7 @@ function spawnBigfootEvent(nearT){
   scene.add(grp);
   ANIMALS.push({grp,typ:BIGFOOT_TYPE,dir,dist:0,total,phase:Math.random()*6,fled:true,special:'bigfoot-event',cave});
   BIGFOOT_EVT.seen=true;BIGFOOT_EVT.cave=cave;
+  toast('👣 BIGFOOT! — LOOK BESIDE THE ROAD!',2600);
   return true;
 }
 function randAnimalType(){
@@ -6208,6 +6386,13 @@ function animalHitFx(pos){
 }
 function updateAnimals(dt,cartPos){
   animalTimer-=dt;
+  if(!BIGFOOT_EVT.seen&&!BIGFOOT_EVT.done){
+    BIGFOOT_EVT.timer-=dt;
+    if(BIGFOOT_EVT.timer<=0){
+      const bt=roadExact(cartPos.x,cartPos.z).t;
+      if(!spawnBigfootEvent(bt))BIGFOOT_EVT.timer=1.25;
+    }
+  }
   /* Critters are camera-facing billboards and every sheet is drawn facing RIGHT.
      Without flipping them to match their heading they moonwalk across the trail,
      so mirror the sprite whenever the walk direction points left on screen. */
@@ -6469,6 +6654,8 @@ const cart={
   lastNearT:0,lapCheckpoint:0,
   crash:0,crashDir:1,crashRoll:0,wander:0,musky:0,
   boom:0,boomSplash:false,lost:0,onDeck:false,hitCD:0,camY:null,camLookY:null,chainsaw:0,
+  broomFlight:0,broomFlightMax:0,
+  _circleLandingGuide:0,
 };
 (function initCartPos(){
   const s=sampAt(0.003);
@@ -6521,10 +6708,35 @@ function cartSupportGround(x=cart.x,z=cart.z,heading=cart.heading){
 function cartGroundY(){
   const g=cartSupportGround();cart.onDeck=g.deck;return g;
 }
-function damage(amount,label){
+function connectCircleJumpToTrail(){
+  const q=closestAuxFrame(JUMP_ROAD,cart.x,cart.z)||{
+    p:JUMP_ROAD.samples[0].p,tan:JUMP_ROAD.samples[0].tan,progress:0};
+  cart.x=q.p.x;cart.z=q.p.z;cart.y=q.p.y+.025;
+  cart.heading=Math.atan2(q.tan.x,q.tan.z);
+  cart.v=Math.max(12,Math.abs(cart.v));cart.vy=0;cart.airT=0;
+  cart._circleRampAir=0;cart._rampAir=0;cart._circleLaunchV=0;
+  cart._circleLandingGuide=9;cart._rampCd=1.1;
+  toast('JUMP LANDED — AUTO-CONNECTING TO THE TRAIL!',1700);
+}
+function guideCircleJumpLanding(dt){
+  if(!(cart._circleLandingGuide>0))return;
+  cart._circleLandingGuide=Math.max(0,cart._circleLandingGuide-dt);
+  const q=closestAuxFrame(JUMP_ROAD,cart.x,cart.z);
+  if(!q||q.d>20){cart._circleLandingGuide=0;return;}
+  const pull=1-Math.exp(-dt*8.5);
+  cart.x+=(q.p.x-cart.x)*pull;cart.z+=(q.p.z-cart.z)*pull;
+  const target=Math.atan2(q.tan.x,q.tan.z);
+  const dh=Math.atan2(Math.sin(target-cart.heading),Math.cos(target-cart.heading));
+  cart.heading+=dh*Math.min(1,dt*6.5);
+  if(q.progress>.97){
+    cart.x=REJOIN.p.x;cart.z=REJOIN.p.z;cart.y=REJOIN.p.y+.025;
+    cart.heading=Math.atan2(rejoinTan.x,rejoinTan.z);cart._circleLandingGuide=0;
+  }
+}
+function damage(amount,label,exact=false){
   if(rageT>0)return;                 // indestructible
   const raw=amount;
-  amount=raw>0?Math.max(1,Math.round(raw*cartSoak())):0;
+  amount=raw>0?(exact?Math.max(1,Math.round(raw)):Math.max(1,Math.round(raw*cartSoak()))):0;
   cart.hp=Math.max(0,cart.hp-amount);
   hpDraw();
   flashEl.style.background='#c9241a';flashEl.style.opacity=.4;
@@ -6547,7 +6759,7 @@ function hpDraw(){
 }
 
 /* ---------------- WITCH AMBUSH + FIRE POWER ---------------- */
-const WITCHES=[],FIREBALLS=[];
+const WITCHES=[],WITCH_BROOMS=[],FIREBALLS=[];
 const FIRE_POWER={armed:false,shots:0,cool:0};
 const fireBtn=document.getElementById('fire');
 function syncFireButton(){
@@ -6566,7 +6778,7 @@ function clearFirePower(){
 function grantChainsawPower(secs=CHAINSAW_SECS){
   cart.chainsaw=Math.max(cart.chainsaw||0,secs);
   if(chainsawEl){chainsawEl.classList.add('show');chainsawEl.textContent='🪚 CHAINSAW · '+Math.ceil(cart.chainsaw)+'s';}
-  toast('🪚 CHAINSAW POWER — TREES FALL FOR '+Math.ceil(secs)+'s!',2200);
+  toast('🪚 CHAINSAW POWER — CUT TREES AND DEFEAT WITCHES FOR '+Math.ceil(secs)+'s!',2400);
 }
 function fireBurst(pos){
   for(let i=0;i<7;i++){
@@ -6601,7 +6813,7 @@ function burnObstacle(o,dir,pos){
   if(o.kind==='tree'){
     o.hp=0;o.dead=true;topple(o,dir.x,dir.z);treeCrack();needleBurst(o.x,o.z,groundYAt(o.x,o.z).y);fireBurst(pos);
   }else if(o.kind==='house'){
-    burnHouse(o,pos);spawnHouseWitches(o);
+    burnHouse(o,pos);if(o.isWitchHouse)spawnHouseWitches(o);
   }else fireBurst(pos); // stone/water cannot burn, but the flame visibly bursts on impact
 }
 function makeWitch(){
@@ -6677,15 +6889,86 @@ function makeWitch(){
 }
 function spawnHouseWitches(o){
   if(!o||o.witchTriggered)return;o.witchTriggered=true;
+  const wave={house:o,alive:4,qualifyingKills:0,failed:false,rewardDropped:false};
   for(let i=0;i<4;i++){
     const g=makeWitch(),a=i*Math.PI*.5;
-    g.position.set(o.x+Math.cos(a)*2.8,(o.gy||surfaceH(o.x,o.z))+2.4+i*.25,o.z+Math.sin(a)*2.8);
-    scene.add(g);WITCHES.push({g,life:22+i*1.5,atk:.7+i*.18,ph:i*1.7,orbit:a});
+    const x=o.x+Math.cos(a)*2.8,z=o.z+Math.sin(a)*2.8,gy=groundYAt(x,z).y;
+    g.position.set(x,gy,z);g.scale.set(.08,.08,.08);
+    scene.add(g);WITCHES.push({g,wave,life:46+i*1.5,emerge:.58+i*.12,
+      cooldown:.72+i*.16,swing:0,hitDone:false,ph:i*1.7,orbit:a});
   }
-  toast((o&&o.isWitchHouse?'🍭 GINGERBREAD WITCH HOUSE! — ':'🧹 FOUR WITCHES! — ')+'THEY ARE COMING FOR YOU',1900);
+  toast('🍭 WITCH HOUSE! — FOUR WITCHES ARE COMING FOR YOU',2100);
+}
+function makeRewardBroom(){
+  const g=new THREE.Group();
+  const wood=new THREE.MeshPhongMaterial({color:0x744624,shininess:28});
+  const straw=new THREE.MeshPhongMaterial({color:0xd9aa4a,shininess:12});
+  const purple=new THREE.MeshBasicMaterial({color:0xc34cff,transparent:true,opacity:.82,depthWrite:false});
+  const stick=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,3.5,10),wood);
+  stick.rotation.z=Math.PI/2;stick.position.set(.15,1.03,0);g.add(stick);
+  const tie=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.28,10),
+    new THREE.MeshPhongMaterial({color:0x7e2d9e,shininess:42}));
+  tie.rotation.z=Math.PI/2;tie.position.set(-1.46,1.03,0);g.add(tie);
+  for(let i=0;i<7;i++){
+    const b=new THREE.Mesh(new THREE.ConeGeometry(.18,1.02,8),straw);
+    b.rotation.z=-Math.PI/2;b.position.set(-2.02,1.03+(i-3)*.12,((i%3)-1)*.12);g.add(b);
+  }
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(1.42,.12,9,32),purple);
+  ring.rotation.x=Math.PI/2;ring.position.y=.16;g.add(ring);
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(.18,.96,8.5,18,1,true),
+    new THREE.MeshBasicMaterial({color:0xa72cff,transparent:true,opacity:.17,depthWrite:false,side:THREE.DoubleSide}));
+  beam.position.y=4.2;g.add(beam);
+  const cv=document.createElement('canvas');cv.width=512;cv.height=128;
+  const x=cv.getContext('2d');x.fillStyle='rgba(31,8,45,.88)';x.fillRect(12,12,488,104);
+  x.strokeStyle='#e2a7ff';x.lineWidth=6;x.strokeRect(12,12,488,104);
+  x.fillStyle='#fff';x.textAlign='center';x.textBaseline='middle';x.font='900 54px sans-serif';x.fillText('BROOM · FLY 20s',256,67);
+  const label=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
+  label.scale.set(5.8,1.45,1);label.position.y=4.7;g.add(label);
+  g.userData.ring=ring;return g;
+}
+function spawnRewardBroom(pos){
+  const g=makeRewardBroom(),gy=groundYAt(pos.x,pos.z).y;
+  g.position.set(pos.x,gy,pos.z);scene.add(g);
+  WITCH_BROOMS.push({g,baseY:gy,ph:Math.random()*6.28,taken:false});
+  ding();toast('🧹 ALL FOUR DEFEATED — TAKE THE FLYING BROOM!',3200);
+}
+function grantBroomFlight(secs=20){
+  cart.broomFlight=Math.max(cart.broomFlight||0,secs);cart.broomFlightMax=cart.broomFlight;
+  cart.vy=0;cart.airT=0;cart._rampAir=0;cart._circleRampAir=0;cart._circleLaunchV=0;cart._circleLandingGuide=0;
+  if(broomFlightEl){broomFlightEl.classList.add('show');broomFlightEl.textContent='🧹 FLYING · '+Math.ceil(cart.broomFlight)+'s';}
+  toast('🧹 BROOM FLIGHT — 20 SECONDS ABOVE THE TREES!',2600);
+}
+function updateWitchBrooms(dt){
+  for(let i=WITCH_BROOMS.length-1;i>=0;i--){
+    const b=WITCH_BROOMS[i];if(b.taken)continue;
+    b.g.rotation.y+=dt*1.65;b.g.position.y=b.baseY+.22+Math.sin(clockT*2.8+b.ph)*.18;
+    if(b.g.userData.ring)b.g.userData.ring.rotation.z+=dt*1.4;
+    const dx=b.g.position.x-cart.x,dz=b.g.position.z-cart.z;
+    if(dx*dx+dz*dz<7.2){
+      b.taken=true;scene.remove(b.g);WITCH_BROOMS.splice(i,1);ding();grantBroomFlight(20);
+    }
+  }
+}
+function killWitchAt(i,cause){
+  const w=WITCHES[i];if(!w)return false;
+  const pos=w.g.position.clone();fireBurst(pos.clone().add(new THREE.Vector3(0,1.8,0)));
+  scene.remove(w.g);WITCHES.splice(i,1);
+  const wave=w.wave;
+  if(wave){
+    wave.alive=Math.max(0,wave.alive-1);
+    if(cause==='rage'||cause==='chainsaw')wave.qualifyingKills++;
+    else wave.failed=true;
+    if(wave.alive===0&&!wave.rewardDropped){
+      wave.rewardDropped=true;
+      if(!wave.failed&&wave.qualifyingKills===4)spawnRewardBroom(pos);
+      else toast('THE WITCHES VANISHED — USE GOLDEN INVULNERABILITY OR THE CHAINSAW FOR THEIR BROOM',2600);
+    }
+  }
+  return true;
 }
 function clearWitches(){
   while(WITCHES.length)scene.remove(WITCHES.pop().g);
+  while(WITCH_BROOMS.length)scene.remove(WITCH_BROOMS.pop().g);
   for(const h of HOUSES){
     h.witchTriggered=false;h.burned=false;
     if(h.group)h.group.traverse(ch=>{if(ch.userData&&ch.userData.houseArt&&ch.material&&ch.material.color)ch.material.color.setHex(0xffffff);});
@@ -6693,23 +6976,35 @@ function clearWitches(){
 }
 function updateWitches(dt){
   for(let i=WITCHES.length-1;i>=0;i--){
-    const w=WITCHES[i],g=w.g;w.life-=dt;w.atk-=dt;w.ph+=dt*4.2;
-    if(w.life<=0){scene.remove(g);WITCHES.splice(i,1);continue;}
+    const w=WITCHES[i],g=w.g;w.life-=dt;w.cooldown-=dt;w.ph+=dt*4.2;
+    if(w.life<=0){killWitchAt(i,'escaped');continue;}
+    if(w.emerge>0){
+      w.emerge=Math.max(0,w.emerge-dt);
+      const e=1-clamp(w.emerge/.72,0,1),s=(.08+1.12*smooth(0,1,e));g.scale.setScalar(s);
+    }else g.scale.setScalar(g.userData.baseScale||1.20);
     const dx=cart.x-g.position.x,dz=cart.z-g.position.z,d=Math.hypot(dx,dz)||.001;
+    const verticalNear=Math.abs(cart.y-g.position.y)<3.5;
     const ux=dx/d,uz=dz/d,side=Math.sin(w.ph*.55+w.orbit);
-    const speed=w.life<3?10:6.2;
+    const speed=6.2;
     g.position.x+=(ux*speed-uz*side*.9)*dt;g.position.z+=(uz*speed+ux*side*.9)*dt;
-    const targetY=cart.y+2.2+Math.sin(w.ph)*.55+(w.life<3?(3-w.life)*2.2:0);
-    g.position.y+=(targetY-g.position.y)*Math.min(1,dt*3.2);
+    const targetY=groundYAt(g.position.x,g.position.z).y+Math.abs(Math.sin(w.ph))*.055;
+    g.position.y+=(targetY-g.position.y)*Math.min(1,dt*9);
     g.lookAt(cart.x,g.position.y,cart.z);g.rotation.z=Math.sin(w.ph*1.4)*.09;
     if(g.userData.hat)g.userData.hat.rotation.z=.62+Math.sin(w.ph*.8+w.orbit)*.08;
-    if(g.userData.broom){
-      const attackSwing=d<4.2?Math.sin((w.atk+.28)*13)*.72:0;
-      g.userData.broom.rotation.z=-.16+Math.sin(w.ph*1.7+w.orbit)*.10+attackSwing;
-      g.userData.broom.rotation.y=Math.sin(w.ph*.9+w.orbit)*.08;
+    if(w.emerge<=0&&verticalNear&&d<2.55&&(rageT>0||cart.chainsaw>0)){
+      killWitchAt(i,rageT>0?'rage':'chainsaw');thunk();cart.v*=.92;continue;
     }
-    if(d<3.15&&w.atk<=0&&w.life>3){w.atk=1.05+Math.random()*.55;thunk();damage(1,'🧹 WITCH BROOM ATTACK!');
-      const p=new THREE.Vector3(cart.x,cart.y+.8,cart.z);fireBurst(p);}
+    if(w.emerge<=0&&verticalNear&&d<4.0&&w.cooldown<=0&&w.swing<=0){w.swing=.66;w.hitDone=false;}
+    if(g.userData.broom){
+      let arc=0;
+      if(w.swing>0){
+        w.swing=Math.max(0,w.swing-dt);const p=1-w.swing/.66;arc=Math.sin(p*Math.PI);
+        if(!w.hitDone&&p>.45&&verticalNear&&d<3.25){w.hitDone=true;thunk();damage(1,'🧹 WITCH BROOM ATTACK!');fireBurst(new THREE.Vector3(cart.x,cart.y+.8,cart.z));}
+        if(w.swing===0)w.cooldown=.75+Math.random()*.65;
+      }
+      g.userData.broom.rotation.z=-.16+Math.sin(w.ph*1.7+w.orbit)*.08-arc*1.52;
+      g.userData.broom.rotation.y=Math.sin(w.ph*.9+w.orbit)*.06+arc*.36;
+    }
   }
 }
 function updateFirePower(dt){
@@ -6726,7 +7021,7 @@ function updateFirePower(dt){
       if(d<o.r+.55){burnObstacle(o,new THREE.Vector3(f.vx,0,f.vz).normalize(),m.position.clone());hit=true;break;}
     }
     if(!hit)for(let j=WITCHES.length-1;j>=0;j--){const w=WITCHES[j];if(w.g.position.distanceTo(m.position)<1.25){
-      fireBurst(w.g.position);scene.remove(w.g);WITCHES.splice(j,1);hit=true;break;}}
+      killWitchAt(j,'fire');hit=true;break;}}
     if(!hit)for(const o of GOB.pool){if(o.live&&o.g.position.distanceTo(m.position)<1.15){o.live=false;o.g.visible=false;dropGold(o.g.position);goblinKills++;goblinsEl.textContent='👺 '+goblinKills;fireBurst(o.g.position);hit=true;break;}}
     if(!hit)for(let j=ANIMALS.length-1;j>=0;j--){const A=ANIMALS[j];if(A.grp.position.distanceTo(m.position)<A.typ.r+1){fireBurst(A.grp.position);scene.remove(A.grp);ANIMALS.splice(j,1);hit=true;break;}}
     if(hit||f.life<=0){scene.remove(m);FIREBALLS.splice(i,1);}
@@ -7133,10 +7428,12 @@ function respawn(){
   const s=roadFrame(rn);
   cart.x=s.p.x;cart.z=s.p.z;
   cart.heading=Math.atan2(s.tan.x,s.tan.z);
-  cart.y=s.p.y+.02;cart.vy=0;cart.airT=0;
+  cart.y=s.p.y+.02;cart.vy=0;cart.airT=0;cart.broomFlight=0;cart.broomFlightMax=0;
+  cart._rampAir=0;cart._circleRampAir=0;cart._circleLaunchV=0;cart._circleLandingGuide=0;cart._rampCd=0;
   cart.v=0;cart.hp=cartMaxHP();cart.crash=0;cart.steerV=0;cart.musky=0;cart.hitCD=0;cart.camY=null;cart.camLookY=null;if(muskyRig)muskyRig.visible=false;hpDraw();
   gobClear();GOB.hits=0;rageT=0;rageCharge=0;
   crtMat.uniforms.uGold.value=0;rageEl.style.opacity=0;
+  if(broomFlightEl)broomFlightEl.classList.remove('show');
   document.getElementById('fade').style.opacity=0;
   hideCockpitArt(false);ensureCartVisualIntegrity(true);sanitizeCartState();
   toast('FRESH CART — #'+(cart.lost+1),2000);
@@ -7343,6 +7640,7 @@ function tick(now){
 
   const px=cart.x,pz=cart.z,prevGY=g.y;
   cart.x+=fwd.x*cart.v*dt;cart.z+=fwd.z*cart.v*dt;
+  guideCircleJumpLanding(dt);
 
   /* ---- sticky tires: pin the cart inside the trail ribbon ---- */
   if(cart.sticky>0){
@@ -7371,27 +7669,54 @@ function tick(now){
       if(cart.chainsaw===0)chainsawEl.classList.remove('show');
     }
   }
-
-  /* ---- vertical: ride the ground, launch off crests, land ---- */
-  const g2=cartSupportGround(cart.x,cart.z,cart.heading);
-  cart.vy-=19*dt;
-  cart.y+=cart.vy*dt;
-  if(cart.y<=g2.y){
-    const impact=-cart.vy;
-    if(cart.airT>.5)toast('AIR TIME! '+cart.airT.toFixed(1)+'s',1400);
-    if(impact>9.5&&cart.airT>.18){thunk();damage(Math.min(12,Math.round((impact-8)*1.4)),null);}
-    cart.y=g2.y;
-    cart.vy=clamp((g2.y-prevGY)/Math.max(dt,.001),-10,20); // carry crest momentum
-    cart.airT=0;
-  }else if(g2.onTrail&&cart.airT===0&&cart.y<g2.y-.01){
-    cart.y=g2.y;                                            // never sink into the deck
-  }else if(cart.y>g2.y+.18){
-    cart.airT+=dt;
+  const broomWasFlying=cart.broomFlight>0;
+  if(broomWasFlying){
+    cart.broomFlight=Math.max(0,cart.broomFlight-dt);
+    if(broomFlightEl){
+      broomFlightEl.classList.toggle('show',cart.broomFlight>0);
+      broomFlightEl.textContent='🧹 FLYING · '+Math.ceil(cart.broomFlight)+'s';
+    }
+    if(cart.broomFlight===0)toast('🧹 BROOM FLIGHT COMPLETE — BACK ON THE ROAD',1800);
   }
-  if(cart.airT===0&&cart.y<g2.y-.02){cart.y=g2.y;cart.vy=Math.max(0,cart.vy);} // hard anti-sink guard
+  const broomFlying=cart.broomFlight>0;
+
+  /* ---- vertical: ride the ground, launch off crests, or fly above the trees ---- */
+  const g2=cartSupportGround(cart.x,cart.z,cart.heading);
+  if(broomWasFlying){
+    const elapsed=Math.max(0,(cart.broomFlightMax||20)-cart.broomFlight);
+    const rise=smooth(0,1.6,elapsed),descent=smooth(0,2.8,cart.broomFlight);
+    cart.y=g2.y+28*rise*descent; // taller than the authored forest canopy
+    cart.vy=0;cart.airT=0;cart.onDeck=false;
+  }else{
+    cart.vy-=19*dt;
+    cart.y+=cart.vy*dt;
+    if(cart.y<=g2.y){
+      const impact=-cart.vy;
+      if(cart.airT>.5)toast('AIR TIME! '+cart.airT.toFixed(1)+'s',1400);
+      if(impact>9.5&&cart.airT>.18&&!cart._circleRampAir){thunk();damage(Math.min(12,Math.round((impact-8)*1.4)),null);}
+      cart.y=g2.y;
+      cart.vy=clamp((g2.y-prevGY)/Math.max(dt,.001),-10,20); // carry crest momentum
+      cart.airT=0;
+    }else if(g2.onTrail&&cart.airT===0&&cart.y<g2.y-.01){
+      cart.y=g2.y;                                            // never sink into the deck
+    }else if(cart.y>g2.y+.18){
+      cart.airT+=dt;
+    }
+    if(cart.airT===0&&cart.y<g2.y-.02){cart.y=g2.y;cart.vy=Math.max(0,cart.vy);} // hard anti-sink guard
+  }
+  if(cart._circleRampAir){
+    const jdx=cart.x-JUMP_LIP.x,jdz=cart.z-JUMP_LIP.z;
+    const jumpProgress=jdx*CIRCLE_L.x+jdz*CIRCLE_L.z;
+    /* Capture at the authored landing plane. The final distance guard covers
+       a very slow rendering frame without shortening the visible 100-foot arc. */
+    if(jumpProgress>=JUMP_DISTANCE_M-.8&&
+       (cart.airT===0||cart.y<=JUMP_Y+1.35||jumpProgress>JUMP_DISTANCE_M+3.5)){
+      connectCircleJumpToTrail();
+    }
+  }
 
   /* ---- bridge rails: hold you on the deck ---- */
-  if(cart.onDeck){
+  if(!broomFlying&&cart.onDeck){
     const rn=roadExact(cart.x,cart.z);
     if(rn.d>ROAD_W-.6){
       cart.x=px;cart.z=pz;
@@ -7401,7 +7726,7 @@ function tick(now){
   }
 
   /* ---- the lake hits hardest ---- */
-  if(!cart.onDeck&&lakeField(cart.x,cart.z)<-1&&cart.y<WATER_Y+.6&&cart.musky===0){
+  if(!broomFlying&&!cart.onDeck&&lakeField(cart.x,cart.z)<-1&&cart.y<WATER_Y+.6&&cart.musky===0){
     cart.musky=2.1;cart.v=0;cart.vy=0;
     buildMusky();
     // it strikes from open water so it is always in view
@@ -7415,7 +7740,7 @@ function tick(now){
   }
 
   /* ---- obstacle collisions: trees, houses, rocks ---- */
-  for(const o of obstNear(cart.x,cart.z)){
+  if(!broomFlying)for(const o of obstNear(cart.x,cart.z)){
     if(o.dead)continue;
     const d=Math.hypot(cart.x-o.x,cart.z-o.z);
     if(d<o.r+.9){
@@ -7424,7 +7749,7 @@ function tick(now){
       if(d>.001){nx=(cart.x-o.x)/d;nz=(cart.z-o.z)/d;}
       else{nx=-Math.sin(cart.heading);nz=-Math.cos(cart.heading);}
       if(!Number.isFinite(nx)||!Number.isFinite(nz)){nx=0;nz=-1;}
-      if(o.kind==='house')spawnHouseWitches(o);
+      if(o.kind==='house'&&o.isWitchHouse)spawnHouseWitches(o);
 
       /* Golden rage still makes every tree an instant smash. */
       if(rageT>0){
@@ -7512,7 +7837,7 @@ function tick(now){
       if(A.typ.name==='BIGFOOT'){
         showBigfootPlush();
         toast('\ud83e\uddf8 BIGFOOT PLUSH ON THE DASH!',2600);
-        ding();cart.v*=.62;ANIMALS.splice(i,1);scene.remove(A.grp);
+        ding();cart.v*=.62;
         if(A.cave){A.cave.userData.fade=4.5;BIGFOOT_EVT.done=true;}
         break;
       }
@@ -7520,7 +7845,7 @@ function tick(now){
         cart.sticky=STICKY_SECS;
         if(stickyEl){stickyEl.classList.add('show');stickyEl.textContent='\ud83c\udf6f STICKY TIRES \u00b7 '+STICKY_SECS+'s';}
         toast('\ud83c\udf6f HONEY EVERYWHERE \u2014 STICKY TIRES FOR '+STICKY_SECS+'s!',3000);
-        ding();cart.v*=.70;ANIMALS.splice(i,1);scene.remove(A.grp);
+        ding();cart.v*=.70;
         break;
       }
       if(animalsSaved%10===0)toast('\ud83d\udc3e '+animalsSaved+' CRITTERS SAVED',1500);
@@ -7650,7 +7975,7 @@ function tick(now){
   /* ---- rock-strewn ford: shallow water, drag and speed-driven instability ---- */
   {
     const fordDelta=Math.abs(((nearT-FORD_T+1.5)%1)-.5)*TRACKLEN;
-    if(fordDelta<9.2&&rn2.d<ROAD_W+1.2&&cart.airT===0&&Math.abs(cart.v)>1){
+    if(!broomFlying&&fordDelta<9.2&&rn2.d<ROAD_W+1.2&&cart.airT===0&&Math.abs(cart.v)>1){
       const fordSpeed=Math.abs(cart.v);
       cart.v*=1-dt*(.72+Math.min(.75,fordSpeed*.018)); // water and loose-rock drag
 
@@ -7685,7 +8010,7 @@ function tick(now){
   }
 
   /* ---- crest launcher: fast up an incline = airborne ---- */
-  if(cart.airT===0&&cart.v>11&&!cart.onDeck){
+  if(!broomFlying&&cart.airT===0&&cart.v>11&&!cart.onDeck){
     const sBack=(g.y-elevAlong(fwd,-3))/3;        // grade just climbed
     const sFwd=(elevAlong(fwd,3.5)-g.y)/3.5;      // grade ahead
     if(sBack>.085&&sBack-sFwd>.09){
@@ -7695,7 +8020,7 @@ function tick(now){
   }
 
   /* ---- traffic-circle left exit: the true 100-foot jump ---- */
-  if(cart.airT===0&&cart.v>6&&cart._rampCd<=0){
+  if(!broomFlying&&cart.airT===0&&cart.v>6&&cart._rampCd<=0){
     const dx=cart.x-JUMP_LIP.x,dz=cart.z-JUMP_LIP.z;
     const along=dx*CIRCLE_L.x+dz*CIRCLE_L.z;
     const across=dx*CIRCLE_F.x+dz*CIRCLE_F.z;
@@ -7704,16 +8029,20 @@ function tick(now){
       cart.x-=across*CIRCLE_F.x;cart.z-=across*CIRCLE_F.z;
       cart.heading=Math.atan2(CIRCLE_L.x,CIRCLE_L.z);
       cart.v=Math.max(18,cart.v);cart._circleLaunchV=cart.v;
-      cart.vy=JUMP_DISTANCE_M*19/(2*cart.v);
+      /* Triggering begins a few feet before the lip. Include that run-up in the
+         ballistic solution so the cart crosses exactly 100 feet from lip to
+         landing instead of coming down short or sailing past the receiving road. */
+      const flightRun=Math.max(8,JUMP_DISTANCE_M-along);
+      cart.vy=flightRun*19/(2*cart.v);
       cart.y=JUMP_Y+.18;cart.airT=.01;cart._rampCd=1.2;
-      cart._rampAir=1;cart._circleRampAir=1;
+      cart._rampAir=1;cart._circleRampAir=1;cart._circleLandingGuide=0;
       if(SND)thunk();toast('100 FT JUMP — SEND IT!',1700);
     }
   }
 
   /* ---- jump ramps: cross one at speed and FLY ---- */
   if(cart._rt===undefined)cart._rt=nearT;
-  if(!rn2.aux&&rn2.d<ROAD_W+1.6&&cart.v>6&&cart.airT===0&&cart._rampCd<=0){
+  if(!broomFlying&&!rn2.aux&&rn2.d<ROAD_W+1.6&&cart.v>6&&cart.airT===0&&cart._rampCd<=0){
     const fwdSpan=((nearT-cart._rt+1)%1);
     for(const R of RAMPS){
       // swept crossing this frame, OR simply standing on the ramp deck
@@ -7776,15 +8105,16 @@ function tick(now){
     if(rn2.d<40)spawnAnimal(nearT);}
 
   /* ---- camera ---- */
-  const bumpy=(onTrail||cart.airT>0)?0:Math.sin(clockT*33)*.05*Math.min(1,Math.abs(cart.v)/4);
+  const bumpy=(onTrail||cart.airT>0||broomFlying)?0:Math.sin(clockT*33)*.05*Math.min(1,Math.abs(cart.v)/4);
   cart.head+=dt*Math.abs(cart.v)*1.1;
-  const bob=cart.airT>0?0:Math.sin(cart.head)*.018*Math.min(1,Math.abs(cart.v)/6);
+  const bob=(cart.airT>0||broomFlying)?0:Math.sin(cart.head)*.018*Math.min(1,Math.abs(cart.v)/6);
   const camTargetY=cart.y+cartCameraHeight()+bob+bumpy;
   if(cart.camY===null||!Number.isFinite(cart.camY))cart.camY=camTargetY;
   cart.camY+=(camTargetY-cart.camY)*(1-Math.exp(-dt*(cart.airT>0?11:8)));
   camera.position.set(cart.x,cart.camY,cart.z);
   const lookD=fwd.clone().applyAxisAngle(new THREE.Vector3(0,1,0),-cart.steerV*.22);
-  const lookTargetY=elevAlong(fwd,7)+1.35+(cartCameraHeight()-1.52)*.45-(ACTIVE_CART.cameraLookDrop||0)+bob*.5;
+  const lookTargetY=broomFlying?cart.y+.55:
+    elevAlong(fwd,7)+1.35+(cartCameraHeight()-1.52)*.45-(ACTIVE_CART.cameraLookDrop||0)+bob*.5;
   if(cart.camLookY===null||!Number.isFinite(cart.camLookY))cart.camLookY=lookTargetY;
   cart.camLookY+=(lookTargetY-cart.camLookY)*(1-Math.exp(-dt*7));
   const look=new THREE.Vector3(cart.x+lookD.x*7,cart.camLookY,cart.z+lookD.z*7);
@@ -7844,9 +8174,9 @@ function tick(now){
     saw.g.rotation.y+=dt*1.4;
     saw.g.position.y=saw.g.userData.baseY+Math.sin(clockT*3+saw.g.userData.ph)*.08;
     const dx=saw.g.position.x-cart.x,dz=saw.g.position.z-cart.z;
-    if(dx*dx+dz*dz<4.2){saw.taken=true;saw.g.visible=false;ding();grantChainsawPower(CHAINSAW_SECS);}
+    if(dx*dx+dz*dz<7.0){saw.taken=true;saw.g.visible=false;ding();grantChainsawPower(CHAINSAW_SECS);}
   }
-  updateWitches(dt);updateFirePower(dt);
+  updateWitches(dt);updateWitchBrooms(dt);updateFirePower(dt);
   updateHouseFacing();
   if(damFallsMat&&damFallsMat.map)damFallsMat.map.offset.y-=dt*1.65;
   if(trailStreamMat)trailStreamMat.opacity=.66+Math.sin(clockT*2.1)*.06;
@@ -7858,6 +8188,7 @@ function tick(now){
     if(c.position.x>900)c.position.x=-900;
     c.lookAt(camera.position.x,c.position.y,camera.position.z);});
   water.position.y=WATER_Y+Math.sin(clockT*.7)*.05;
+  updateAlligators(dt);
   updateAnimals(dt,camera.position);
   updatePassengers(dt);
   updateGoblins(dt,nearT,rn2.d);
@@ -7896,6 +8227,7 @@ function resetRun(){
   cart.x=st.p.x;cart.z=st.p.z;cart.y=st.p.y+.02;
   cart.heading=Math.atan2(st.tan.x,st.tan.z);
   cart.v=0;cart.vy=0;cart.airT=0;cart.steerV=0;
+  cart._rampAir=0;cart._circleRampAir=0;cart._circleLaunchV=0;cart._circleLandingGuide=0;cart._rampCd=0;
   cart.hp=cartMaxHP();cart.crash=0;cart.crashRoll=0;cart.boom=0;cart.musky=0;cart.hitCD=0;cart.camY=null;cart.camLookY=null;
   cart.lap=1;cart.lapStart=0;cart.started=false;cart.lost=0;cart.lastZone=null;
   cart.lastNearT=0.003;cart.lapCheckpoint=0;
@@ -7903,12 +8235,15 @@ function resetRun(){
   muskyBelly=0;
   gobClear();GOB.hits=0;GOB.told=false;goblinKills=0;goblinsEl.textContent='👺 0';
   animalsSaved=0;cart.raceStart=0;cart.finished=false;cart.wrongT=0;cart.sticky=0;cart.chainsaw=0;
+  cart.broomFlight=0;cart.broomFlightMax=0;
   clearBigfootPlush();
   if(stickyEl)stickyEl.classList.remove('show');
   if(chainsawEl)chainsawEl.classList.remove('show');
+  if(broomFlightEl)broomFlightEl.classList.remove('show');
   (function(){var W=document.getElementById('wrongway');if(W){W.classList.remove('show');W.setAttribute('aria-hidden','true');}})();cart.best=Infinity;bestEl.textContent='';
   clearPassengers();
   clearWitches();clearFirePower();
+  resetAlligators();
   for(const gift of POWER_GIFTS){gift.taken=false;gift.g.visible=true;}
   for(const saw of CHAINSAW_PICKUPS){saw.taken=false;saw.g.visible=true;}
   rageT=0;rageCharge=0;
@@ -7916,6 +8251,9 @@ function resetRun(){
   for(const c of COINS)scene.remove(c.m);COINS.length=0;
   for(const pt of PARTS)scene.remove(pt);PARTS.length=0;
   for(let i=ANIMALS.length-1;i>=0;i--){scene.remove(ANIMALS[i].grp);ANIMALS.splice(i,1);}
+  if(BIGFOOT_EVT.cave)scene.remove(BIGFOOT_EVT.cave);
+  BIGFOOT_EVT.timer=12+Math.random()*7;BIGFOOT_EVT.seen=false;BIGFOOT_EVT.done=false;BIGFOOT_EVT.cave=null;
+  animalTimer=1.2;
   for(const ap of APPLES){ap.taken=false;ap.g.visible=true;}
   appleScore=0;goldCount=0;
   applesEl.textContent='🍎 0';goldEl.textContent='🪙 0';
@@ -7956,9 +8294,10 @@ function stopRunAudio(){
 }
 function finishRace(totalTime){
   if(!RUNNING||cart.finished)return;
-  cart.finished=true;RUNNING=false;cart.wrongT=0;cart.sticky=0;cart.chainsaw=0;
+  cart.finished=true;RUNNING=false;cart.wrongT=0;cart.sticky=0;cart.chainsaw=0;cart.broomFlight=0;cart.broomFlightMax=0;
   if(stickyEl)stickyEl.classList.remove('show');
   if(chainsawEl)chainsawEl.classList.remove('show');
+  if(broomFlightEl)broomFlightEl.classList.remove('show');
   (function(){var W=document.getElementById('wrongway');if(W){W.classList.remove('show');W.setAttribute('aria-hidden','true');}})();
   clearTimeout(quitEl._t);quitDisarm();
   stopRunAudio();
@@ -8416,7 +8755,6 @@ function openCartPickerForNewRace(){
 window.ACR_START_RACE_NOW=startRaceNow;
 window.ACR_OPEN_CART_PICKER=openCartPickerForNewRace;
 derbyStartEl.addEventListener('click',startRaceNow);
-
 
   }
 
@@ -9343,6 +9681,20 @@ body.menuMode #wrongway{display:none!important}
   opacity:0;transition:opacity .18s ease;font-variant-numeric:tabular-nums;
 }
 #chainsawStatus.show{opacity:1}
+
+/* ================= MAGIC BROOM FLIGHT ================= */
+#broomFlightStatus{
+  position:fixed;left:50%;top:21%;transform:translateX(-50%);z-index:55;
+  font-family:inherit;font-variant:small-caps;letter-spacing:.14em;
+  font-size:clamp(12px,2.4vw,19px);font-weight:900;text-align:center;
+  color:#fff8ca;background:linear-gradient(180deg,#824bd1,#3e1d7c);
+  border:2px solid rgba(242,220,116,.75);border-radius:999px;
+  padding:7px 18px;white-space:nowrap;pointer-events:none;
+  box-shadow:0 8px 24px rgba(35,10,70,.48),inset 0 1px 0 rgba(255,255,255,.28);
+  text-shadow:0 1px 0 rgba(0,0,0,.55);opacity:0;transition:opacity .18s ease;
+  font-variant-numeric:tabular-nums;
+}
+#broomFlightStatus.show{opacity:1}
 
 /* ================= PORTRAIT MOBILE DRIVE BAR 2026-08-08 =================
    Vertical-phone layout: Reverse · Left · Gas · Right · Stop.
