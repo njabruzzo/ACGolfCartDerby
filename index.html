@@ -44,7 +44,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-09r">
+<meta name="acr-build" content="2026-08-10a">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -655,6 +655,11 @@
   .cart-card[data-accent="violet"] .pick-ribbon{background:#7a3aa8}
   .cart-card[data-accent="blue"]   .pick-ribbon{background:#1f56a8; color:#ffe9b8}
   .cart-card[data-accent="blue"]   .seat-badge{background:rgba(224,169,42,.9); color:#20304f}
+  /* red-panda livery: rust body, cream face-mask trim */
+  .cart-card[data-accent="panda"]  .fixed-cart-head{background:#b3441f; border-bottom:3px solid #f0dcc8}
+  .cart-card[data-accent="panda"]  .meter i{background:#b3441f}
+  .cart-card[data-accent="panda"].selected{box-shadow:0 16px 34px rgba(16,22,34,.3),0 0 0 3px #b3441f}
+  .cart-card[data-accent="panda"]  .pick-ribbon{background:#b3441f}
 
   /* ==========================================================================
      COCKPIT FRAMING — on a wide screen the painted interior was cropped by
@@ -1405,6 +1410,34 @@ body.menuMode #julianoBourbonHud{display:none!important}
   100%{transform:translate(-50%,-50%) rotate(var(--reward-rot,0deg)) scale(var(--reward-scale,.82));opacity:1}
 }
 body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!important}
+
+/* ===== DASH PET — a cart's own mascot, always aboard =====
+   Positioned in PLATE percentages like the steering wheel, so it stays put on
+   the dash in both orientations and through the portrait re-slicing. Unlike the
+   hit reward it never pops in or out: it is simply part of that cart. */
+#cartDashPet{
+  position:absolute!important;
+  left:var(--pet-x,72%)!important;
+  top:var(--pet-y,74%)!important;
+  width:var(--pet-w,12.5%)!important;
+  height:auto!important;
+  transform:translate(-50%,-50%) rotate(var(--pet-rot,0deg))!important;
+  transform-origin:50% 50%!important;
+  z-index:11!important;
+  display:none;
+  pointer-events:none!important;
+  object-fit:contain!important;
+  filter:drop-shadow(0 5px 8px rgba(0,0,0,.55));
+}
+#cartDashPet.riding{display:block;animation:dashPetBob 3.1s ease-in-out infinite}
+@keyframes dashPetBob{
+  0%,100%{transform:translate(-50%,-50%) rotate(var(--pet-rot,0deg)) translateY(0)}
+  50%    {transform:translate(-50%,-50%) rotate(calc(var(--pet-rot,0deg) + 1.5deg)) translateY(-2.5%)}
+}
+@media (prefers-reduced-motion:reduce){
+  #cartDashPet.riding{animation:none}
+}
+body.menuMode #cartDashPet{display:none!important}
 /* ===== END CART HIT REWARD HUD ===== */
 
 </style>
@@ -1476,7 +1509,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 </div>
 <div id="cockpitStage">
   <img id="cockpitArt" alt="">
-  <div id="steerHud"><div class="stem"></div><div id="steerHudWheel"><span class="spoke s1"></span><span class="spoke s2"></span><span class="spoke s3"></span><span class="hub"></span></div><img id="julianoBourbonHud" src="assets/img_001.png" alt="" aria-hidden="true"></div><img id="cartRewardHud" alt="" aria-hidden="true"><div id="cartRewardHudWrap" aria-hidden="true"></div></div>
+  <img id="cartDashPet" alt="" aria-hidden="true"><div id="steerHud"><div class="stem"></div><div id="steerHudWheel"><span class="spoke s1"></span><span class="spoke s2"></span><span class="spoke s3"></span><span class="hub"></span></div><img id="julianoBourbonHud" src="assets/img_001.png" alt="" aria-hidden="true"></div><img id="cartRewardHud" alt="" aria-hidden="true"><div id="cartRewardHudWrap" aria-hidden="true"></div></div>
 </div>
 <div id="cockpitRoof"></div>
 <div id="cockpitPoles"><div class="cockpit-pole" id="poleL"></div><div class="cockpit-pole" id="poleR"></div></div>
@@ -1669,11 +1702,11 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
     <div class="fixed-cart-head"><div><h3>Antman's Express</h3><div class="cart-desc">BLACK LOW RIDER</div></div><span class="seat-badge">4 SEATS</span></div>
     <div class="cart-art-frame"><img class="cart-art" src="assets/img_004.webp" alt="Antman's Express" loading="lazy" decoding="async"><span class="art-fade"></span></div>
     <div class="stats fixed-stats">
-      <div class="stat fixed-stat"><span>SPEED</span><b>4/10</b><div class="meter"><i style="--v:40%"></i></div></div>
-      <div class="stat fixed-stat"><span>HANDLING</span><b>5/10</b><div class="meter"><i style="--v:50%"></i></div></div>
-      <div class="stat fixed-stat"><span>ACCELERATION</span><b>5/10</b><div class="meter"><i style="--v:50%"></i></div></div>
+      <div class="stat fixed-stat"><span>SPEED</span><b>7/10</b><div class="meter"><i style="--v:70%"></i></div></div>
+      <div class="stat fixed-stat"><span>HANDLING</span><b>9/10</b><div class="meter"><i style="--v:90%"></i></div></div>
+      <div class="stat fixed-stat"><span>ACCELERATION</span><b>10/10</b><div class="meter"><i style="--v:100%"></i></div></div>
       <div class="stat fixed-stat"><span>DEFENSE</span><b>8/10</b><div class="meter"><i style="--v:80%"></i></div></div>
-      <div class="stat fixed-stat"><span>BRAKING</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
+      <div class="stat fixed-stat"><span>BRAKING</span><b>8/10</b><div class="meter"><i style="--v:80%"></i></div></div>
     </div>
   </button>
   <button class="cart-card" data-cart="francesca" data-accent="taxi" type="button"><span class="pick-ribbon">SELECTED</span>
@@ -1719,6 +1752,17 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
       <div class="stat fixed-stat"><span>ACCELERATION</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
       <div class="stat fixed-stat"><span>DEFENSE</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
       <div class="stat fixed-stat"><span>BRAKING</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
+    </div>
+  </button>
+      <button class="cart-card" data-cart="claire" data-accent="panda" type="button"><span class="pick-ribbon">SELECTED</span>
+    <div class="fixed-cart-head"><div><h3>Claire's Panda</h3><div class="cart-desc">RED PANDA INSPIRED &middot; CUTE &amp; NIMBLE</div></div><span class="seat-badge">6 SEATS</span></div>
+    <div class="cart-art-frame"><img class="cart-art" src="assets/img_046.webp" alt="Claire's Panda" loading="lazy" decoding="async"><span class="art-fade"></span></div>
+    <div class="stats fixed-stats">
+      <div class="stat fixed-stat"><span>SPEED</span><b>5/10</b><div class="meter"><i style="--v:50%"></i></div></div>
+      <div class="stat fixed-stat"><span>HANDLING</span><b>8/10</b><div class="meter"><i style="--v:80%"></i></div></div>
+      <div class="stat fixed-stat"><span>ACCELERATION</span><b>7/10</b><div class="meter"><i style="--v:70%"></i></div></div>
+      <div class="stat fixed-stat"><span>DEFENSE</span><b>6/10</b><div class="meter"><i style="--v:60%"></i></div></div>
+      <div class="stat fixed-stat"><span>BRAKING</span><b>9/10</b><div class="meter"><i style="--v:90%"></i></div></div>
     </div>
   </button>
     </div>
@@ -2645,7 +2689,11 @@ const DERBY_CARTS={
   franny:{key:'franny',name:"FRANNY'S BUTTERFLY",speed:5,handling:8,accel:7,brakes:7,armor:9,air:1.30,color:0x1f56a8,
     passengerMode:'default',laugh:false,fuzzyDice:false,butterfly:false},
   /* --- the three new entries; armor is the DEFENSE rating, air scales with speed --- */
-  antman:{key:'antman',name:"ANTMAN'S EXPRESS",speed:4,handling:5,accel:5,brakes:6,armor:8,air:1.08,color:0x24262b,
+  /* Rebalanced 2026-08-10 to the printed card: the low rider is now a genuine
+     sprinter — top acceleration, near-top handling — rather than the slow tank
+     the old numbers described. `air` was still the value from when it was a
+     speed-4 cart, so it is lifted in line with the rest of the grid. */
+  antman:{key:'antman',name:"ANTMAN'S EXPRESS",speed:7,handling:9,accel:10,brakes:8,armor:8,air:1.20,color:0x24262b,
     passengerMode:'ant-rapper',laugh:false,fuzzyDice:false},
   francesca:{key:'francesca',name:"FRANCESCA'S BROOKLYN STYLE",speed:7,handling:9,accel:8,brakes:9,armor:5,air:1.22,color:0xf2b60c,
     passengerMode:'sewer-rat',laugh:true,fuzzyDice:false},
@@ -2654,7 +2702,12 @@ const DERBY_CARTS={
   juliano:{key:'juliano',name:"THE JULIANO EARTH ROAMER",speed:2,handling:5,accel:5,brakes:10,armor:10,air:.86,color:0x8d9298,
     passengerMode:'animal',laugh:false,fuzzyDice:false,bourbonPower:true,cameraHeight:2.78,cameraLookDrop:.42},
   musubi:{key:'musubi',name:"MUSUBI!",speed:6,handling:6,accel:6,brakes:6,armor:6,air:1.16,color:0xc72a1f,
-    passengerMode:'animal',laugh:false,fuzzyDice:false,musubiPower:true,cameraHeight:1.58}
+    passengerMode:'animal',laugh:false,fuzzyDice:false,musubiPower:true,cameraHeight:1.58},
+  /* Claire's Panda — not quick in a straight line, but it turns and stops
+     better than anything except the Scotty T. dashPet rides on the tray. */
+  claire:{key:'claire',name:"CLAIRE'S PANDA",speed:5,handling:8,accel:7,brakes:9,armor:6,air:1.24,color:0xb3441f,
+    passengerMode:'animal',laugh:false,fuzzyDice:false,
+    dashPet:{src:'assets/img_047.png',x:'72%',y:'74%',w:'12.5%',rot:'-3deg'}}
 };
 /* Livery used by the interface: main body colour + trim accent, matched to the
    painted cart art so the menus and HUD read as the same vehicle. */
@@ -2666,7 +2719,8 @@ const CART_UI={
   francesca:{main:'#e0a80b',trim:'#1c1c1c',ink:'#241c00'}, // taxi yellow, checker black
   izzy     :{main:'#d97c22',trim:'#fdf3e6',ink:'#ffffff'}, // calico orange, cream trim
   juliano  :{main:'#555a60',trim:'#d3d6d8',ink:'#ffffff'}, // brushed silver, charcoal trim
-  musubi   :{main:'#c72a1f',trim:'#f2d2ca',ink:'#ffffff'}  // musubi red, rice-cream trim
+  musubi   :{main:'#c72a1f',trim:'#f2d2ca',ink:'#ffffff'}, // musubi red, rice-cream trim
+  claire   :{main:'#b3441f',trim:'#f0dcc8',ink:'#ffffff'}  // red-panda rust, cream mask trim
 };
 let SELECTED_CART_KEY='abruzzo';
 let ACTIVE_CART=DERBY_CARTS[SELECTED_CART_KEY];
@@ -4772,7 +4826,8 @@ const COCKPIT_VIEW={
   francesca:{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.03) contrast(1.03) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
   izzy    :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.04) contrast(1.03) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
   juliano :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.02) contrast(1.04) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
-  musubi  :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.06) contrast(1.04) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'}
+  musubi  :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.06) contrast(1.04) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'},
+  claire  :{fit:'contain',pos:'center center',scale:1,filter:'saturate(1.05) contrast(1.03) brightness(1.01)',height:'auto',maxHeight:'82%',bottom:'0',offsetY:'0'}
 };
 
 function applyCockpitView(art){
@@ -4791,7 +4846,8 @@ const COCKPIT_FASCIA={
   francesca:{h:'17%',bg:'linear-gradient(180deg,#efb515 0%,#bb890a 28%,#2d2620 62%,#11151a 100%)',top:'linear-gradient(180deg,#202329 0%,rgba(255,255,255,.10) 100%)',accentW:'20%',accentH:'34%',accentBg:'linear-gradient(180deg,#4d3c09 0%,#251b04 100%)'},
   izzy    :{h:'16%',bg:'linear-gradient(180deg,#d89134 0%,#bf6d1d 24%,#7f4a16 46%,#18120e 100%)',top:'linear-gradient(180deg,#f8efe2 0%,rgba(248,239,226,.34) 100%)',accentW:'18%',accentH:'30%',accentBg:'linear-gradient(180deg,#fff0d9 0%,#dcb28c 100%)'},
   juliano :{h:'23%',bg:'radial-gradient(120% 110% at 50% -6%,#9aa1a8 0%,#6e757d 22%,#383f46 42%,#181d23 74%,#0f1318 100%)',top:'linear-gradient(180deg,#14181d 0%,#323940 100%)',accentW:'54%',accentH:'40%',accentBg:'linear-gradient(180deg,#1a1f25 0%,#090b0e 100%)',shadow:'inset 0 1px 0 rgba(255,255,255,.22), inset 0 26px 44px rgba(233,214,184,.16), 0 -12px 26px rgba(0,0,0,.30)'},
-  musubi  :{h:'18%',bg:'linear-gradient(180deg,#f5efe6 0%,#ede3d4 26%,#ddd0bf 52%,#c8b59d 72%,#15110d 100%)',top:'linear-gradient(180deg,#cf4735 0%,#9f2318 100%)',accentW:'16%',accentH:'58%',accentBg:'linear-gradient(180deg,#20251f 0%,#0b0d0b 100%)',shadow:'inset 0 1px 0 rgba(255,255,255,.22),0 -12px 24px rgba(0,0,0,.22)'}
+  musubi  :{h:'18%',bg:'linear-gradient(180deg,#f5efe6 0%,#ede3d4 26%,#ddd0bf 52%,#c8b59d 72%,#15110d 100%)',top:'linear-gradient(180deg,#cf4735 0%,#9f2318 100%)',accentW:'16%',accentH:'58%',accentBg:'linear-gradient(180deg,#20251f 0%,#0b0d0b 100%)',shadow:'inset 0 1px 0 rgba(255,255,255,.22),0 -12px 24px rgba(0,0,0,.22)'},
+  claire  :{h:'17%',bg:'linear-gradient(180deg,#c2551f 0%,#93381a 26%,#4a2114 58%,#150f0b 100%)',top:'linear-gradient(180deg,#f4e2cc 0%,rgba(244,226,204,.38) 100%)',accentW:'20%',accentH:'32%',accentBg:'linear-gradient(180deg,#e8c489 0%,#a97a35 100%)'}
 };
 
 const COCKPIT_FRAME={
@@ -4803,7 +4859,8 @@ const COCKPIT_FRAME={
   francesca:{roofBg:'linear-gradient(180deg,#efb515 0%,#bb890a 72%,#372a08 100%)',poleBg:'linear-gradient(180deg,#f7e8b2 0%,#a87a08 22%,#241d11 100%)'},
   izzy    :{roofBg:'linear-gradient(180deg,#dd9737 0%,#bf6e1e 72%,#5f3510 100%)',poleBg:'linear-gradient(180deg,#fff0dc 0%,#c07d28 22%,#2a180a 100%)'},
   juliano :{roofTop:'164px',roofW:'86%',roofH:'34px',roofBg:'linear-gradient(180deg,#9aa1a8 0%,#71777f 72%,#30363d 100%)',roofUnder:'linear-gradient(180deg,rgba(233,214,184,.38),rgba(0,0,0,.12))',poleTop:'180px',poleBottom:'22%',poleLX:'28%',poleRX:'72%',poleW:'18px',poleBg:'linear-gradient(180deg,#959ba1 0%,#687079 25%,#262c33 100%)',poleLRot:'-4deg',poleRRot:'4deg'},
-  musubi  :{roofBg:'linear-gradient(180deg,#d14938 0%,#b0281a 74%,#f0e7db 75%,#dbcbb6 100%)',roofUnder:'linear-gradient(180deg,rgba(24,28,24,.52),rgba(0,0,0,.10))',poleBg:'linear-gradient(180deg,#222822 0%,#121712 100%)'}
+  musubi  :{roofBg:'linear-gradient(180deg,#d14938 0%,#b0281a 74%,#f0e7db 75%,#dbcbb6 100%)',roofUnder:'linear-gradient(180deg,rgba(24,28,24,.52),rgba(0,0,0,.10))',poleBg:'linear-gradient(180deg,#222822 0%,#121712 100%)'},
+  claire  :{roofBg:'linear-gradient(180deg,#c2551f 0%,#8e3617 72%,#3a1a0e 100%)',roofUnder:'linear-gradient(180deg,rgba(120,120,124,.55),rgba(0,0,0,.12))',poleBg:'linear-gradient(180deg,#e9dcc6 0%,#9b8a72 24%,#2a231a 100%)'}
 };
 
 const COCKPIT_HUD={
@@ -4815,7 +4872,8 @@ const COCKPIT_HUD={
   francesca:{x:'31.51%',y:'72.3%',size:'19.5%',rotate:90},
   izzy    :{x:'34.11%',y:'68.7%',size:'19.0%',rotate:88},
   juliano :{x:'30.15%',y:'78.0%',size:'19.0%',rotate:96},
-  musubi  :{x:'29.17%',y:'82.6%',size:'20.0%',rotate:90}
+  musubi  :{x:'29.17%',y:'82.6%',size:'20.0%',rotate:90},
+  claire  :{x:'27.90%',y:'81.80%',size:'20.5%',rotate:90}
 };
 
 function applyCockpitFrame(){
@@ -4916,6 +4974,7 @@ COCKPIT_ART["francesca"]='assets/img_013.webp';
 COCKPIT_ART["izzy"]='assets/img_014.webp';
 COCKPIT_ART["juliano"]='assets/img_015.webp';
 COCKPIT_ART["musubi"]='assets/img_016.webp';
+COCKPIT_ART["claire"]='assets/img_048.webp';
 const UNIVERSAL_STEERING_WHEEL='assets/img_017.webp';
 /* ===== END USER SUPPLIED INTERIOR OVERRIDES ===== */
 /* FINAL HOTFIX 2026-08-07: Abruzzo/Franny supplied art refreshed, butterfly front ornaments removed, race-intro title lifted above countdown lights, Abruzzo wheel placement refined, and cockpit art rendering corrected. */
@@ -4937,6 +4996,22 @@ function applyCartStyle(){
     const stage=document.getElementById('cockpitStage');
     const url=COCKPIT_ART[ACTIVE_CART.key];
     if(stage)stage.dataset.cart=ACTIVE_CART.key;
+    /* the cart's mascot, if it has one */
+    const pet=document.getElementById('cartDashPet');
+    if(pet){
+      const cfg=ACTIVE_CART.dashPet;
+      if(cfg){
+        if(pet.getAttribute('src')!==cfg.src)pet.src=cfg.src;
+        pet.style.setProperty('--pet-x',cfg.x||'72%');
+        pet.style.setProperty('--pet-y',cfg.y||'74%');
+        pet.style.setProperty('--pet-w',cfg.w||'12.5%');
+        pet.style.setProperty('--pet-rot',cfg.rot||'0deg');
+        pet.classList.add('riding');
+      }else{
+        pet.classList.remove('riding');
+        pet.removeAttribute('src');
+      }
+    }
     if(art&&url){
       if(art.src!==url)art.src=url;
       applyCockpitView(art);
@@ -4984,7 +5059,7 @@ function applyCartStyle(){
     }
   }
   const label=document.getElementById('hplabel');
-  if(label)label.textContent=ACTIVE_CART.key==='abruzzo'?'ABRUZZO':ACTIVE_CART.key==='scotty'?'SCOTTY T':ACTIVE_CART.key==='franny'?'BUTTERFLY':ACTIVE_CART.key==='antman'?'ANTMAN':ACTIVE_CART.key==='francesca'?'BROOKLYN':ACTIVE_CART.key==='izzy'?'WEIRDO BABY':ACTIVE_CART.key==='juliano'?'EARTHROAMER':ACTIVE_CART.key==='musubi'?'MUSUBI':'CART';
+  if(label)label.textContent=ACTIVE_CART.key==='abruzzo'?'ABRUZZO':ACTIVE_CART.key==='scotty'?'SCOTTY T':ACTIVE_CART.key==='franny'?'BUTTERFLY':ACTIVE_CART.key==='antman'?'ANTMAN':ACTIVE_CART.key==='francesca'?'BROOKLYN':ACTIVE_CART.key==='izzy'?'WEIRDO BABY':ACTIVE_CART.key==='juliano'?'EARTHROAMER':ACTIVE_CART.key==='musubi'?'MUSUBI':ACTIVE_CART.key==='claire'?'RED PANDA':'CART';
 }
 
 applyCartStyle();
@@ -5541,7 +5616,7 @@ const dashRiders=new THREE.Group();camera.add(dashRiders);
 const RIDER_PERCH={
   abruzzo:{y:-.205,z:-.95}, scotty:{y:-.190,z:-.95}, franny:{y:-.235,z:-.97},
   antman:{y:-.215,z:-.95},  francesca:{y:-.215,z:-.95}, izzy:{y:-.215,z:-.95},
-  juliano:{y:-.190,z:-.90}, musubi:{y:-.215,z:-.95}
+  juliano:{y:-.190,z:-.90}, musubi:{y:-.215,z:-.95}, claire:{y:-.215,z:-.95}
 };
 function layoutPassengers(){
   PASSENGERS.forEach((P,i)=>{
@@ -8434,6 +8509,12 @@ body.menuMode #map,body.menuMode #tach{display:none!important}
 #cartselect .cart-card[data-cart="musubi"] .cart-art-frame{
   overflow:hidden!important;
 }
+#cartselect .cart-card[data-cart="claire"]{height:auto!important;max-height:none!important}
+#cartselect .cart-card[data-cart="claire"] .cart-art-frame{overflow:hidden!important}
+#cartselect .cart-card[data-cart="claire"] .cart-art{
+  width:100%!important;height:100%!important;
+  object-fit:contain!important;object-position:center center!important;
+}
 #cartselect .cart-card[data-cart="musubi"] .cart-art{
   width:100%!important;height:100%!important;
   object-fit:contain!important;object-position:center center!important;
@@ -9191,7 +9272,8 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
     'francesca':{roof:0.130,mid:0.550,scale:1.40},
     'izzy'     :{roof:0.210,mid:0.420,scale:1.45},
     'juliano'  :{roof:0.190,mid:0.600,scale:1.42},
-    'musubi'   :{roof:0.120,mid:0.620,scale:1.24}
+    'musubi'   :{roof:0.120,mid:0.620,scale:1.24},
+    'claire'   :{roof:0.210,mid:0.620,scale:1.28}
   };
   var PLATE_AR=1.5;                 // every plate is 1536x1024
   /* Drawn at exactly screen width the cabin reads small on a tall phone, so the
