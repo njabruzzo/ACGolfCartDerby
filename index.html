@@ -45,7 +45,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-10q">
+<meta name="acr-build" content="2026-08-10r">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1424,6 +1424,28 @@ body.menuMode #julianoBourbonHud{display:none!important}
 }
 body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!important}
 
+/* Bigfoot plushes need their own DOM layer. The other dashboard prizes are
+   DOM images above the WebGL canvas, so no Three.js renderOrder could put the
+   old 3D-only plush in front of them. This layer is intentionally last. */
+#bigfootPlushHudWrap{
+  position:absolute!important;inset:0!important;z-index:24!important;
+  pointer-events:none!important;overflow:visible!important;
+}
+.bigfootPlushHud{
+  position:absolute!important;left:var(--bigfoot-x,68%)!important;
+  top:var(--bigfoot-y,69%)!important;width:var(--bigfoot-w,8.8%)!important;height:auto!important;
+  transform:translate(-50%,-50%) rotate(var(--bigfoot-rot,0deg))!important;
+  transform-origin:50% 100%!important;object-fit:contain!important;
+  filter:drop-shadow(0 7px 6px rgba(0,0,0,.72)) drop-shadow(0 0 2px rgba(255,235,190,.85));
+  animation:bigfootPlushPop .38s cubic-bezier(.18,.9,.25,1.2);
+}
+@keyframes bigfootPlushPop{
+  0%{transform:translate(-50%,-50%) scale(.12);opacity:0}
+  75%{transform:translate(-50%,-50%) scale(1.12);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(1);opacity:1}
+}
+body.menuMode #bigfootPlushHudWrap{display:none!important}
+
 
 /* ===== END CART HIT REWARD HUD ===== */
 
@@ -1496,7 +1518,7 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
 </div>
 <div id="cockpitStage">
   <img id="cockpitArt" alt="">
-  <div id="steerHud"><div class="stem"></div><div id="steerHudWheel"><span class="spoke s1"></span><span class="spoke s2"></span><span class="spoke s3"></span><span class="hub"></span></div><img id="julianoBourbonHud" src="assets/img_001.png" alt="" aria-hidden="true"></div><img id="cartRewardHud" alt="" aria-hidden="true"><div id="cartRewardHudWrap" aria-hidden="true"></div></div>
+  <div id="steerHud"><div class="stem"></div><div id="steerHudWheel"><span class="spoke s1"></span><span class="spoke s2"></span><span class="spoke s3"></span><span class="hub"></span></div><img id="julianoBourbonHud" src="assets/img_001.png" alt="" aria-hidden="true"></div><img id="cartRewardHud" alt="" aria-hidden="true"><div id="cartRewardHudWrap" aria-hidden="true"></div><div id="bigfootPlushHudWrap" aria-hidden="true"></div>
 </div>
 <div id="cockpitRoof"></div>
 <div id="cockpitPoles"><div class="cockpit-pole" id="poleL"></div><div class="cockpit-pole" id="poleR"></div></div>
@@ -1588,7 +1610,8 @@ body.menuMode #cartRewardHud,body.menuMode #cartRewardHudWrap{display:none!impor
   <div class="acr-results-inner">
     <div id="acrResultBanner" class="acr-result-banner">RACE COMPLETE</div>
     <div id="acrResultCart" class="acr-result-cart"></div>
-    <div class="acr-result-time"><span id="acrResultTime">0:00.0</span><i>TOTAL &middot; 1 LAP</i></div>
+    <div class="acr-result-time"><span id="acrResultTime">0:00.0</span><i>FINAL TIME &middot; 1 LAP</i></div>
+    <div id="acrResultAdjust" class="acr-result-adjust">RAW 0:00.0 &middot; RECOVERY +0s &middot; ANIMALS &minus;0s</div>
     <div class="acr-result-grid">
       <div class="acr-result-stat"><b id="acrResultAnimals">0</b><span>&#128062; ANIMALS SAVED</span></div>
       <div class="acr-result-stat"><b id="acrResultGoblins">0</b><span>&#128122; GOBLINS DESTROYED</span></div>
@@ -2457,6 +2480,10 @@ window.ACR_CONFIG = {
   }
   function showResults(run){
     $('acrResultTime').textContent    = fmt(run.time);
+    var rawTime=Math.max(0,Number(run.rawTime==null?run.time:run.rawTime)||0);
+    var recoveryPenalty=Math.max(0,Number(run.recoveryPenalty)||0);
+    var animalBonus=Math.max(0,Number(run.animalBonus)||0);
+    $('acrResultAdjust').textContent  = 'RAW '+fmt(rawTime)+' · RECOVERY +'+recoveryPenalty.toFixed(0)+'s · ANIMALS −'+animalBonus.toFixed(0)+'s';
     $('acrResultAnimals').textContent = run.animals|0;
     $('acrResultGoblins').textContent = run.goblins|0;
     $('acrResultBest').textContent    = fmt(run.best);
@@ -4683,6 +4710,86 @@ function makeAlligator(){
   g.userData.jaw=lowerJaw;g.userData.head=head;g.userData.tail=tails;g.userData.legs=legs;
   g.scale.setScalar(1.18);return g;
 }
+
+/* ---------------- GIANT LAKE ALLIGATOR EVENT ----------------
+   The ford alligator above stays in its authored stream-bed encounter. This
+   separate giant waits below the lake surface, emerges when the moving cart
+   reaches the shoreline, chases briefly, then retreats and sinks. */
+const GIANT_LAKE_GATOR={g:null,active:false,triggered:false,elapsed:0,attack:0,
+  hitDone:false,cooldown:0,start:null,shore:null,retreatFrom:null,seed:2.47};
+(function buildGiantLakeGator(){
+  const g=makeAlligator();g.name='giant-lake-alligator';g.userData.giantLakeGator=true;
+  g.scale.multiplyScalar(2.05);g.visible=false;
+  g.traverse(o=>{o.frustumCulled=false;if(o.isMesh)o.renderOrder=7;});
+  scene.add(g);GIANT_LAKE_GATOR.g=g;
+})();
+function giantGatorSurfaceY(x,z){
+  return lakeField(x,z)<-1?WATER_Y-.58:groundYAt(x,z).y+.02;
+}
+function triggerGiantLakeGator(){
+  const A=GIANT_LAKE_GATOR;
+  if(A.active||A.triggered||!A.g||!cart.started)return false;
+  const shoreDistance=lakeField(cart.x,cart.z);
+  if(shoreDistance>34||shoreDistance<-10)return false;
+  const out=awayFromWater(cart.x,cart.z);
+  let waterStart=null;
+  const first=Math.max(8,shoreDistance+8);
+  for(let d=first;d<=first+48;d+=4){
+    const x=cart.x-out.x*d,z=cart.z-out.z*d;
+    if(lakeField(x,z)<-5){waterStart=new THREE.Vector3(x,WATER_Y-1.65,z);break;}
+  }
+  if(!waterStart)return false;
+  const shoreX=cart.x-out.x*2.5,shoreZ=cart.z-out.z*2.5;
+  A.start=waterStart;A.shore=new THREE.Vector3(shoreX,giantGatorSurfaceY(shoreX,shoreZ),shoreZ);
+  A.elapsed=0;A.attack=0;A.hitDone=false;A.cooldown=.65;A.retreatFrom=null;
+  A.active=true;A.triggered=true;A.g.visible=true;A.g.position.copy(A.start);
+  A.g.lookAt(A.shore.x,A.g.position.y,A.shore.z);
+  toast('🐊 GIANT ALLIGATOR — IT CAME OUT OF THE LAKE!',3000);
+  return true;
+}
+function updateGiantLakeGator(dt){
+  const A=GIANT_LAKE_GATOR,g=A.g;
+  if(!g)return;
+  if(!A.active){
+    if(!A.triggered&&cart.started&&cart.boom<=0&&cart.musky<=0)triggerGiantLakeGator();
+    return;
+  }
+  A.elapsed+=dt;A.cooldown=Math.max(0,A.cooldown-dt);
+  if(A.elapsed<2.5){
+    const u=smooth(0,2.5,A.elapsed);
+    g.position.lerpVectors(A.start,A.shore,u);
+    g.position.y=(WATER_Y-1.65)*(1-u)+A.shore.y*u+Math.sin(u*Math.PI)*.35;
+  }else if(A.elapsed<9.0){
+    const dx=cart.x-g.position.x,dz=cart.z-g.position.z,d=Math.hypot(dx,dz)||1;
+    const speed=d>8?7.2:(d>4.6?4.5:1.1);
+    g.position.x+=dx/d*speed*dt;g.position.z+=dz/d*speed*dt;
+    const gy=giantGatorSurfaceY(g.position.x,g.position.z);
+    g.position.y+=(gy-g.position.y)*Math.min(1,dt*4.8);
+  }else{
+    if(!A.retreatFrom)A.retreatFrom=g.position.clone();
+    const u=smooth(9.0,12.6,A.elapsed);
+    g.position.lerpVectors(A.retreatFrom,A.start,u);
+    g.position.y=giantGatorSurfaceY(g.position.x,g.position.z)-u*1.15;
+  }
+
+  const dx=cart.x-g.position.x,dz=cart.z-g.position.z,d=Math.hypot(dx,dz)||.001;
+  if(A.elapsed<9.3)g.lookAt(cart.x,g.position.y,cart.z);
+  else g.lookAt(A.start.x,g.position.y,A.start.z);
+  if(A.attack<=0&&A.elapsed>1.5&&A.elapsed<9.0&&d<7.0&&A.cooldown<=0){A.attack=.82;A.hitDone=false;}
+  let jawOpen=.08+Math.abs(Math.sin(A.elapsed*2.4))*.07;
+  if(A.attack>0){
+    A.attack=Math.max(0,A.attack-dt);const p=1-A.attack/.82;jawOpen=Math.sin(p*Math.PI)*.62;
+    if(!A.hitDone&&p>.44&&d<7.4){
+      A.hitDone=true;chompSfx();damage(5,'🐊 GIANT ALLIGATOR BITE — 5 DAMAGE!',true);
+    }
+    if(A.attack===0)A.cooldown=1.35;
+  }
+  if(g.userData.jaw)g.userData.jaw.rotation.x=jawOpen;
+  if(g.userData.head)g.userData.head.rotation.y=Math.sin(A.elapsed*1.35)*.055;
+  g.userData.tail.forEach((t,i)=>t.rotation.y=Math.sin(A.elapsed*2.25-i*.7)*(.18+i*.06));
+  g.userData.legs.forEach((leg,i)=>leg.rotation.z=Math.sin(A.elapsed*3.0+i*Math.PI)*.11);
+  if(A.elapsed>=12.6){g.visible=false;A.active=false;A.attack=0;A.retreatFrom=null;}
+}
 function updateAlligators(dt){
   for(const a of ALLIGATORS){
     a.cooldown=Math.max(0,a.cooldown-dt);a.phase+=dt;
@@ -4716,6 +4823,10 @@ function updateAlligators(dt){
 }
 function resetAlligators(){
   for(const a of ALLIGATORS){a.attack=0;a.hitDone=false;a.cooldown=.55;a.phase=0;a.g.visible=true;}
+  const A=GIANT_LAKE_GATOR;
+  if(A.g)A.g.visible=false;
+  A.active=false;A.triggered=false;A.elapsed=0;A.attack=0;A.hitDone=false;A.cooldown=0;
+  A.start=null;A.shore=null;A.retreatFrom=null;
 }
 
 /* the ford — shallow water across the trail below Apple Falls */
@@ -5643,8 +5754,22 @@ function recoverCartToTrail(){
   ensureCartVisualIntegrity(true);sanitizeCartState();
   toast('★ BACK ON THE TRAIL',1200);
 }
+const RECOVERY_TIME_PENALTY=10;
+function addRecoveryTimePenalty(){
+  if(!RUNNING)return false;
+  cart.timePenalty=(cart.timePenalty||0)+RECOVERY_TIME_PENALTY;
+  cart.lapPenalty=(cart.lapPenalty||0)+RECOVERY_TIME_PENALTY;
+  cart.recoveryUses=(cart.recoveryUses||0)+1;
+  if(cart.started)laptimeEl.textContent=fmtTime(clockT-cart.lapStart+cart.lapPenalty);
+  return true;
+}
 const recoverEl=document.getElementById('recover');
-if(recoverEl)recoverEl.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();recoverCartToTrail();});
+if(recoverEl)recoverEl.addEventListener('click',e=>{
+  e.preventDefault();e.stopPropagation();
+  const penalized=addRecoveryTimePenalty();
+  recoverCartToTrail();
+  if(penalized)toast('★ STAR USED — +10 SECONDS',1700);
+});
 function crtSet(v){
   ARCADE.on=v;
   const b=document.getElementById('crt');        // button removed; guard anyway
@@ -5890,6 +6015,34 @@ function critterPose(g,list,t,sx=1,sy=1){
    Hitting the sasquatch leaves a stuffed one sitting on the dash. Squashed
    spheres read as "plush" at this scale far better than boxes do. */
 const bigfootPlushItems=[];
+const bigfootPlushHudItems=[];
+const bigfootPlushHudWrap=document.getElementById('bigfootPlushHudWrap');
+function bigfootPlushHudDataUri(){
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 220">
+    <ellipse cx="90" cy="205" rx="61" ry="11" fill="#1b0e08" opacity=".36"/>
+    <g stroke="#2b170e" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+      <path fill="#65402b" d="M47 89Q28 105 30 143Q31 172 53 182L70 160L65 101Z"/>
+      <path fill="#65402b" d="M133 89Q152 105 150 143Q149 172 127 182L110 160L115 101Z"/>
+      <path fill="#573522" d="M55 85Q53 50 90 42Q127 50 125 85L137 145Q132 180 90 188Q48 180 43 145Z"/>
+      <ellipse fill="#7c5238" cx="90" cy="114" rx="39" ry="53"/>
+      <path fill="#65402b" d="M54 70Q55 26 90 18Q125 27 126 70Q119 88 90 91Q61 88 54 70Z"/>
+      <ellipse fill="#c08a61" cx="90" cy="67" rx="28" ry="25"/>
+      <ellipse fill="#c08a61" cx="90" cy="84" rx="24" ry="15"/>
+      <ellipse fill="#23140d" cx="79" cy="65" rx="5" ry="7"/>
+      <ellipse fill="#23140d" cx="101" cy="65" rx="5" ry="7"/>
+      <circle fill="#fff5df" stroke="none" cx="77.5" cy="62.5" r="1.8"/>
+      <circle fill="#fff5df" stroke="none" cx="99.5" cy="62.5" r="1.8"/>
+      <ellipse fill="#2a1710" cx="90" cy="78" rx="9" ry="6"/>
+      <path d="M78 88Q90 98 102 88" fill="none"/>
+      <path fill="#573522" d="M62 175Q38 177 34 197Q51 211 75 198L79 180Z"/>
+      <path fill="#573522" d="M118 175Q142 177 146 197Q129 211 105 198L101 180Z"/>
+      <path d="M61 193L52 200M70 194L64 204M119 193L128 200M110 194L116 204" fill="none" stroke-width="3"/>
+      <path d="M66 123Q90 139 114 123M70 150Q90 162 110 150" fill="none" stroke="#8f6247" stroke-width="3"/>
+      <path fill="#573522" d="M69 23L79 7L90 19L101 5L111 25Z"/>
+    </g>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
 function makeBigfootPlush(){
   const g=new THREE.Group();
   g.name='bigfoot-plush';
@@ -5986,12 +6139,32 @@ function layoutBigfootPlush(){
     m.position.set(-.35+i*.18,-.438,-1.145);
     m.rotation.set(-.06,.24-i*.12,0);
   });
+  bigfootPlushHudItems.forEach(function(img,i){
+    if(!img)return;
+    img.style.setProperty('--bigfoot-x',(59.5+i*7.2).toFixed(1)+'%');
+    img.style.setProperty('--bigfoot-y',(70.5-(i%2)*1.4).toFixed(1)+'%');
+    img.style.setProperty('--bigfoot-w','9.2%');
+    img.style.setProperty('--bigfoot-rot',(-5+i*3.2).toFixed(1)+'deg');
+    img.style.zIndex=String(30+i);
+  });
 }
 function showBigfootPlush(){
   if(!cartOrnaments)return null;
-  if(bigfootPlushItems.length>=4){const old=bigfootPlushItems.shift();cartOrnaments.remove(old);}
+  if(bigfootPlushItems.length>=4){
+    const old=bigfootPlushItems.shift();cartOrnaments.remove(old);
+    const oldHud=bigfootPlushHudItems.shift();if(oldHud)oldHud.remove();
+  }
   const m=makeBigfootPlush();
+  /* Keep the model in front of other Three.js dashboard ornaments. The DOM
+     copy below handles the separate HTML reward layer above the canvas. */
+  m.traverse(function(o){if(o.isMesh){o.renderOrder=900;o.material.depthTest=false;o.material.depthWrite=false;}});
   bigfootPlushItems.push(m); cartOrnaments.add(m);
+  let img=null;
+  if(bigfootPlushHudWrap){
+    img=document.createElement('img');img.className='bigfootPlushHud';img.src=bigfootPlushHudDataUri();img.alt='';
+    img.setAttribute('aria-hidden','true');bigfootPlushHudWrap.appendChild(img);
+  }
+  bigfootPlushHudItems.push(img);
   layoutBigfootPlush();
   return m;
 }
@@ -6000,6 +6173,7 @@ function clearBigfootPlush(){
     const m=bigfootPlushItems.pop();
     if(cartOrnaments)cartOrnaments.remove(m);
   }
+  while(bigfootPlushHudItems.length){const img=bigfootPlushHudItems.pop();if(img)img.remove();}
 }
 
 /* ---- Honey bear -------------------------------------------------------
@@ -6703,7 +6877,7 @@ function boomSfx(splash){
 /* ---------------- FREE-ROAM cart with hitpoints ---------------- */
 const cart={
   x:0,z:0,y:0,vy:0,airT:0,heading:0,v:0,steerV:0,hp:100,
-  head:0,lap:1,lapStart:0,best:Infinity,started:false,lastZone:null,
+  head:0,lap:1,lapStart:0,lapPenalty:0,timePenalty:0,recoveryUses:0,best:Infinity,started:false,lastZone:null,
   lastNearT:0,lapCheckpoint:0,
   crash:0,crashDir:1,crashRoll:0,wander:0,musky:0,
   boom:0,boomSplash:false,lost:0,onDeck:false,hitCD:0,camY:null,camLookY:null,chainsaw:0,
@@ -6871,14 +7045,26 @@ function burnObstacle(o,dir,pos){
 }
 function makeWitch(){
   const g=new THREE.Group();
-  const phong=(color,shininess=18)=>new THREE.MeshPhongMaterial({color,shininess,specular:0x4a4a4a});
+  const phong=(color,shininess=18,emissive=0x000000)=>new THREE.MeshPhongMaterial({color,shininess,specular:0x68606f,emissive});
   const skin=phong(0x79ad4d,26),skinDark=phong(0x5e8539,18);
-  const black=phong(0x0b0b10,34),cloth=phong(0x17131d,20),clothHi=phong(0x2d2038,26);
-  const purple=phong(0x4b193f,28),wood=phong(0x6e4426,12),straw=phong(0xc99b48,10);
+  const black=phong(0x17131d,34,0x040206),cloth=phong(0x241b2b,20,0x09040d),clothHi=phong(0x50325f,26,0x16091d);
+  const purple=phong(0x8d2ca3,32,0x2b0735),wood=phong(0x6e4426,12),straw=phong(0xe0b354,10);
   const eyeWhite=new THREE.MeshBasicMaterial({color:0xf3f4e9});
   const eyeBlue=new THREE.MeshBasicMaterial({color:0x54aef2});
   const pupilM=new THREE.MeshBasicMaterial({color:0x050509});
   const lipRed=phong(0xc21735,42),buckleM=phong(0xe8c44f,55),hairM=phong(0x353039,12);
+
+  /* A camera-facing purple aura makes the full silhouette readable against
+     trees, houses and dark road edges without drawing the witch through solid
+     scenery. The transparent centre keeps her face and dress crisp. */
+  const auraCv=document.createElement('canvas');auraCv.width=128;auraCv.height=192;
+  const auraX=auraCv.getContext('2d'),auraGrad=auraX.createRadialGradient(64,96,34,64,96,88);
+  auraGrad.addColorStop(0,'rgba(194,80,255,0)');auraGrad.addColorStop(.48,'rgba(194,80,255,.10)');
+  auraGrad.addColorStop(.72,'rgba(176,52,242,.34)');auraGrad.addColorStop(1,'rgba(112,24,160,0)');
+  auraX.fillStyle=auraGrad;auraX.fillRect(0,0,128,192);
+  const auraMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(auraCv),transparent:true,opacity:.82,
+    depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending});
+  const aura=new THREE.Sprite(auraMat);aura.position.set(0,2.55,-.10);aura.scale.set(3.45,5.55,1);aura.renderOrder=14;g.add(aura);
 
   // Tall layered black dress with a high dramatic collar.
   const skirt=new THREE.Mesh(new THREE.ConeGeometry(.78,2.72,14),cloth);skirt.position.y=1.34;g.add(skirt);
@@ -6936,8 +7122,10 @@ function makeWitch(){
 
   g.userData.broom=broomPivot;
   g.userData.hat=hatTip;
-  g.userData.baseScale=1.20;
-  g.scale.setScalar(1.20);
+  g.userData.aura=aura;
+  g.userData.baseScale=1.52;
+  g.scale.setScalar(1.52);
+  g.traverse(o=>{o.frustumCulled=false;});
   return g;
 }
 function spawnHouseWitches(o){
@@ -6946,7 +7134,7 @@ function spawnHouseWitches(o){
   for(let i=0;i<4;i++){
     const g=makeWitch(),a=i*Math.PI*.5;
     const x=o.x+Math.cos(a)*2.8,z=o.z+Math.sin(a)*2.8,gy=groundYAt(x,z).y;
-    g.position.set(x,gy,z);g.scale.set(.08,.08,.08);
+    g.position.set(x,gy,z);g.scale.set(.10,.10,.10);
     scene.add(g);WITCHES.push({g,wave,life:46+i*1.5,emerge:.58+i*.12,
       cooldown:.72+i*.16,swing:0,hitDone:false,ph:i*1.7,orbit:a});
   }
@@ -7033,8 +7221,9 @@ function updateWitches(dt){
     if(w.life<=0){killWitchAt(i,'escaped');continue;}
     if(w.emerge>0){
       w.emerge=Math.max(0,w.emerge-dt);
-      const e=1-clamp(w.emerge/.72,0,1),s=(.08+1.12*smooth(0,1,e));g.scale.setScalar(s);
-    }else g.scale.setScalar(g.userData.baseScale||1.20);
+      const e=1-clamp(w.emerge/.72,0,1),base=g.userData.baseScale||1.52;
+      g.scale.setScalar(.10+(base-.10)*smooth(0,1,e));
+    }else g.scale.setScalar(g.userData.baseScale||1.52);
     const dx=cart.x-g.position.x,dz=cart.z-g.position.z,d=Math.hypot(dx,dz)||.001;
     const verticalNear=Math.abs(cart.y-g.position.y)<3.5;
     const ux=dx/d,uz=dz/d,side=Math.sin(w.ph*.55+w.orbit);
@@ -7044,6 +7233,12 @@ function updateWitches(dt){
     g.position.y+=(targetY-g.position.y)*Math.min(1,dt*9);
     g.lookAt(cart.x,g.position.y,cart.z);g.rotation.z=Math.sin(w.ph*1.4)*.09;
     if(g.userData.hat)g.userData.hat.rotation.z=.62+Math.sin(w.ph*.8+w.orbit)*.08;
+    if(g.userData.aura){
+      const pulse=1+Math.sin(w.ph*1.55+w.orbit)*.07;
+      g.userData.aura.scale.set(3.45*pulse,5.55*pulse,1);
+      g.userData.aura.material.opacity=.70+Math.sin(w.ph*1.9+w.orbit)*.16;
+      g.userData.aura.material.rotation+=dt*.22;
+    }
     if(w.emerge<=0&&verticalNear&&d<2.55&&(rageT>0||cart.chainsaw>0)){
       killWitchAt(i,rageT>0?'rage':'chainsaw');thunk();cart.v*=.92;continue;
     }
@@ -7889,7 +8084,7 @@ function tick(now){
       passengerCountEl.textContent='\ud83d\udc3e '+animalsSaved+' saved';
       if(A.typ.name==='BIGFOOT'){
         showBigfootPlush();
-        toast('\ud83e\uddf8 BIGFOOT PLUSH ON THE DASH!',2600);
+        toast('\ud83e\uddf8 BIGFOOT PLUSH ON THE DASH · −2s FINAL TIME!',2600);
         ding();cart.v*=.62;
         if(A.cave){A.cave.userData.fade=4.5;BIGFOOT_EVT.done=true;}
         break;
@@ -7897,14 +8092,14 @@ function tick(now){
       if(A.typ.sticky){
         cart.sticky=STICKY_SECS;
         if(stickyEl){stickyEl.classList.add('show');stickyEl.textContent='\ud83c\udf6f STICKY TIRES \u00b7 '+STICKY_SECS+'s';}
-        toast('\ud83c\udf6f HONEY EVERYWHERE \u2014 STICKY TIRES FOR '+STICKY_SECS+'s!',3000);
+        toast('\ud83c\udf6f HONEY EVERYWHERE — STICKY TIRES '+STICKY_SECS+'s · −2s FINAL TIME!',3000);
         ding();cart.v*=.70;
         break;
       }
       if(animalsSaved%10===0)toast('\ud83d\udc3e '+animalsSaved+' CRITTERS SAVED',1500);
       ding();thunk();
       const rewardCfg=showCartHitReward();
-      let hitToast=A.typ.name.toUpperCase()+' HIT!';
+      let hitToast=A.typ.name.toUpperCase()+' SAVED · −2s FINAL TIME!';
       if(rewardCfg&&rewardCfg.toast)hitToast+=' · '+rewardCfg.toast+' ON THE DASH!';
       if(rageT<=0){
         const bump=A.typ.big?Math.min(8,3+Math.round(Math.abs(cart.v)*.18)):Math.min(3,1+Math.round(Math.abs(cart.v)*.06));
@@ -7957,8 +8152,8 @@ function tick(now){
     const crossedFinishForward=crossedCheckeredGround||
       (forwardProgress&&cart.lastNearT>.90&&nearT<.10);
     if(cart.lapCheckpoint>=checkpoints.length&&crossedFinishForward){
-      const lapTime=clockT-cart.lapStart;
-      cart.lapStart=clockT;cart.lap++;
+      const lapTime=clockT-cart.lapStart+(cart.lapPenalty||0);
+      cart.lapStart=clockT;cart.lapPenalty=0;cart.lap++;
       cart.lapCheckpoint=0;
       if(lapTime<cart.best){cart.best=lapTime;
         toast('LAP '+(cart.lap-1)+' — '+fmtTime(lapTime)+' · BEST!');}
@@ -8250,6 +8445,7 @@ function tick(now){
     c.lookAt(camera.position.x,c.position.y,camera.position.z);});
   water.position.y=WATER_Y+Math.sin(clockT*.7)*.05;
   updateAlligators(dt);
+  updateGiantLakeGator(dt);
   updateAnimals(dt,camera.position);
   updatePassengers(dt);
   updateGoblins(dt,nearT,rn2.d);
@@ -8275,7 +8471,7 @@ function tick(now){
 
   mphEl.textContent=Math.round(Math.abs(cart.v)*2.237);
   document.querySelector('#speed span').textContent=cart.v<-.25?'REVERSE':'MPH';
-  if(cart.started)laptimeEl.textContent=fmtTime(clockT-cart.lapStart);
+  if(cart.started)laptimeEl.textContent=fmtTime(clockT-cart.lapStart+(cart.lapPenalty||0));
   drawMap(cart.x,cart.z);
   arcadeRender(scene,camera);
   requestAnimationFrame(tick);
@@ -8290,7 +8486,7 @@ function resetRun(){
   cart.v=0;cart.vy=0;cart.airT=0;cart.steerV=0;
   cart._rampAir=0;cart._circleRampAir=0;cart._circleLaunchV=0;cart._circleLandingGuide=0;cart._rampCd=0;
   cart.hp=cartMaxHP();cart.crash=0;cart.crashRoll=0;cart.boom=0;cart.musky=0;cart.hitCD=0;cart.camY=null;cart.camLookY=null;
-  cart.lap=1;cart.lapStart=0;cart.started=false;cart.lost=0;cart.lastZone=null;
+  cart.lap=1;cart.lapStart=0;cart.lapPenalty=0;cart.timePenalty=0;cart.recoveryUses=0;cart.started=false;cart.lost=0;cart.lastZone=null;
   cart.lastNearT=0.003;cart.lapCheckpoint=0;
   if(muskyRig){muskyRig.visible=false;muskyRig.rotation.z=0;setMuskyFrame(0);}
   muskyBelly=0;
@@ -8364,8 +8560,15 @@ function finishRace(totalTime){
   stopRunAudio();
   arcadeRender(scene,camera);
   document.body.classList.add('menuMode');
+  const rawTime=Math.max(0,totalTime||0);
+  const recoveryPenalty=Math.max(0,cart.timePenalty||0);
+  const animalBonus=Math.max(0,animalsSaved*2);
+  const finalTime=Math.max(0,rawTime+recoveryPenalty-animalBonus);
   const run={
-    time:    Math.max(0,totalTime||0),
+    time:    finalTime,
+    rawTime: rawTime,
+    recoveryPenalty: recoveryPenalty,
+    animalBonus: animalBonus,
     animals: animalsSaved,
     goblins: goblinKills,
     apples:  appleScore,
@@ -9523,6 +9726,7 @@ body.menuMode #map,body.menuMode #tach{display:none!important}
 .acr-result-time{text-align:center;line-height:1}
 .acr-result-time span{font-size:46px;font-weight:800;font-variant-numeric:tabular-nums;color:#fff;text-shadow:0 0 26px rgba(255,209,102,.35)}
 .acr-result-time i{display:block;font-style:normal;font-size:9px;letter-spacing:.3em;opacity:.6;margin-top:7px}
+.acr-result-adjust{text-align:center;font-size:9px;letter-spacing:.11em;color:#ffd166;margin-top:-2px;min-height:13px}
 .acr-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .acr-result-stat{
   background:rgba(255,255,255,.05);border:1px solid rgba(243,234,216,.14);border-radius:12px;padding:11px 9px;text-align:center;
@@ -9683,6 +9887,7 @@ body.menuMode #acrWhoami{display:flex}
 .acr-result-cart{color:#5c6473;opacity:1}
 .acr-result-time span{color:#d8402c;text-shadow:none;font-family:var(--display,Futura,'Avenir Next',sans-serif)}
 .acr-result-time i{color:#5c6473;opacity:1;font-weight:700}
+.acr-result-adjust{color:#2f7d32;font-weight:800}
 .acr-result-stat{background:#f3f5f6;border:1px solid #d9dde3;border-radius:9px}
 .acr-result-stat b{color:#d8402c}
 .acr-result-stat span{color:#5c6473;opacity:1;font-weight:700}
