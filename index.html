@@ -236,6 +236,14 @@
     --paper:#fffdf8; --paper-2:#f0ece0;
     --sky-1:#1273b4; --sky-2:#3ea3dc; --sky-3:#a9dcf0;
     --turf-1:#4c9c3f; --turf-2:#2f6b2b;
+    /* Dashboard prize chassis. Every reward icon -- whatever its artwork --
+       sits on the same plate, with the same ink weight and the same drop, so
+       twelve unrelated images still read as one set. Only the ring colour
+       changes per cart. */
+    --badge-ink:#1b2420;
+    --badge-face:#fffaf0;
+    --badge-face-hi:#ffffff;
+    --badge-accent:#ffc63f;
     --sun:#ffc63f; --sun-2:#ef8f16;
     --tomato:#d8402c; --violet:#7d43bd; --gold:#d9a327;
     --display:'Futura','Avenir Next',Avenir,'Trebuchet MS','Segoe UI',system-ui,sans-serif;
@@ -1388,7 +1396,15 @@ body.menuMode #julianoBourbonHud{display:none!important}
   display:none;
   pointer-events:none!important;
   object-fit:contain!important;
-  filter:drop-shadow(0 5px 7px rgba(0,0,0,.55));
+  box-sizing:border-box!important;
+  padding:11%!important;
+  border-radius:50%!important;
+  background:radial-gradient(circle at 36% 28%,var(--badge-face-hi),var(--badge-face) 68%,#e6ddcb 100%)!important;
+  border:.28em solid var(--badge-ink)!important;
+  box-shadow:
+    inset 0 0 0 .16em var(--badge-accent),
+    0 .18em 0 var(--badge-ink),
+    0 .34em .5em rgba(0,0,0,.42)!important;
   opacity:1;
 }
 #cartRewardHud.pop{animation:cartRewardPop .34s cubic-bezier(.2,.9,.28,1.18)}
@@ -1413,7 +1429,16 @@ body.menuMode #julianoBourbonHud{display:none!important}
   transform-origin:50% 50%!important;
   pointer-events:none!important;
   object-fit:contain!important;
-  filter:drop-shadow(0 4px 7px rgba(0,0,0,.55));
+  /* shared chassis */
+  box-sizing:border-box!important;
+  padding:11%!important;
+  border-radius:50%!important;
+  background:radial-gradient(circle at 36% 28%,var(--badge-face-hi),var(--badge-face) 68%,#e6ddcb 100%)!important;
+  border:.28em solid var(--badge-ink)!important;
+  box-shadow:
+    inset 0 0 0 .16em var(--badge-accent),
+    0 .18em 0 var(--badge-ink),
+    0 .34em .5em rgba(0,0,0,.42)!important;
   opacity:1;
 }
 .cartRewardBadge.pop{animation:cartRewardBadgePop .34s cubic-bezier(.2,.9,.28,1.18)}
@@ -3389,6 +3414,99 @@ const FOG_BASE={near:62,far:470},FOG_DEEP={near:30,far:215};
 let dimCur=0;
 
 
+/* ================= WORLD PALETTE (stage 1) =================
+   One source of truth for every ground colour in the world. The two grass
+   anchors deliberately match the CSS tokens --turf-1 / --turf-2 up in the
+   stylesheet, so the HUD and the terrain under it are the same green.
+
+   GRASS_TILE is world units per texture tile. Every grass surface derives
+   its map repeat from this instead of hardcoding a number, which is what
+   keeps texel density -- and therefore mow-stripe width -- constant whether
+   you are on a putting green or three hundred metres out on the ridge. */
+const GRASS_TILE = 8;
+const PALETTE = {
+  grassLit:   0x6cbe45,   // sunlit mown band -- greens, high-traffic turf
+  grassMid:   0x4c9c3f,   // base grass       -- matches --turf-1
+  grassShade: 0x2f6b2b,   // shaded grass     -- matches --turf-2
+  grassRough: 0x3f8632,   // off-track rough  -- same family, reads as penalty
+  sand:       0xdcc98d,
+  // `rock` used to live here at 0x8b8578, within 5% of rockLit and used in
+  // exactly one place. Merged -- high terrain now takes rockLit like every
+  // other stone surface.
+  streambed:  0x3a5a52,
+
+  // -- foliage. Conifers stay the darkest thing in the world so the bright
+  //    grass and the carts read against them; broadleaf sits a full step up.
+  // Pushed down a step from the first draft: pine was landing at the same
+  // lightness as grassShade, so trees merged into shaded hillsides. Conifers
+  // must stay the darkest mass in the world.
+  pineDeep:   0x17482a,
+  pine:       0x256034,
+  // Bush sat within 0.01 lightness of grassMid, and bushes are collidable
+  // obstacles standing on grass -- they have to read as a separate mass.
+  bush:       0x2e6b24,
+  appleLeaf:  0x51a833,
+
+  // -- wood. One family, three values: structure, decking, trim.
+  woodDark:   0x4a3526,
+  woodMid:    0x7a5433,
+  woodLight:  0xa8763f,
+
+  // -- rock. Warm grey, deliberately desaturated so it never competes.
+  rockLit:    0x9a9384,
+  rockShade:  0x6e685c,
+
+  // -- creatures.
+  // Gator was within 0.008 hue and 0.008 lightness of `bush` -- effectively
+  // camouflage, and he is a hazard the player has to see coming. Moved to a
+  // cooler swamp green so he separates from foliage by hue, not just value.
+  gatorHide:  0x35714a,
+  gatorDark:  0x1f4a30,
+  gatorBelly: 0xcdd98c,
+  furMid:     0x8a5a30,
+  furLight:   0xb07c46,
+
+  // -- water. One family, shallow ford through to lake deep. These are the
+  //    values the game actually shipped with: the late pass used to slam
+  //    water to 0x2ec5f0 and the lake bed to 0x1668b0 after the fact, so
+  //    those are now simply where the family starts.
+  waterFoam:    0xdff4ff,
+  waterShallow: 0x8fc9e4,
+  water:        0x2ec5f0,
+  waterDeep:    0x1668b0,
+
+  // -- travelled ground. The trail is packed dirt and must never candy.
+  trail:      0xe8ddcc,
+  trailAux:   0xf0e0c7,
+  // Fences and flagpoles stand right beside the trail, so paper has to clear
+  // it by value, not just by hue.
+  paper:      0xfaf6ea,
+
+  // -- rock, third value for banks and cave mouths.
+  // Cave mouths sit against timber posts; rock goes cooler and greyer so the
+  // two stop reading as one mass.
+  rockDark:   0x4c4b44,
+
+  // -- built accents. The violet family is the tower and the witches; it is
+  //    the only cool hue in an otherwise warm world, which is what makes it
+  //    read as "not of this place".
+  violet:      0x8b3fd0,
+  violetDeep:  0x4a1d72,
+  violetLight: 0xd9b9f2,
+  // gold is "collect this", hazard is "avoid this". They were 0.014 apart in
+  // lightness, which is not a distinction a player can make at speed. Hazard
+  // is now amber, gold stays yellow.
+  gold:        0xf2c14a,
+  hazard:      0xf5921f,
+  // Same problem: tomato is scenery (flags, banner trim), appleRed is a
+  // collectible. Separated on both hue and lightness.
+  tomato:      0xef7434,
+  appleRed:    0xc41f28,
+
+  // -- the single outline ink used everywhere.
+  outline:    0x1b2420
+};
+
 /* ================= PROCEDURAL SKIN LIBRARY =================
    Greyscale-biased detail maps (mean ~0.88) that MULTIPLY the existing
    palette, so the arcade colour grading survives while surfaces gain
@@ -3413,19 +3531,10 @@ const TEX=(function(){
   const NQ=k=>Math.round(k*(MOBILE?.4:1));
   function g(v){v=Math.max(0,Math.min(255,v|0));return 'rgb('+v+','+v+','+v+')';}
 
-  /* --- ground: grass blades + clumps + pebbles ------------------ */
-  const ground=mk(256,(x,S)=>{
-    x.fillStyle=g(222);x.fillRect(0,0,S,S);
-    const clump=[];for(let i=0;i<180;i++)clump.push([R()*S,R()*S,4+R()*13,190+R()*55]);
-    tiled(x,S,clump,(c,o)=>{c.fillStyle='rgba('+(o[3]|0)+','+(o[3]|0)+','+(o[3]|0)+',.45)';
-      c.beginPath();c.arc(o[0],o[1],o[2],0,6.283);c.fill();});
-    const bl=[];for(let i=0;i<NQ(3000);i++)bl.push([R()*S,R()*S,R()*6.283,2+R()*5,170+R()*85]);
-    x.lineWidth=1;
-    tiled(x,S,bl,(c,o)=>{c.strokeStyle=g(o[4]);c.beginPath();
-      c.moveTo(o[0],o[1]);c.lineTo(o[0]+Math.cos(o[2])*o[3],o[1]+Math.sin(o[2])*o[3]);c.stroke();});
-    const pb=[];for(let i=0;i<90;i++)pb.push([R()*S,R()*S,1+R()*2.4,140+R()*50]);
-    tiled(x,S,pb,(c,o)=>{c.fillStyle=g(o[3]);c.beginPath();c.arc(o[0],o[1],o[2],0,6.283);c.fill();});
-  });
+  /* --- ground: retired in the stage 1 grass pass -----------------
+     Every surface that used this now uses `rough` below. Building it anyway
+     cost ~27k canvas strokes at load (9 seam-tiles x 3000 blades) for a
+     texture nothing sampled, which was worth reclaiming on mobile. */
 
   /* --- bark: vertical fibre and deep fissures ------------------- */
   const bark=mk(128,(x,S)=>{
@@ -3582,14 +3691,43 @@ const TEX=(function(){
     for(let i=0;i<500;i++){x.fillStyle=g(150+R()*90);x.fillRect(R()*S,R()*S,1,1);}
   });
 
-  /* --- mown turf: mower stripes -------------------------------- */
+  /* --- mown turf: wide mower bands ------------------------------
+     Four bands per tile instead of eight, so at GRASS_TILE world units each
+     stripe is ~2m wide and still legible at speed. Contrast is up (242/198
+     against the old 232/210) while the mean holds at ~0.86, so the bands
+     read as bands rather than as noise -- and the blade speckle drops from
+     2200 strokes to 260, because at distance that speckle was falling below
+     a pixel and shimmering. Colour comes from material.color; this is a
+     greyscale multiply map like the rest of the library. */
   const turf=mk(128,(x,S)=>{
-    for(let c=0;c<8;c++){x.fillStyle=g(c%2?232:210);x.fillRect(c*(S/8),0,S/8,S);}
-    for(let i=0;i<NQ(2200);i++){
-      x.strokeStyle=g(190+R()*60);x.lineWidth=1;
-      const px=R()*S,py=R()*S;
-      x.beginPath();x.moveTo(px,py);x.lineTo(px+(R()-.5)*3,py+2+R()*2);x.stroke();
+    const B=4,w=S/B;
+    for(let c=0;c<B;c++){x.fillStyle=g(c%2?242:198);x.fillRect(c*w,0,w,S);}
+    for(let c=0;c<B;c++){                        // feather the band seams
+      const gr=x.createLinearGradient(c*w,0,c*w+w*.16,0);
+      gr.addColorStop(0,'rgba(255,255,255,.22)');
+      gr.addColorStop(1,'rgba(255,255,255,0)');
+      x.fillStyle=gr;x.fillRect(c*w,0,w*.16,S);
     }
+    for(let i=0;i<NQ(260);i++){
+      x.strokeStyle='rgba(255,255,255,.10)';x.lineWidth=1;
+      const px=R()*S,py=R()*S;
+      x.beginPath();x.moveTo(px,py);x.lineTo(px+(R()-.5)*2,py+2+R()*2);x.stroke();
+    }
+  });
+
+  /* --- rough grass ---------------------------------------------
+     The old `ground` map with its variance pulled down hard: 3000 blades to
+     700, clump alpha .45 to .28. Same job, but distant terrain now settles
+     into flat colour instead of boiling. Used for everything unmown. */
+  const rough=mk(256,(x,S)=>{
+    x.fillStyle=g(226);x.fillRect(0,0,S,S);
+    const clump=[];for(let i=0;i<110;i++)clump.push([R()*S,R()*S,7+R()*16,206+R()*38]);
+    tiled(x,S,clump,(c,o)=>{c.fillStyle='rgba('+(o[3]|0)+','+(o[3]|0)+','+(o[3]|0)+',.28)';
+      c.beginPath();c.arc(o[0],o[1],o[2],0,6.283);c.fill();});
+    const bl=[];for(let i=0;i<NQ(700);i++)bl.push([R()*S,R()*S,R()*6.283,2+R()*4,206+R()*40]);
+    x.lineWidth=1;
+    tiled(x,S,bl,(c,o)=>{c.strokeStyle=g(o[4]);c.beginPath();
+      c.moveTo(o[0],o[1]);c.lineTo(o[0]+Math.cos(o[2])*o[3],o[1]+Math.sin(o[2])*o[3]);c.stroke();});
   });
 
   /* --- sand ---------------------------------------------------- */
@@ -3620,7 +3758,7 @@ const TEX=(function(){
 
   /* clone with its own repeat (textures share repeat otherwise) */
   function rep(t,u,v){
-    if(!t){ console.warn('[ACR] rep(): missing texture, using ground'); t=ground; }
+    if(!t){ console.warn('[ACR] rep(): missing texture, using rough'); t=rough; }
     const c=t.clone();c.needsUpdate=true;
     c.wrapS=c.wrapT=THREE.RepeatWrapping;c.repeat.set(u,v===undefined?u:v);return c;}
   /* mipmaps for anything seen at extreme distance -- kills the shimmer
@@ -3629,7 +3767,7 @@ const TEX=(function(){
     t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;
     t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t;}
 
-  return {ground,bark,needle,leaf,plank,timber,rock,fur,siding,shingle,brick,turf,sand,ripple,rep,mip};
+  return {rough,bark,needle,leaf,plank,timber,rock,fur,siding,shingle,brick,turf,sand,ripple,rep,mip};
 })();
 
 /* terrain */
@@ -3660,9 +3798,9 @@ function surfaceH(x,z){
   g.rotateX(-Math.PI/2);
   const pos=g.attributes.position;
   const colors=new Float32Array(pos.count*3);
-  const cSand=new THREE.Color(0xc9b98a),cGrass=new THREE.Color(0x3f8a3a),
-        cGrass2=new THREE.Color(0x2f6f2e),cRock=new THREE.Color(0x8b8578),
-        cBed=new THREE.Color(0x3a5a52),c=new THREE.Color();
+  const cSand=new THREE.Color(PALETTE.sand),cGrass=new THREE.Color(PALETTE.grassMid),
+        cGrass2=new THREE.Color(PALETTE.grassShade),cRock=new THREE.Color(PALETTE.rockLit),
+        cBed=new THREE.Color(PALETTE.streambed),c=new THREE.Color();
   for(let i=0;i<pos.count;i++){
     const x=pos.getX(i),z=pos.getZ(i),hh=terrainH(x,z);
     pos.setY(i,hh);
@@ -3672,22 +3810,26 @@ function surfaceH(x,z){
     else if(hh<1.6)c.copy(cSand);
     else{c.lerpColors(cGrass,cGrass2,vnoise(x*.03,z*.03));
       if(hh>24)c.lerp(cRock,smooth(24,46,hh));}
-    const s=.85+vnoise(x*.05+9,z*.05)*.3;
+    // Tightened from .85+.3 to .93+.14: the wide swing was mottling the
+    // terrain into camouflage and fighting the mow stripes for attention.
+    const s=.93+vnoise(x*.05+9,z*.05)*.14;
     colors[i*3]=c.r*s;colors[i*3+1]=c.g*s;colors[i*3+2]=c.b*s;
   }
   g.setAttribute('color',new THREE.BufferAttribute(colors,3));
   g.computeVertexNormals();
-  scene.add(new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,
-    map:TEX.mip(TEX.rep(TEX.ground,300,300))})));
+  const terrainMat=new THREE.MeshLambertMaterial({vertexColors:true,
+    map:TEX.mip(TEX.rep(TEX.rough,SIZE/GRASS_TILE,SIZE/GRASS_TILE))});
+  terrainMat.userData.mat='grass';
+  scene.add(new THREE.Mesh(g,terrainMat));
 })();
 
 /* water */
-const waterMat=new THREE.MeshPhongMaterial({color:0x2e6d9e,transparent:true,opacity:.88,
+const waterMat=new THREE.MeshPhongMaterial({color:PALETTE.water,transparent:true,opacity:.88,
   shininess:120,specular:0x99ccee,map:TEX.mip(TEX.rep(TEX.ripple,260,260))});
 const water=new THREE.Mesh(new THREE.PlaneGeometry(2500,2500),waterMat);
 water.rotation.x=-Math.PI/2;water.position.y=WATER_Y;scene.add(water);
 const deep=new THREE.Mesh(new THREE.PlaneGeometry(2500,2500),
-  new THREE.MeshBasicMaterial({color:0x17405f}));
+  new THREE.MeshBasicMaterial({color:PALETTE.waterDeep}));
 deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
 
 /* trail ribbon + shoulders */
@@ -3758,16 +3900,16 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
   g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));
   g.setAttribute('uv',new THREE.Float32BufferAttribute(UV,2));
   g.setIndex(IDX);g.computeVertexNormals();
-  const trailMat=new THREE.MeshLambertMaterial({map:tex,color:0xe8ddcc});
+  const trailMat=new THREE.MeshLambertMaterial({map:tex,color:PALETTE.trail});
   trailMat.userData.surface='trail';
   scene.add(new THREE.Mesh(g,trailMat));
   const sg=new THREE.BufferGeometry();
   sg.setAttribute('position',new THREE.Float32BufferAttribute(SP,3));
   sg.setAttribute('uv',new THREE.Float32BufferAttribute(SUV,2));
   sg.setIndex(SIDX);sg.computeVertexNormals();
-  const shoulderMat=new THREE.MeshLambertMaterial({color:0x3d8038,side:THREE.DoubleSide,
-    map:TEX.mip(TEX.rep(TEX.ground,3,1))});
-  shoulderMat.userData.surface='shoulder';
+  const shoulderMat=new THREE.MeshLambertMaterial({color:PALETTE.grassRough,side:THREE.DoubleSide,
+    map:TEX.mip(TEX.rep(TEX.rough,3,1))});
+  shoulderMat.userData.surface='shoulder'; shoulderMat.userData.mat='grass';
   scene.add(new THREE.Mesh(sg,shoulderMat));
 })();
 
@@ -3787,11 +3929,11 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
   }
   const auxTex=TEX.mip(new THREE.CanvasTexture(cv));
   auxTex.wrapS=auxTex.wrapT=THREE.RepeatWrapping;
-  const roadMat=new THREE.MeshLambertMaterial({map:auxTex,color:0xf0e0c7,side:THREE.DoubleSide});
+  const roadMat=new THREE.MeshLambertMaterial({map:auxTex,color:PALETTE.trailAux,side:THREE.DoubleSide});
   roadMat.userData.surface='trail';
-  const shoulderMat=new THREE.MeshLambertMaterial({color:0x556d32,side:THREE.DoubleSide,
-    map:TEX.mip(TEX.rep(TEX.ground,3,1))});
-  shoulderMat.userData.surface='shoulder';
+  const shoulderMat=new THREE.MeshLambertMaterial({color:PALETTE.grassRough,side:THREE.DoubleSide,
+    map:TEX.mip(TEX.rep(TEX.rough,3,1))});
+  shoulderMat.userData.surface='shoulder'; shoulderMat.userData.mat='grass';
   function strip(road,width,mat,yOff){
     const P=[],UV=[],I=[],n=road.samples.length,segN=road.closed?n:n-1;
     let len=0;
@@ -3815,20 +3957,23 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
 
   // Raised center island and a deliberately small, unmistakably purple tower.
   const islandR=CIRCLE_R-ROAD_W-.45;
-  const island=new THREE.Mesh(new THREE.CylinderGeometry(islandR,islandR+.35,1.05,40),
-    new THREE.MeshLambertMaterial({color:0x5f773a,map:TEX.rep(TEX.turf,3,3)}));
+  const islandRep=(islandR*2)/GRASS_TILE;
+  const islandMat=new THREE.MeshLambertMaterial({color:PALETTE.grassMid,
+    map:TEX.rep(TEX.turf,islandRep,islandRep)});
+  islandMat.userData.mat='grass';
+  const island=new THREE.Mesh(new THREE.CylinderGeometry(islandR,islandR+.35,1.05,40),islandMat);
   island.position.copy(CIRCLE_CENTER);island.position.y=CIRCLE_Y-.38;
   island.userData.courseFeature='trafficCircleIsland';scene.add(island);
   const tower=new THREE.Group();tower.userData.courseFeature='purpleTower';
-  const purple=new THREE.MeshLambertMaterial({color:0x7b34b6});
-  const purpleDark=new THREE.MeshLambertMaterial({color:0x4a1d72});
+  const purple=new THREE.MeshLambertMaterial({color:PALETTE.violet});
+  const purpleDark=new THREE.MeshLambertMaterial({color:PALETTE.violetDeep});
   const body=new THREE.Mesh(new THREE.CylinderGeometry(2.05,2.35,7.2,12),purple);
   body.position.y=3.6;tower.add(body);
   const band=new THREE.Mesh(new THREE.CylinderGeometry(2.22,2.22,.55,12),purpleDark);
   band.position.y=5.5;tower.add(band);
   const roof=new THREE.Mesh(new THREE.ConeGeometry(2.75,2.25,12),purpleDark);
   roof.position.y=8.3;tower.add(roof);
-  const door=new THREE.Mesh(new THREE.BoxGeometry(.85,1.8,.12),new THREE.MeshLambertMaterial({color:0xd9b9f2}));
+  const door=new THREE.Mesh(new THREE.BoxGeometry(.85,1.8,.12),new THREE.MeshLambertMaterial({color:PALETTE.violetLight}));
   door.position.set(0,.95,2.23);tower.add(door);
   const windowMat=new THREE.MeshBasicMaterial({color:0xf6dc72});
   for(let a=0;a<Math.PI*2;a+=Math.PI/2){
@@ -3837,7 +3982,8 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
   }
   tower.position.set(CIRCLE_CENTER.x,CIRCLE_Y+.14,CIRCLE_CENTER.z);scene.add(tower);
 
-  const wood=new THREE.MeshLambertMaterial({color:0x49331f,map:TEX.rep(TEX.timber,1,2)});
+  const wood=new THREE.MeshLambertMaterial({color:PALETTE.woodDark,map:TEX.rep(TEX.timber,1,2)});
+  wood.userData.mat='wood';
   function signBoard(pos,forward,draw,w=4.4,h=2.4){
     const c=document.createElement('canvas');c.width=512;c.height=256;
     const x=c.getContext('2d');draw(x,c.width,c.height);
@@ -3874,7 +4020,8 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
 
   // Timber rails and hazard boards make the break read as a purpose-built ramp.
   const ramp=new THREE.Group();ramp.userData.courseFeature='hundredFootRamp';
-  const deckMat=new THREE.MeshLambertMaterial({color:0x8f6035,map:TEX.rep(TEX.plank,2,2)});
+  const deckMat=new THREE.MeshLambertMaterial({color:PALETTE.woodLight,map:TEX.rep(TEX.plank,2,2)});
+  deckMat.userData.mat='wood';
   const a=JUMP_APPROACH.samples[JUMP_APPROACH.samples.length-13].p,b=JUMP_LIP;
   const deck=new THREE.Mesh(new THREE.BoxGeometry(ROAD_W*2-.5,.24,a.distanceTo(b)+.8),deckMat);
   deck.position.copy(a).lerp(b,.5);deck.lookAt(b);ramp.add(deck);
@@ -3883,7 +4030,7 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
     rail.position.copy(deck.position).addScaledVector(CIRCLE_F,sd*(ROAD_W-.3));rail.lookAt(b);ramp.add(rail);
   }
   scene.add(ramp);
-  const hazardMat=new THREE.MeshLambertMaterial({color:0xf5c440});
+  const hazardMat=new THREE.MeshLambertMaterial({color:PALETTE.hazard});
   for(const sd of[-1,1]){
     const post=new THREE.Mesh(new THREE.BoxGeometry(.35,2.0,.35),hazardMat);
     post.position.copy(JUMP_LIP).addScaledVector(CIRCLE_F,sd*(ROAD_W+.4));post.position.y+=1;scene.add(post);
@@ -3893,9 +4040,10 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
 
 /* bridges from mask runs */
 (function(){
-  const railMat=new THREE.MeshLambertMaterial({color:0x6b4f2e,map:TEX.rep(TEX.timber,1,3)});
-  const postMat=new THREE.MeshLambertMaterial({color:0x55402a,map:TEX.rep(TEX.timber,1,4)});
-  const plankMat=new THREE.MeshLambertMaterial({color:0x7d6038,map:TEX.rep(TEX.plank,3,1)});
+  const railMat=new THREE.MeshLambertMaterial({color:PALETTE.woodMid,map:TEX.rep(TEX.timber,1,3)});
+  const postMat=new THREE.MeshLambertMaterial({color:PALETTE.woodDark,map:TEX.rep(TEX.timber,1,4)});
+  const plankMat=new THREE.MeshLambertMaterial({color:PALETTE.woodLight,map:TEX.rep(TEX.plank,3,1)});
+  railMat.userData.mat='wood'; postMat.userData.mat='wood'; plankMat.userData.mat='wood';
   let i=0;
   while(i<NS){
     if(!bridgeMask[i]){i++;continue;}
@@ -4028,10 +4176,12 @@ function obstNear(x,z){
   const coneG=new THREE.ConeGeometry(2.3,5.6,7);
   const cone2G=new THREE.ConeGeometry(1.6,4.2,7);
   const bushG=new THREE.SphereGeometry(1.1,7,6);
-  const trunkM=new THREE.MeshLambertMaterial({color:0x5a4028,map:TEX.mip(TEX.rep(TEX.bark,2,2))});
-  const pineM=new THREE.MeshLambertMaterial({color:0x1f4325,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
-  const pineM2=new THREE.MeshLambertMaterial({color:0x2a5730,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
-  const bushM=new THREE.MeshLambertMaterial({color:0x365c28,map:TEX.mip(TEX.rep(TEX.leaf,2,2))});
+  const trunkM=new THREE.MeshLambertMaterial({color:PALETTE.woodMid,map:TEX.mip(TEX.rep(TEX.bark,2,2))});
+  const pineM=new THREE.MeshLambertMaterial({color:PALETTE.pine,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
+  const pineM2=new THREE.MeshLambertMaterial({color:PALETTE.pineDeep,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
+  const bushM=new THREE.MeshLambertMaterial({color:PALETTE.bush,map:TEX.mip(TEX.rep(TEX.leaf,2,2))});
+  trunkM.userData.mat='wood'; pineM.userData.mat='conifer';
+  pineM2.userData.mat='conifer'; bushM.userData.mat='foliage';
   const N=MOBILE?1650:3200,NB=MOBILE?400:800;
   const trunks=new THREE.InstancedMesh(trunkG,trunkM,N);
   const c1=new THREE.InstancedMesh(coneG,pineM,N);
@@ -4082,9 +4232,10 @@ function obstNear(x,z){
   const trunkG=new THREE.CylinderGeometry(.34,.5,4.2,6);
   const coneG=new THREE.ConeGeometry(2.9,7,7);
   const cone2G=new THREE.ConeGeometry(2.0,5.2,7);
-  const trunkM=new THREE.MeshLambertMaterial({color:0x4a3420,map:TEX.mip(TEX.rep(TEX.bark,2,2))});
-  const darkPine=new THREE.MeshLambertMaterial({color:0x16301b,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
-  const darkPine2=new THREE.MeshLambertMaterial({color:0x1d3d22,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
+  const trunkM=new THREE.MeshLambertMaterial({color:PALETTE.woodDark,map:TEX.mip(TEX.rep(TEX.bark,2,2))});
+  const darkPine=new THREE.MeshLambertMaterial({color:PALETTE.pineDeep,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
+  const darkPine2=new THREE.MeshLambertMaterial({color:PALETTE.pine,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
+  trunkM.userData.mat='wood'; darkPine.userData.mat='conifer'; darkPine2.userData.mat='conifer';
   const N=MOBILE?380:700;
   const trunks=new THREE.InstancedMesh(trunkG,trunkM,N);
   const c1=new THREE.InstancedMesh(coneG,darkPine,N);
@@ -4166,12 +4317,66 @@ const HOUSE_ART_SPECS={
   gingerbread:{w:9.2,h:10.4,r:5.2,sink:.48}
 };
 const HOUSE_ART_TEXTURES={};
+/* ===== STAGE 6: imported-art grade =====================================
+   Houses and creature sprites are supplied raster art, so they cannot be
+   repainted from PALETTE the way the geometry can. What they can get is the
+   two things that actually make the toon geometry read as a set: a dark ink
+   outline around the silhouette, and a saturation lift to match the graded
+   world. Both are applied once at decode, into the canvas the texture already
+   uses, so there is no per-frame cost.
+
+   ctx.filter is unsupported on older Safari; it degrades to no grade rather
+   than throwing, which is why the outline is drawn with compositing instead
+   of a filter -- the outline is the part that matters most. */
+function stylizeArtToCanvas(cv,img,opt){
+  opt=opt||{};
+  const ink=opt.ink||('#'+PALETTE.outline.toString(16).padStart(6,'0'));
+  const w=img.naturalWidth||img.width||2, h=img.naturalHeight||img.height||2;
+  // outline thickness scales with the art so small icons don't get a fat ring
+  const p=Math.max(1,Math.round(Math.min(w,h)*(opt.outline!==undefined?opt.outline:0.018)));
+  cv.width=w+p*2; cv.height=h+p*2;
+  const cx=cv.getContext('2d',{alpha:true});
+  cx.clearRect(0,0,cv.width,cv.height);
+
+  if(p>0){
+    // Build the silhouette by stamping the art around a ring, then flood the
+    // result with ink using source-in. Eight taps is enough at these sizes.
+    const sil=document.createElement('canvas');
+    sil.width=cv.width; sil.height=cv.height;
+    const sc=sil.getContext('2d',{alpha:true});
+    for(let a=0;a<8;a++){
+      const th=a*Math.PI/4;
+      sc.drawImage(img,p+Math.round(Math.cos(th)*p),p+Math.round(Math.sin(th)*p),w,h);
+    }
+    sc.globalCompositeOperation='source-in';
+    sc.fillStyle=ink; sc.fillRect(0,0,sil.width,sil.height);
+    cx.drawImage(sil,0,0);
+  }
+
+  try{ cx.filter='saturate('+(opt.sat||1.16)+') contrast('+(opt.con||1.05)+')'; }catch(_){}
+  cx.drawImage(img,p,p,w,h);
+  try{ cx.filter='none'; }catch(_){}
+  return cv;
+}
+
 function houseArtTexture(kind){
   if(HOUSE_ART_TEXTURES[kind])return HOUSE_ART_TEXTURES[kind];
-  const tex=new THREE.TextureLoader().load('data:image/png;base64,'+HOUSE_ART_DATA[kind]);
+  // Was a straight TextureLoader. Now decodes through the shared grade so the
+  // cabins carry the same ink line as the toon geometry around them.
+  const cv=document.createElement('canvas');cv.width=cv.height=2;
+  const tex=new THREE.CanvasTexture(cv);
   if(THREE.sRGBEncoding!==undefined)tex.encoding=THREE.sRGBEncoding;
   tex.minFilter=THREE.LinearMipmapLinearFilter;tex.magFilter=THREE.LinearFilter;
   tex.generateMipmaps=true;
+  (function(){
+    const im=new Image();im.decoding='async';
+    im.onload=()=>{try{stylizeArtToCanvas(cv,im,{outline:.014,sat:1.14});}
+      catch(e){cv.width=im.naturalWidth;cv.height=im.naturalHeight;
+        cv.getContext('2d').drawImage(im,0,0);}
+      tex.needsUpdate=true;};
+    im.onerror=()=>console.warn('[ACR] house art failed to decode:',kind);
+    im.src='data:image/png;base64,'+HOUSE_ART_DATA[kind];
+  })();
   HOUSE_ART_TEXTURES[kind]=tex;
   return tex;
 }
@@ -4246,7 +4451,7 @@ function suppliedHouseGroundY(x,z,spec){
       placeOnGround(dh,dp.x,dp.z);scene.add(dh);
     }
   }
-  const fenceM=new THREE.MeshLambertMaterial({color:0xe8e4d8});
+  const fenceM=new THREE.MeshLambertMaterial({color:PALETTE.paper});
   const steps=26;
   for(let i=0;i<steps;i++){
     const t=t0+(t1-t0)*i/steps,s=sampAt(t),s2=sampAt(t0+(t1-t0)*(i+1)/steps);
@@ -4278,7 +4483,8 @@ function updateHouseFacing(){
   const s=sampAt(t);
   const toWater=awayFromWater(s.p.x,s.p.z).multiplyScalar(-1);
   const base=s.p.clone().addScaledVector(toWater,9);
-  const dockM=new THREE.MeshLambertMaterial({color:0x93765a,map:TEX.rep(TEX.plank,2,1)});
+  const dockM=new THREE.MeshLambertMaterial({color:PALETTE.woodMid,map:TEX.rep(TEX.plank,2,1)});
+  dockM.userData.mat='wood';
   for(let d=0;d<2;d++){
     const dir=toWater.clone().applyAxisAngle(new THREE.Vector3(0,1,0),(d-.5)*.5);
     for(let k=0;k<7;k++){
@@ -4299,7 +4505,7 @@ function updateHouseFacing(){
       new THREE.MeshLambertMaterial({color:d?0xd8dde2:0xc23b2e}));
     hull.scale.set(3.6,.9,1.35);hull.position.y=.25;boat.add(hull);
     const cab=new THREE.Mesh(new THREE.BoxGeometry(1.8,1,1.6),
-      new THREE.MeshLambertMaterial({color:0xf0ead8}));
+      new THREE.MeshLambertMaterial({color:PALETTE.paper}));
     cab.position.set(-.4,1,0);boat.add(cab);
     boat.position.set(bp.x,WATER_Y,bp.z);
     boat.rotation.y=Math.atan2(dir.x,dir.z)+Math.PI/2;
@@ -4317,9 +4523,14 @@ function updateHouseFacing(){
 
 /* golf course */
 (function(){
-  const greenM=new THREE.MeshLambertMaterial({color:0x64a83e,map:TEX.mip(TEX.rep(TEX.turf,6,6))});
-  const fringeM=new THREE.MeshLambertMaterial({color:0x548c38,map:TEX.mip(TEX.rep(TEX.ground,10,10))});
-  const sandM=new THREE.MeshLambertMaterial({color:0xd9c58e,map:TEX.rep(TEX.sand,3,3)});
+  // Green is r=8 (16 across), fringe is r=11 (22 across); both repeats are
+  // derived so the mown bands stay GRASS_TILE wide on every surface.
+  const greenM=new THREE.MeshLambertMaterial({color:PALETTE.grassLit,
+    map:TEX.mip(TEX.rep(TEX.turf,16/GRASS_TILE,16/GRASS_TILE))});
+  const fringeM=new THREE.MeshLambertMaterial({color:PALETTE.grassMid,
+    map:TEX.mip(TEX.rep(TEX.rough,22/GRASS_TILE,22/GRASS_TILE))});
+  const sandM=new THREE.MeshLambertMaterial({color:PALETTE.sand,map:TEX.rep(TEX.sand,3,3)});
+  greenM.userData.mat='grass'; fringeM.userData.mat='grass'; sandM.userData.mat='sand';
   const gt=zoneT('ORCHARD GREENS G.C.');
   for(let i=0;i<3;i++){
     const t=gt+.008+i*.011,s=sampAt(t);
@@ -4332,10 +4543,10 @@ function updateHouseFacing(){
     const green=new THREE.Mesh(new THREE.CylinderGeometry(8,8,.3,20),greenM);
     green.position.set(p.x,gy+.14,p.z);scene.add(green);
     const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,3,5),
-      new THREE.MeshLambertMaterial({color:0xf0ead8}));
+      new THREE.MeshLambertMaterial({color:PALETTE.paper}));
     pole.position.set(p.x,gy+1.7,p.z);scene.add(pole);
     const flag=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.7),
-      new THREE.MeshBasicMaterial({color:0xd8452e,side:THREE.DoubleSide}));
+      new THREE.MeshBasicMaterial({color:PALETTE.tomato,side:THREE.DoubleSide}));
     flag.position.set(p.x+.62,gy+2.9,p.z);flag.userData.wave=i;
     flags.push(flag);scene.add(flag);
     const bunker=new THREE.Mesh(new THREE.CylinderGeometry(4.5,4.5,.2,14),sandM);
@@ -4367,7 +4578,8 @@ let fallsMat,mistMats=[],streamMat,FALLS_T=0;
   falls.position.set(base.x,(topY+baseGround)/2,base.z);
   falls.lookAt(s.p.x,(topY+baseGround)/2,s.p.z);
   scene.add(falls);
-  const rockM=new THREE.MeshLambertMaterial({color:0x77705f,map:TEX.mip(TEX.rep(TEX.rock,2,2))});
+  const rockM=new THREE.MeshLambertMaterial({color:PALETTE.rockLit,map:TEX.mip(TEX.rep(TEX.rock,2,2))});
+  rockM.userData.mat='rock';
   for(let i=0;i<9;i++){
     const r=new THREE.Mesh(new THREE.DodecahedronGeometry(2+Math.random()*2.6,0),rockM);
     const side=i%2?1:-1;
@@ -4378,7 +4590,8 @@ let fallsMat,mistMats=[],streamMat,FALLS_T=0;
     scene.add(r);
     obstAdd(r.position.x,r.position.z,2.4,'rock');
   }
-  streamMat=new THREE.MeshPhongMaterial({color:0x7fb6d8,transparent:true,opacity:.8,shininess:100});
+  streamMat=new THREE.MeshPhongMaterial({color:PALETTE.waterShallow,transparent:true,opacity:.8,shininess:100});
+  streamMat.userData.mat='water';
   const stream=new THREE.Mesh(new THREE.PlaneGeometry(9,42),streamMat);
   const sp=base.clone().addScaledVector(toWater,22);
   stream.position.set(sp.x,Math.max(WATER_Y+.12,surfaceH(sp.x,sp.z)+.1),sp.z);
@@ -4409,7 +4622,7 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
    outside the driving corridor, so it reads as scenery without blocking the course. */
 (function buildTrailStream(){
   const t0=zoneT('SOUTH FORK')+.014,t1=zoneT('WEST FORK BRIDGE')-.018;
-  trailStreamMat=new THREE.MeshPhongMaterial({color:0x69a9c9,transparent:true,opacity:.72,
+  trailStreamMat=new THREE.MeshPhongMaterial({color:PALETTE.waterShallow,transparent:true,opacity:.72,
     shininess:110,side:THREE.DoubleSide});
   const steps=28;
   for(let i=0;i<steps;i++){
@@ -4427,7 +4640,8 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
     scene.add(seg);
     if(i%4===0){
       const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.45+Math.random()*.45,0),
-        new THREE.MeshLambertMaterial({color:0x77746c,map:TEX.mip(TEX.rep(TEX.rock,2,2))}));
+        (function(){const m=new THREE.MeshLambertMaterial({color:PALETTE.rockLit,
+          map:TEX.mip(TEX.rep(TEX.rock,2,2))});m.userData.mat='rock';return m;})());
       rock.position.copy(mid).addScaledVector(aS.right,side*(1.2+Math.random()*.8));
       rock.position.y=surfaceH(rock.position.x,rock.position.z)+.25;scene.add(rock);
     }
@@ -4446,7 +4660,8 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
                               .addScaledVector(s.tan,1.2);
   const baseY=Math.max(surfaceH(cliffCenter.x,cliffCenter.z),s.p.y-.8);
   const cliffTop=baseY+15.5;
-  const rockM=new THREE.MeshLambertMaterial({color:0x68645c,map:TEX.mip(TEX.rep(TEX.rock,2,2))});
+  const rockM=new THREE.MeshLambertMaterial({color:PALETTE.rockShade,map:TEX.mip(TEX.rep(TEX.rock,2,2))});
+  rockM.userData.mat='rock';
 
   // Broad rock wall: parallel to the trail and completely outside the drive corridor.
   for(let row=0;row<4;row++)for(let col=0;col<7;col++){
@@ -4469,26 +4684,27 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
     cx.fillRect(Math.random()*64,Math.random()*256,1.5+Math.random()*4.5,18+Math.random()*74);
   }
   const tex=new THREE.CanvasTexture(cv);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
-  damFallsMat=new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.94,color:0xd9f2fb,
+  damFallsMat=new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.94,color:PALETTE.waterFoam,
     depthWrite:false,side:THREE.DoubleSide});
   const fallH=cliffTop-baseY-1.0;
   const falls=new THREE.Mesh(new THREE.PlaneGeometry(6.2,fallH),damFallsMat);
   falls.position.copy(fallFoot);falls.position.y=baseY+fallH*.5+.4;
   falls.lookAt(s.p.x,falls.position.y,s.p.z);scene.add(falls);
 
-  const poolMat=new THREE.MeshPhongMaterial({color:0x62a8c8,transparent:true,opacity:.78,shininess:120,side:THREE.DoubleSide});
+  const poolMat=new THREE.MeshPhongMaterial({color:PALETTE.waterShallow,transparent:true,opacity:.78,shininess:120,side:THREE.DoubleSide});
+  poolMat.userData.mat='water';
   const pool=new THREE.Mesh(new THREE.CircleGeometry(4.8,22),poolMat);
   pool.rotation.x=-Math.PI/2;pool.position.copy(fallFoot);pool.position.y=baseY+.16;scene.add(pool);
   for(let i=0;i<4;i++){
     const m=new THREE.Mesh(new THREE.SphereGeometry(1.1+i*.45,8,6),
-      new THREE.MeshBasicMaterial({color:0xe5f7ff,transparent:true,opacity:.18,depthWrite:false}));
+      new THREE.MeshBasicMaterial({color:PALETTE.waterFoam,transparent:true,opacity:.18,depthWrite:false}));
     m.scale.set(2.4,.6,1.25);m.position.copy(fallFoot);m.position.y=baseY+.65+i*.34;
     m.userData.ph=i*1.7;DAM_MISTS.push(m);scene.add(m);
   }
 
   // River flows out of the waterfall pool, crosses the trail at 90 degrees and
   // continues beyond it. Short connected planes make the water read as one channel.
-  const riverMat=new THREE.MeshPhongMaterial({color:0x5d9fc0,transparent:true,opacity:.78,
+  const riverMat=new THREE.MeshPhongMaterial({color:PALETTE.waterShallow,transparent:true,opacity:.78,
     shininess:125,side:THREE.DoubleSide});
   const startOff=cliffSide*(ROAD_W+12.4),endOff=-cliffSide*(ROAD_W+13.5),segments=18;
   for(let i=0;i<segments;i++){
@@ -4507,7 +4723,8 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
   }
 
   // Rocky river banks stay outside the bridge deck and emphasize the channel.
-  const bankM=new THREE.MeshLambertMaterial({color:0x716b60,map:TEX.mip(TEX.rep(TEX.rock,3,2))});
+  const bankM=new THREE.MeshLambertMaterial({color:PALETTE.rockShade,map:TEX.mip(TEX.rep(TEX.rock,3,2))});
+  bankM.userData.mat='rock';
   for(const bankAlong of[-3.35,3.35]){
     for(let i=0;i<12;i++){
       const off=startOff+(endOff-startOff)*(i/11);
@@ -4520,8 +4737,10 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
   }
 
   // Small timber bridge: trail runs along s.tan, river passes beneath along s.right.
-  const plankMat=new THREE.MeshLambertMaterial({color:0x80613a,map:TEX.rep(TEX.plank,3,1)});
-  const timberMat=new THREE.MeshLambertMaterial({color:0x594128,map:TEX.rep(TEX.timber,1,4)});
+  const plankMat=new THREE.MeshLambertMaterial({color:PALETTE.woodLight,map:TEX.rep(TEX.plank,3,1)});
+  plankMat.userData.mat='wood';
+  const timberMat=new THREE.MeshLambertMaterial({color:PALETTE.woodDark,map:TEX.rep(TEX.timber,1,4)});
+  timberMat.userData.mat='wood';
   const bridgeHalf=4.1,planks=8;
   for(let i=0;i<planks;i++){
     const along=-bridgeHalf+(i+.5)*(bridgeHalf*2/planks);
@@ -4570,11 +4789,13 @@ const DAM_MISTS=[],POWER_GIFTS=[],CHAINSAW_PICKUPS=[];
   const gy=surfaceH(base.x,base.z);
   const tree=new THREE.Group();
   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.65,.9,6.2,8),
-    new THREE.MeshLambertMaterial({color:0x65462a,map:TEX.mip(TEX.rep(TEX.bark,2,2))}));
+    (function(){const m=new THREE.MeshLambertMaterial({color:PALETTE.woodMid,
+      map:TEX.mip(TEX.rep(TEX.bark,2,2))});m.userData.mat='wood';return m;})());
   trunk.position.y=3.1;tree.add(trunk);
-  const pineM=new THREE.MeshLambertMaterial({color:0x184f2b,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
+  const pineM=new THREE.MeshLambertMaterial({color:PALETTE.pineDeep,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
+  pineM.userData.mat='conifer';
   [[4.7,7.3],[8.0,6.0],[11.0,4.7]].forEach(([y,r])=>{const c=new THREE.Mesh(new THREE.ConeGeometry(r,7.5,10),pineM);c.position.y=y;tree.add(c);});
-  const star=new THREE.Mesh(new THREE.OctahedronGeometry(.65,0),new THREE.MeshBasicMaterial({color:0xffd34d}));
+  const star=new THREE.Mesh(new THREE.OctahedronGeometry(.65,0),new THREE.MeshBasicMaterial({color:PALETTE.gold}));
   star.position.y=15.2;tree.add(star);tree.position.set(base.x,gy,base.z);scene.add(tree);
   const wrapCols=[0xd94232,0x2d76c4,0xe4b82e,0x7b4ab0,0x2d9b61,0xe9782e];
   for(let i=0;i<6;i++){
@@ -4644,9 +4865,10 @@ const RAMPS=[];
 const ALLIGATORS=[];
 function makeAlligator(){
   const g=new THREE.Group();g.userData.creature='alligator';
-  const hide=new THREE.MeshPhongMaterial({color:0x416f2c,shininess:34,specular:0x7da55c});
-  const dark=new THREE.MeshPhongMaterial({color:0x24451f,shininess:22});
-  const belly=new THREE.MeshPhongMaterial({color:0x91a85d,shininess:18});
+  const hide=new THREE.MeshPhongMaterial({color:PALETTE.gatorHide,shininess:34,specular:0x7da55c});
+  const dark=new THREE.MeshPhongMaterial({color:PALETTE.gatorDark,shininess:22});
+  const belly=new THREE.MeshPhongMaterial({color:PALETTE.gatorBelly,shininess:18});
+  hide.userData.mat='creature'; dark.userData.mat='creature'; belly.userData.mat='creature';
   const mouthM=new THREE.MeshPhongMaterial({color:0x6e1b24,shininess:24});
   const toothM=new THREE.MeshPhongMaterial({color:0xfff4c9,shininess:60});
   const eyeM=new THREE.MeshBasicMaterial({color:0xffdb39});
@@ -4835,7 +5057,7 @@ let FORD_T=0,fordMat=null;
   FORD_T=((tOfCP(20)+5/TRACKLEN)%1+1)%1;      // just past the falls plunge
   if(inBridge(FORD_T))FORD_T=((tOfCP(20)+9/TRACKLEN)%1+1)%1;
   const s=sampAt(FORD_T);
-  fordMat=new THREE.MeshPhongMaterial({color:0x8fc2dc,transparent:true,opacity:.66,
+  fordMat=new THREE.MeshPhongMaterial({color:PALETTE.waterShallow,transparent:true,opacity:.66,
     shininess:130,specular:0xd8f0ff});
   const strip=new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W*2+9,18),fordMat);
   strip.position.copy(s.p);strip.position.y+=.06;
@@ -4843,7 +5065,7 @@ let FORD_T=0,fordMat=null;
   strip.rotation.z=Math.atan2(s.tan.x,s.tan.z);
   scene.add(strip);
   // wet pebbly banks
-  const bankM=new THREE.MeshLambertMaterial({color:0x7a6f58});
+  const bankM=new THREE.MeshLambertMaterial({color:PALETTE.rockShade});bankM.userData.mat='rock';
   for(const sd of[-1,1]){
     const bank=new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W*2+10,1.6),bankM);
     bank.position.copy(s.p).addScaledVector(s.tan,sd*9.6);
@@ -4854,7 +5076,8 @@ let FORD_T=0,fordMat=null;
   }
   // shallow-water rock garden: visible boulders create a rough slalom without
   // becoming hard collision objects that can permanently block the course.
-  const stoneM=new THREE.MeshLambertMaterial({color:0x756f65,map:TEX.mip(TEX.rep(TEX.rock,8,3))});
+  const stoneM=new THREE.MeshLambertMaterial({color:PALETTE.rockLit,map:TEX.mip(TEX.rep(TEX.rock,8,3))});
+  stoneM.userData.mat='rock';
   const rockSlots=[
     [-.72,-7.1,.55],[.34,-6.0,.42],[.76,-4.8,.62],[-.28,-3.7,.48],
     [-.82,-2.2,.38],[.12,-1.0,.58],[.68,.2,.44],[-.45,1.4,.66],
@@ -4952,8 +5175,10 @@ let FORD_T=0,fordMat=null;
   }
   picks.sort((a,b)=>a.i-b.i);
 
-  const plankM=new THREE.MeshLambertMaterial({color:0x8a6034,map:TEX.rep(TEX.plank,2,2)});
-  const sideM=new THREE.MeshLambertMaterial({color:0x5a4028,map:TEX.rep(TEX.timber,1,3)});
+  const plankM=new THREE.MeshLambertMaterial({color:PALETTE.woodLight,map:TEX.rep(TEX.plank,2,2)});
+  plankM.userData.mat='wood';
+  const sideM=new THREE.MeshLambertMaterial({color:PALETTE.woodDark,map:TEX.rep(TEX.timber,1,3)});
+  sideM.userData.mat='wood';
 
   for(const pick of picks){
     const t=pick.i/NS;
@@ -5017,7 +5242,8 @@ let FORD_T=0,fordMat=null;
 
 /* zone signs */
 (function(){
-  const postM=new THREE.MeshLambertMaterial({color:0x5a4530});
+  const postM=new THREE.MeshLambertMaterial({color:PALETTE.woodDark});
+  postM.userData.mat='wood';
   for(const z of ZONES){
     const s=sampAt(z.t);
     const p=s.p.clone().addScaledVector(s.right,7.6);
@@ -5358,6 +5584,13 @@ function rewardSlotMetrics(cfg,index){
     scale:(Math.max(.62,scale-row*0.03)).toFixed(2)
   };
 }
+/* Cart body colour as a CSS hex, for anything in the HUD that should pick up
+   the active cart's identity. Falls back to the UI sun yellow. */
+function cartAccentCss(cart=ACTIVE_CART){
+  const c=cart&&typeof cart.color==='number'?cart.color:null;
+  if(c===null)return '#ffc63f';
+  return '#'+c.toString(16).padStart(6,'0');
+}
 function appendDashReward(key=ACTIVE_CART.key){
   const cfg=getCartHitRewardCfg(key);
   if(!cfg||!cfg.src||!cartRewardHudWrap)return null;
@@ -5383,6 +5616,8 @@ function appendDashReward(key=ACTIVE_CART.key){
   img.style.setProperty('--reward-w',pos.w);
   img.style.setProperty('--reward-rot',pos.rot);
   img.style.setProperty('--reward-scale',pos.scale);
+  // The plate is constant; only the inner ring carries the cart's identity.
+  img.style.setProperty('--badge-accent',cartAccentCss());
   cartRewardHudWrap.appendChild(img);
   requestAnimationFrame(()=>img.classList.add('pop'));
   return {...cfg,total:dashRewardCount};
@@ -5905,13 +6140,17 @@ function spriteTex(url,key,frame){
   const img=new Image();
   img.decoding='async';
   img.onload=()=>{
-    const w=img.naturalWidth||img.width||2;
-    const h=img.naturalHeight||img.height||2;
-    cv.width=w;cv.height=h;
-    const cx=cv.getContext('2d',{alpha:true});
-    cx.clearRect(0,0,w,h);
-    cx.imageSmoothingEnabled=true;
-    cx.drawImage(img,0,0,w,h);
+    try{
+      // Goblins, deer, turkeys and the world Bigfoot are supplied sprites.
+      // The ink line is what lets them sit in the same world as the toon
+      // geometry; without it they read as stickers on top of the scene.
+      stylizeArtToCanvas(cv,img,{outline:SPRITE_INK,sat:1.18});
+    }catch(e){
+      const w=img.naturalWidth||img.width||2, h=img.naturalHeight||img.height||2;
+      cv.width=w;cv.height=h;
+      const cx=cv.getContext('2d',{alpha:true});
+      cx.clearRect(0,0,w,h);cx.imageSmoothingEnabled=true;cx.drawImage(img,0,0,w,h);
+    }
     tex.needsUpdate=true;
   };
   img.onerror=()=>{
@@ -5922,6 +6161,13 @@ function spriteTex(url,key,frame){
 
   return _creatureTextureCache[url]=tex;
 }
+/* Outline thickness for supplied creature sprites, as a fraction of the art's
+   short side. The grade pads the canvas by this much on every side, which
+   makes the texture (1 + 2*SPRITE_INK) larger than the original art -- so the
+   sprite plane has to grow by the same factor and drop by half of it, or the
+   creature ends up smaller and hovering above its own shadow. Set to 0 to
+   disable outlining and the compensation falls out to a no-op. */
+const SPRITE_INK=0.020;
 function spriteFrames(name){ return CREATURE_SPRITES[name].map((url,i)=>spriteTex(url,name,i)); }
 const CREATURES={
   goblin:       {sheet:'goblin',       scale:1.55, shadow:.38, frameCycle:[0,1,2,1], attackFrames:[0,1,2,1], dashScale:.36, big:false},
@@ -5961,7 +6207,10 @@ function makeSpriteCritter(key,mode='world'){
   const t0=frames[(def.frameCycle||[0])[0]];
   const img=t0.image||{width:64,height:64};
   const aspect=(img.width||64)/(img.height||64);
-  const h=mode==='dash'?(def.dashScale||.30):(def.scale||1.4);
+  // Grow the plane by exactly the padding the ink outline added, so the
+  // creature keeps the size it had before stage 6.
+  const inkGrow=1+2*SPRITE_INK;
+  const h=(mode==='dash'?(def.dashScale||.30):(def.scale||1.4))*inkGrow;
   const w=h*aspect;
   const g=new THREE.Group();
   if(mode!=='dash'){
@@ -5974,7 +6223,9 @@ function makeSpriteCritter(key,mode='world'){
   }
   const sm=new THREE.SpriteMaterial({map:t0,transparent:true,alphaTest:.10,depthWrite:false});
   const spr=new THREE.Sprite(sm);
-  spr.center.set(.5,0); spr.position.y=0; spr.scale.set(w,h,1);
+  // Bottom-anchored, so sink by the lower ink band to put the feet back on
+  // the ground rather than on top of the transparent padding.
+  spr.center.set(.5,0); spr.position.y=-h*(SPRITE_INK/(1+2*SPRITE_INK)); spr.scale.set(w,h,1);
   g.add(spr);
   g.userData.sprite=spr; g.userData.frames=frames; g.userData.key=key;
   g.userData.baseH=h; g.userData.baseW=w; g.userData.aspect=aspect;
@@ -6212,8 +6463,9 @@ function clearBigfootPlush(){
    gets its own animation path (gait 'upright') in updateAnimals. */
 function makeHoneyBear(){
   const g=new THREE.Group();
-  const furM   = new THREE.MeshLambertMaterial({color:0x6b4726});
-  const furLM  = new THREE.MeshLambertMaterial({color:0x8a6038});
+  const furM   = new THREE.MeshLambertMaterial({color:PALETTE.furMid});
+  const furLM  = new THREE.MeshLambertMaterial({color:PALETTE.furLight});
+  furM.userData.mat='creature'; furLM.userData.mat='creature';
   const snoutM = new THREE.MeshLambertMaterial({color:0xc39a68});
   const eyeM   = new THREE.MeshBasicMaterial({color:0x0d0906});
   const potM   = new THREE.MeshLambertMaterial({color:0xb8763a});
@@ -6294,7 +6546,7 @@ const BIGFOOT_TYPE=ANIMAL_TYPES.find(t=>t.name==='BIGFOOT')||ANIMAL_TYPES[0];
 const BIGFOOT_EVT={timer:12+Math.random()*7,seen:false,done:false,cave:null};
 function makeCaveEntrance(){
   const g=new THREE.Group();
-  const rockM=new THREE.MeshLambertMaterial({color:0x4e453b});
+  const rockM=new THREE.MeshLambertMaterial({color:PALETTE.rockDark});rockM.userData.mat='rock';
   const holeM=new THREE.MeshBasicMaterial({color:0x070708});
   const base=new THREE.Mesh(new THREE.BoxGeometry(4.8,3.1,1.6),rockM);
   base.position.y=1.55;g.add(base);
@@ -6719,9 +6971,9 @@ const APPLES=[];let appleScore=0;
 (function(){
   // Bright orchard red with a subtle dark-red emissive lift so apples remain
   // easy to spot in deep woods without looking self-illuminated.
-  const appleRed=new THREE.MeshLambertMaterial({color:0xd92b2b,emissive:0x3a0707});
-  const stemM=new THREE.MeshLambertMaterial({color:0x54382a});stemM.userData.surface='appleStem';
-  const appleLeaf=new THREE.MeshLambertMaterial({color:0x3f8a34});appleLeaf.userData.surface='appleLeaf';
+  const appleRed=new THREE.MeshLambertMaterial({color:PALETTE.appleRed,emissive:0x3a0707});
+  const stemM=new THREE.MeshLambertMaterial({color:PALETTE.woodDark});stemM.userData.surface='appleStem';
+  const appleLeaf=new THREE.MeshLambertMaterial({color:PALETTE.appleLeaf});appleLeaf.userData.surface='appleLeaf';
   const appleShine=new THREE.MeshBasicMaterial({color:0xff8a7a,transparent:true,opacity:.35});
   function makeApple(x,y,z){
     const g=new THREE.Group();
@@ -6827,7 +7079,7 @@ function buildMusky(){
 function splashRing(pos){
   for(let i=0;i<16;i++){
     const drop=new THREE.Mesh(new THREE.SphereGeometry(.22,5,4),
-      new THREE.MeshBasicMaterial({color:0xbfe0f0,transparent:true,opacity:.9}));
+      new THREE.MeshBasicMaterial({color:PALETTE.waterFoam,transparent:true,opacity:.9}));
     drop.position.copy(pos);
     drop.userData={vx:(Math.random()-.5)*10,vy:4+Math.random()*7,vz:(Math.random()-.5)*10,
       l:1,decay:1.1,grav:-16,op:.9};
@@ -7172,13 +7424,14 @@ function spawnHouseWitches(o){
 }
 function makeRewardBroom(){
   const g=new THREE.Group();
-  const wood=new THREE.MeshPhongMaterial({color:0x744624,shininess:28});
+  const wood=new THREE.MeshPhongMaterial({color:PALETTE.woodMid,shininess:28});
+  wood.userData.mat='wood';
   const straw=new THREE.MeshPhongMaterial({color:0xd9aa4a,shininess:12});
-  const purple=new THREE.MeshBasicMaterial({color:0xc34cff,transparent:true,opacity:.82,depthWrite:false});
+  const purple=new THREE.MeshBasicMaterial({color:PALETTE.violetLight,transparent:true,opacity:.82,depthWrite:false});
   const stick=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,3.5,10),wood);
   stick.rotation.z=Math.PI/2;stick.position.set(.15,1.03,0);g.add(stick);
   const tie=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.28,10),
-    new THREE.MeshPhongMaterial({color:0x7e2d9e,shininess:42}));
+    new THREE.MeshPhongMaterial({color:PALETTE.violet,shininess:42}));
   tie.rotation.z=Math.PI/2;tie.position.set(-1.46,1.03,0);g.add(tie);
   for(let i=0;i<7;i++){
     const b=new THREE.Mesh(new THREE.ConeGeometry(.18,1.02,8),straw);
@@ -7187,7 +7440,7 @@ function makeRewardBroom(){
   const ring=new THREE.Mesh(new THREE.TorusGeometry(1.42,.12,9,32),purple);
   ring.rotation.x=Math.PI/2;ring.position.y=.16;g.add(ring);
   const beam=new THREE.Mesh(new THREE.CylinderGeometry(.18,.96,8.5,18,1,true),
-    new THREE.MeshBasicMaterial({color:0xa72cff,transparent:true,opacity:.17,depthWrite:false,side:THREE.DoubleSide}));
+    new THREE.MeshBasicMaterial({color:PALETTE.violet,transparent:true,opacity:.17,depthWrite:false,side:THREE.DoubleSide}));
   beam.position.y=4.2;g.add(beam);
   const cv=document.createElement('canvas');cv.width=512;cv.height=128;
   const x=cv.getContext('2d');x.fillStyle='rgba(31,8,45,.88)';x.fillRect(12,12,488,104);
@@ -7643,7 +7896,7 @@ function squelch(){
 /* ---------------- goblin gold ---------------- */
 const COINS=[];
 const _coinG=new THREE.CylinderGeometry(.22,.22,.05,10);
-const _coinM=new THREE.MeshLambertMaterial({color:0xf2c14a,emissive:0x8a6410});
+const _coinM=new THREE.MeshLambertMaterial({color:PALETTE.gold,emissive:0x8a6410});
 function dropGold(pos){
   const n=1+Math.floor(Math.random()*3);
   for(let i=0;i<n;i++){
@@ -8288,7 +8541,7 @@ function tick(now){
       if(Math.random()<dt*(18+fordSpeed*.55)){
         const sprayPos=new THREE.Vector3(cart.x,cart.y+.25,cart.z);
         const drop=new THREE.Mesh(new THREE.SphereGeometry(.14,4,4),
-          new THREE.MeshBasicMaterial({color:0xd8f0ff,transparent:true,opacity:.85}));
+          new THREE.MeshBasicMaterial({color:PALETTE.waterFoam,transparent:true,opacity:.85}));
         drop.position.copy(sprayPos);
         drop.userData={vx:(Math.random()-.5)*6,vy:2.5+Math.random()*3.5,vz:(Math.random()-.5)*6,
           l:1,decay:1.6,grav:-14,op:.85};
@@ -8730,10 +8983,12 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
           alphaTest:m.alphaTest, depthWrite:m.depthWrite
         });
         out.userData=Object.assign({},m.userData);
-        // candy-pop the base colour, but ONLY where a real hue exists.
-        // White/grey materials (the dirt trail is white + texture map) must be
-        // left alone - adding saturation at hue 0 tints them pink.
-        if(out.color){
+        // Candy-pop legacy colours only. Anything tagged userData.mat was
+        // authored straight from PALETTE, and a second nonlinear HSL boost on
+        // top is precisely what made surfaces drift apart before: two colours
+        // meant to match end up different because they started different.
+        // Tagged materials pass through exactly as authored.
+        if(out.color && !out.userData.mat){
           const hsl={};out.color.getHSL(hsl);
           if(hsl.s>0.08){
             out.color.setHSL(hsl.h,Math.min(1,hsl.s*1.85+.12),Math.min(.84,hsl.l*1.10+.04));
@@ -8750,41 +9005,34 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
       else o.material=toonify(o.material);
     });
 
-    /* ---------- 4. vibrant terrain + water ---------- */
-    scene.traverse(o=>{
-      if(o.isMesh&&o.geometry&&o.geometry.attributes&&o.geometry.attributes.color
-         &&o.geometry.attributes.position.count>4000){
-        const col=o.geometry.attributes.color, c=new THREE.Color(), hsl={};
-        for(let i=0;i<col.count;i++){
-          c.fromBufferAttribute(col,i);c.getHSL(hsl);
-          // push greens greener, sand warmer, everything sunnier
-          let h=hsl.h;
-          // 0.26 reads yellow; real grass sits at ~0.31 (112deg). Keep a little
-          // natural variation so the hills do not turn into one flat green.
-          if(h>0.18&&h<0.42)h=0.305+ (i%7)*0.0035;
-          c.setHSL(h,Math.min(.78,hsl.s*1.45+.20),Math.min(.52,hsl.l*.92+.02));
-          col.setXYZ(i,c.r,c.g,c.b);
-        }
-        col.needsUpdate=true;
-      }
-    });
+    /* ---------- 4. water grade ----------
+       The terrain vertex-colour regrade that used to live here has been
+       retired. It walked every vertex and forced grass hue to 0.305 while
+       clamping lightness to 0.52, which meant the terrain colours chosen at
+       build time were computed and then thrown away. Terrain now takes its
+       greens, sand and rock straight from PALETTE and keeps them. */
     scene.traverse(o=>{
       if(o.isMesh&&o.material&&o.material.isMeshPhongMaterial){
         o.material.shininess=200;
         if(o.material.specular)o.material.specular.setHex(0xffffff);
-        const hsl={};o.material.color.getHSL(hsl);
-        o.material.color.setHSL(hsl.h,Math.min(1,hsl.s*1.6+.2),Math.min(.7,hsl.l*1.25+.08));
+        // Water and wet rock still want the boost. Tagged creature hide does
+        // not -- the gator was authored from PALETTE and this sweep was
+        // turning him mint green.
+        if(!(o.material.userData&&o.material.userData.mat)){
+          const hsl={};o.material.color.getHSL(hsl);
+          o.material.color.setHSL(hsl.h,Math.min(1,hsl.s*1.6+.2),Math.min(.7,hsl.l*1.25+.08));
+        }
       }
     });
     if(typeof waterMat!=='undefined'&&waterMat){
-      waterMat.color.setHex(0x2ec5f0);
+      waterMat.color.setHex(PALETTE.water);
       if(waterMat.specular)waterMat.specular.setHex(0xffffff);
       waterMat.shininess=180;waterMat.opacity=.9;
     }
-    if(typeof deep!=='undefined'&&deep&&deep.material)deep.material.color.setHex(0x1668b0);
+    if(typeof deep!=='undefined'&&deep&&deep.material)deep.material.color.setHex(PALETTE.waterDeep);
 
     /* ---------- 5. thick cartoon outlines on the trees ---------- */
-    const outlineMat=new THREE.MeshBasicMaterial({color:0x16261a,side:THREE.BackSide,fog:true});
+    const outlineMat=new THREE.MeshBasicMaterial({color:PALETTE.outline,side:THREE.BackSide,fog:true});
     const outlineTargets=[];
     scene.traverse(o=>{
       if(o.isInstancedMesh&&o.count>0&&o.geometry&&
@@ -8836,13 +9084,13 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
     /* ---------- 7. start / finish banner ---------- */
     (function banner(){
       const s=sampAt(0.0);
-      const postM=new THREE.MeshToonMaterial({color:0xf2f2f2,gradientMap:RAMP});
+      const postM=new THREE.MeshToonMaterial({color:PALETTE.paper,gradientMap:RAMP});
       const grp=new THREE.Group();
       for(const sd of[-1,1]){
         const post=new THREE.Mesh(new THREE.CylinderGeometry(.42,.5,7.4,8),postM);
         post.position.set(sd*(ROAD_W+1.5),3.7,0);grp.add(post);
         const base=new THREE.Mesh(new THREE.CylinderGeometry(.9,1.1,.7,8),
-          new THREE.MeshToonMaterial({color:0xe63946,gradientMap:RAMP}));
+          new THREE.MeshToonMaterial({color:PALETTE.tomato,gradientMap:RAMP}));
         base.position.set(sd*(ROAD_W+1.5),.35,0);grp.add(base);
       }
       // checkered banner cloth
@@ -8913,17 +9161,12 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
       });
     }
 
-    // conifers stay deep forest green - the grade must not candy them
-    scene.traverse(o=>{
-      if(!o.isInstancedMesh&&!o.isMesh)return;
-      const ms=Array.isArray(o.material)?o.material:[o.material];
-      ms.forEach(m=>{
-        if(!m||!m.color||!m.map)return;
-        const hsl={};m.color.getHSL(hsl);
-        if(hsl.h>0.20&&hsl.h<0.45&&hsl.l>0.30)                  // any bright green foliage
-          m.color.setHSL(hsl.h,Math.min(.72,hsl.s),Math.min(.26,hsl.l*.62));
-      });
-    });
+    /* Conifer darkening retired. It used to sweep "any green with a texture
+       map and lightness > 0.30" down to lightness 0.26 -- which caught the
+       golf green, the fringe, the traffic-circle island and both shoulders
+       along with the trees. That single line was most of why the course read
+       as muddy. Conifers now get their value from PALETTE.pineDeep/pine at
+       build time and are tagged, so nothing has to guess after the fact. */
 
     // the trail is packed dirt - hold it to an earthy brown, never candy
     scene.traverse(o=>{
@@ -8931,10 +9174,12 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
       const ms=Array.isArray(o.material)?o.material:[o.material];
       ms.forEach(m=>{
         if(!m||!m.userData)return;
-        if(m.userData.surface==='trail'&&m.color)m.color.setHex(0xe8ddcc);
-        if(m.userData.surface==='appleLeaf'&&m.color)m.color.setHex(0x46912f);
-        if(m.userData.surface==='appleStem'&&m.color)m.color.setHex(0x5b3d24);
-        if(m.userData.surface==='shoulder'&&m.color)m.color.setHex(0x53a044);
+        if(m.userData.surface==='trail'&&m.color)m.color.setHex(PALETTE.trail);
+        if(m.userData.surface==='appleLeaf'&&m.color)m.color.setHex(PALETTE.appleLeaf);
+        if(m.userData.surface==='appleStem'&&m.color)m.color.setHex(PALETTE.woodDark);
+        // was a hardcoded 0x53a044, which silently discarded whatever colour
+        // the shoulder was built with. Sourced from PALETTE now.
+        if(m.userData.surface==='shoulder'&&m.color)m.color.setHex(PALETTE.grassRough);
       });
     });
 
@@ -8942,7 +9187,7 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
     scene.traverse(o=>{
       if(o.isMesh&&o.geometry&&o.geometry.type==='SphereGeometry'&&o.material&&o.material.color){
         const c=o.material.color;
-        if(c.r>.55&&c.g<.42&&c.b<.42&&!o.material.transparent)c.setHex(0xe01f1f);
+        if(c.r>.55&&c.g<.42&&c.b<.42&&!o.material.transparent)c.setHex(PALETTE.appleRed);
       }
     });
 
