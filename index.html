@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- DEFINITIVE SIMPLE CART PICKER BUILD 2026-08-11G: equal centered cart artwork on black, plus a responsive ACL Derby picker banner. -->
+<!-- DEFINITIVE SIMPLE CART PICKER BUILD 2026-08-11H: visible vehicle bounds normalized to Abruzzo and redrawn on true black. -->
 <!-- PERMANENT BLUE SKY LOCK 2026-08-09: sky, fog horizon, sky dome, and post-processing output remain the same blue in every gameplay state. -->
 <!-- ORIGINAL CART INTERFACE ROLLBACK + START-LIGHT FIX 2026-08-09: removed the forced gameplay-interface override and made the countdown lights reliably auto-hide. -->
 <!-- HOUSE GROUNDING FIX 2026-08-09: terrain-footprint anchoring plus a small foundation sink prevents billboard houses from floating on uneven yards. -->
@@ -46,7 +46,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-11g-ACL-DERBY-UNIFORM-CARTS">
+<meta name="acr-build" content="2026-08-11h-NORMALIZED-CART-CUTOUTS">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -10696,7 +10696,7 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   }
 }
 </style>
-<style id="acr-definitive-acl-uniform-picker-20260811g">
+<style id="acr-definitive-acl-uniform-picker-20260811h">
 /* FINAL PICKER RULES: no legacy rule may restore ratings or seat badges. */
 #cartselect .stats,
 #cartselect .fixed-stats,
@@ -10832,6 +10832,31 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   transform-origin:center center!important;
   filter:none!important;
   opacity:1!important;
+}
+/* These six supplied plates have different internal whitespace. The scale
+   values are a no-canvas fallback; the normalizer below replaces them with
+   Abruzzo-matched, centered plates whenever pixel access is available. */
+#cartselect .cart-card[data-cart="francesca"]{--cart-fallback-scale:1.10}
+#cartselect .cart-card[data-cart="antman"]{--cart-fallback-scale:1.15}
+#cartselect .cart-card[data-cart="franny"]{--cart-fallback-scale:1.08}
+#cartselect .cart-card[data-cart="musubi"]{--cart-fallback-scale:1.14}
+#cartselect .cart-card[data-cart="juliano"]{--cart-fallback-scale:.96}
+#cartselect .cart-card[data-cart="izzy"]{--cart-fallback-scale:1.11}
+#cartselect .cart-card[data-cart="francesca"] .cart-art,
+#cartselect .cart-card[data-cart="antman"] .cart-art,
+#cartselect .cart-card[data-cart="franny"] .cart-art,
+#cartselect .cart-card[data-cart="musubi"] .cart-art,
+#cartselect .cart-card[data-cart="juliano"] .cart-art,
+#cartselect .cart-card[data-cart="izzy"] .cart-art{
+  background:#000!important;
+  filter:contrast(1.25) saturate(1.04)!important;
+  transform:translate(-50%,-50%) scale(var(--cart-fallback-scale,1))!important;
+}
+#cartselect .cart-card[data-cart].cart-art-normalized{
+  --cart-fallback-scale:1;
+}
+#cartselect .cart-card[data-cart].cart-art-normalized .cart-art{
+  filter:none!important;
 }
 #cartselect .art-fade{
   display:none!important;
@@ -10988,5 +11013,112 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   }
 }
 </style>
+<script id="acr-cart-art-normalizer-20260811h">
+(function(){
+  'use strict';
+  const TARGET_KEYS=['francesca','antman','franny','musubi','juliano','izzy'];
+  const refImg=document.querySelector('#cartselect .cart-card[data-cart="abruzzo"] .cart-art');
+  const targetImgs=TARGET_KEYS.map(key=>({
+    key,
+    card:document.querySelector('#cartselect .cart-card[data-cart="'+key+'"]'),
+    img:document.querySelector('#cartselect .cart-card[data-cart="'+key+'"] .cart-art')
+  })).filter(item=>item.card&&item.img);
+
+  function waitForImage(img){
+    return new Promise((resolve,reject)=>{
+      if(!img){reject(new Error('missing image'));return;}
+      img.loading='eager';
+      if(img.complete&&img.naturalWidth>0){resolve(img);return;}
+      img.addEventListener('load',()=>resolve(img),{once:true});
+      img.addEventListener('error',()=>reject(new Error('image load failed')),{once:true});
+    });
+  }
+
+  function inspect(img,cleanBackground){
+    const w=img.naturalWidth||img.width;
+    const h=img.naturalHeight||img.height;
+    if(!w||!h)throw new Error('empty image');
+    const canvas=document.createElement('canvas');
+    canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(img,0,0,w,h);
+    const image=ctx.getImageData(0,0,w,h);
+    const p=image.data;
+    const colCount=new Uint32Array(w);
+    const rowCount=new Uint32Array(h);
+
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        const i=(y*w+x)*4;
+        const r=p[i],g=p[i+1],b=p[i+2],a=p[i+3];
+        const hi=Math.max(r,g,b),lo=Math.min(r,g,b);
+        const nearBlack=a<18||hi<56||(hi<92&&hi-lo<24);
+        if(cleanBackground&&nearBlack){
+          p[i]=0;p[i+1]=0;p[i+2]=0;p[i+3]=255;
+        }
+        if(a>=18&&!nearBlack){colCount[x]++;rowCount[y]++;}
+      }
+    }
+    if(cleanBackground)ctx.putImageData(image,0,0);
+
+    const minCol=Math.max(2,Math.floor(h*.004));
+    const minRow=Math.max(2,Math.floor(w*.004));
+    let left=0,right=w-1,top=0,bottom=h-1;
+    while(left<right&&colCount[left]<minCol)left++;
+    while(right>left&&colCount[right]<minCol)right--;
+    while(top<bottom&&rowCount[top]<minRow)top++;
+    while(bottom>top&&rowCount[bottom]<minRow)bottom--;
+
+    const padX=Math.round((right-left+1)*.065);
+    const padY=Math.round((bottom-top+1)*.085);
+    left=Math.max(0,left-padX);right=Math.min(w-1,right+padX);
+    top=Math.max(0,top-padY);bottom=Math.min(h-1,bottom+padY);
+    return {canvas,left,top,width:right-left+1,height:bottom-top+1,sourceWidth:w,sourceHeight:h};
+  }
+
+  function referenceOccupancy(){
+    try{
+      const m=inspect(refImg,false);
+      return {
+        x:Math.max(.76,Math.min(.88,m.width/m.sourceWidth)),
+        y:Math.max(.62,Math.min(.80,m.height/m.sourceHeight))
+      };
+    }catch(_){
+      return {x:.84,y:.72};
+    }
+  }
+
+  function normalize(item,occupancy){
+    try{
+      const m=inspect(item.img,true);
+      const out=document.createElement('canvas');
+      out.width=1200;out.height=720;
+      const ctx=out.getContext('2d');
+      ctx.fillStyle='#000';ctx.fillRect(0,0,out.width,out.height);
+      const maxW=out.width*occupancy.x;
+      const maxH=out.height*occupancy.y;
+      const scale=Math.min(maxW/m.width,maxH/m.height);
+      const drawW=Math.round(m.width*scale);
+      const drawH=Math.round(m.height*scale);
+      const drawX=Math.round((out.width-drawW)/2);
+      const drawY=Math.round((out.height-drawH)/2);
+      ctx.drawImage(m.canvas,m.left,m.top,m.width,m.height,drawX,drawY,drawW,drawH);
+      item.img.dataset.originalSrc=item.img.currentSrc||item.img.src;
+      item.img.src=out.toDataURL('image/webp',.92);
+      item.card.classList.add('cart-art-normalized');
+      item.card.style.setProperty('--cart-fallback-scale','1');
+    }catch(_){
+      item.card.classList.add('cart-art-fallback');
+    }
+  }
+
+  const refReady=waitForImage(refImg).then(referenceOccupancy).catch(()=>({x:.84,y:.72}));
+  targetImgs.forEach(item=>{
+    Promise.all([waitForImage(item.img),refReady]).then(([,occupancy])=>normalize(item,occupancy)).catch(()=>{
+      item.card.classList.add('cart-art-fallback');
+    });
+  });
+})();
+</script>
 </body>
 </html>
