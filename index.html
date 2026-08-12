@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- GITHUB-OPTIMIZED BUILD: embedded artwork and radio audio compressed; no game content removed. -->
-<!-- DERBY BUILD 2026-08-12ZC-FIXED: dual course leaderboards; cabin CSS fix; OPEN LOOP ENTRY — vertical loop deck/rails no longer close across the approach mouth. -->
+<!-- DERBY BUILD 2026-08-12ZD: right-shifted open loop (split approach, no trail through interior); second course renamed Apple Canyon Lake. -->
 <!-- PERMANENT BLUE SKY LOCK 2026-08-09: sky, fog horizon, sky dome, and post-processing output remain the same blue in every gameplay state. -->
 <!-- ORIGINAL CART INTERFACE ROLLBACK + START-LIGHT FIX 2026-08-09: removed the forced gameplay-interface override and made the countdown lights reliably auto-hide. -->
 <!-- HOUSE GROUNDING FIX 2026-08-09: terrain-footprint anchoring plus a small foundation sink prevents billboard houses from floating on uneven yards. -->
@@ -47,7 +47,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-12zc-OPEN-LOOP-ENTRY">
+<meta name="acr-build" content="2026-08-12zd-RIGHT-LOOP-ACL-LAKE">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1628,7 +1628,7 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
 
       <section class="lb-course-board" aria-labelledby="acrAclBoardTitle">
         <div class="lb-course-head">
-          <h3 id="acrAclBoardTitle">APPLE CANYON LOOP</h3>
+          <h3 id="acrAclBoardTitle">APPLE CANYON LAKE</h3>
           <span id="acrBoardCount">no runs yet</span>
         </div>
         <div id="acrBoardYou" class="lb-you" hidden></div>
@@ -1637,7 +1637,7 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
             <span>USER NAME</span><span>CART</span><span>TIME</span><span>ANIMALS SAVED</span><span>GOBLINS DESTROYED</span><span>APPLES COLLECTED</span>
           </div>
           <div id="acrBoardBody" class="lb-list"></div>
-          <div id="acrBoardEmpty" class="lb-empty">Finish Apple Canyon Loop and your run lands here.</div>
+          <div id="acrBoardEmpty" class="lb-empty">Finish Apple Canyon Lake and your run lands here.</div>
         </div>
       </section>
     </div>
@@ -1730,12 +1730,12 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
         <span class="course-route canyon-route" aria-hidden="true">
           <canvas class="course-map-canvas" data-course-map="cannon" width="840" height="276"></canvas>
         </span>
-        <span class="course-desc">TWO CANYON S-CURVES &middot; LEFT-ENTRY LOOP + RIGHT JAG &middot; 50-FOOT JUMP</span>
+        <span class="course-desc">TWO CANYON S-CURVES &middot; RIGHT-ENTRY LOOP THEN FORWARD &middot; 50-FOOT JUMP</span>
       </button>
       <button class="course-card" data-course="acl" type="button" role="radio" aria-checked="false">
         <span class="course-pick-ribbon">SELECTED</span>
         <span class="course-option">OPTION 2</span>
-        <span class="course-name">APPLE CANYON LOOP</span>
+        <span class="course-name">APPLE CANYON LAKE</span>
         <span class="course-route acl-route" aria-hidden="true">
           <canvas class="course-map-canvas" data-course-map="acl" width="840" height="276"></canvas>
         </span>
@@ -2303,7 +2303,10 @@ window.ACR_CONFIG = {
      insert or is temporarily unavailable. Remote/local equivalents are de-duped. */
   function normalizeCourseKey(v){
     var s=String(v||'').trim().toLowerCase();
-    return (s==='cannon'||s.indexOf('canyon')>=0||s.indexOf('cannon')>=0) ? 'cannon' : 'acl';
+    /* Explicit Canyon Ball Run tags only. Do NOT treat every "canyon" string as
+       cannon — "Apple Canyon Lake" must stay on the acl board. */
+    if(s==='cannon'||s.indexOf('cannon')>=0||s.indexOf('canyon ball')>=0||s==='cbr') return 'cannon';
+    return 'acl';
   }
   function runCourseKey(run){
     return normalizeCourseKey(run&&(run.courseKey||run.course_key||run.course));
@@ -2369,7 +2372,7 @@ window.ACR_CONFIG = {
     cannon:{body:'acrBoardBodyCannon',empty:'acrBoardEmptyCannon',count:'acrBoardCountCannon',you:'acrBoardYouCannon',
             emptyText:'Finish Canyon Ball Run and your run lands here.'},
     acl:{body:'acrBoardBody',empty:'acrBoardEmpty',count:'acrBoardCount',you:'acrBoardYou',
-         emptyText:'Finish Apple Canyon Loop and your run lands here.'}
+         emptyText:'Finish Apple Canyon Lake and your run lands here.'}
   };
 
   function renderRows(courseKey,list,noteText,isError){
@@ -2848,7 +2851,7 @@ let SELECTED_CART_KEY='abruzzo';
 let ACTIVE_CART=DERBY_CARTS[SELECTED_CART_KEY];
 const DERBY_COURSES={
   cannon:{key:'cannon',name:'CANYON BALL RUN',pointToPoint:true},
-  acl:{key:'acl',name:'APPLE CANYON LOOP',pointToPoint:false}
+  acl:{key:'acl',name:'APPLE CANYON LAKE',pointToPoint:false}
 };
 let SELECTED_COURSE_KEY='cannon';
 function activeCourse(){return DERBY_COURSES[SELECTED_COURSE_KEY]||DERBY_COURSES.cannon;}
@@ -3175,10 +3178,14 @@ function makeOpenCourseRoad(name,points,sampleCount,t0,t1){
   }
   return finishAuxRoad({name,samples,closed:false,course:'cannon',pointToPoint:true,length:c.getLength()});
 }
-const CANNON_LOOP={x:CANNON_X+26,z:-180,bottomY:9,radius:23}; // left of the southbound main line
+/* Vertical loop sits clearly to the RIGHT of the main line. The approach
+   trail curves right into the loop mouth, the loop ride owns the circle, then
+   the trail continues FORWARD (higher z) — never a flat road through the
+   loop interior that would obstruct the entry. */
+const CANNON_LOOP={x:CANNON_X+48,z:-180,bottomY:9,radius:23}; // right of main line
 CANNON_LOOP.centerY=CANNON_LOOP.bottomY+CANNON_LOOP.radius;
 const CANNON_LOOP_ROAD_W=7.35;          // wider, forgiving loop deck
-const CANNON_LOOP_APRON_SPAN=52;        // dirt-to-loop transition on both sides
+const CANNON_LOOP_APRON_SPAN=58;        // dirt-to-loop transition on both sides
 function cannonLoopRoadHalfWidth(z){
   const d=Math.abs(z-CANNON_LOOP.z);
   if(d>=CANNON_LOOP_APRON_SPAN)return ROAD_W;
@@ -3186,6 +3193,10 @@ function cannonLoopRoadHalfWidth(z){
 }
 const CANNON_LIP=new THREE.Vector3(CANNON_X,10,-132);
 const CANNON_LANDING=new THREE.Vector3(CANNON_X,10,CANNON_LIP.z+CANNON_JUMP_DISTANCE_M);
+/* Split the approach at the vertical loop the same way the jump is split:
+   ROAD_A ends at the entry lip, ROAD_A2 resumes after the exit lip, and the
+   loop ride owns the open circle between them. No flat trail strip runs
+   through the loop interior. */
 const CANNON_ROAD_A=makeOpenCourseRoad('cannonApproach',[
   new THREE.Vector3(CANNON_X,118,-680),
   new THREE.Vector3(715,104,-646),
@@ -3194,15 +3205,17 @@ const CANNON_ROAD_A=makeOpenCourseRoad('cannonApproach',[
   new THREE.Vector3(620,26,-500),
   new THREE.Vector3(900,105,-390),
   new THREE.Vector3(650,21,-295),
-  new THREE.Vector3(CANNON_X,13,-240),
-  new THREE.Vector3(CANNON_X+13,10,-225),
-  new THREE.Vector3(CANNON_LOOP.x,9,-202),
-  new THREE.Vector3(CANNON_LOOP.x,9,-180),              // enter the loop on the left
-  new THREE.Vector3(CANNON_LOOP.x,9,-167),
-  new THREE.Vector3(CANNON_X-26,10,-151),               // exit jag to the right
-  new THREE.Vector3(CANNON_X-10,10,-141),
+  new THREE.Vector3(CANNON_X,13,-250),                  // main line approach
+  new THREE.Vector3(CANNON_X+18,11,-230),               // begin veering RIGHT
+  new THREE.Vector3(CANNON_LOOP.x,9,-212),              // aligned with loop, south of mouth
+  new THREE.Vector3(CANNON_LOOP.x,9,-198)               // entry lip — end of approach
+],520,0,.50);
+const CANNON_ROAD_A2=makeOpenCourseRoad('cannonAfterLoop',[
+  new THREE.Vector3(CANNON_LOOP.x,9,-162),              // exit lip — resume FORWARD
+  new THREE.Vector3(CANNON_LOOP.x-12,10,-148),          // ease back toward main line
+  new THREE.Vector3(CANNON_X+6,10,-138),
   CANNON_LIP.clone()
-],720,0,.57);
+],200,.52,.57);
 const CANNON_ROAD_B=makeOpenCourseRoad('cannonLanding',[
   CANNON_LANDING.clone(),
   new THREE.Vector3(CANNON_X,7,-55),
@@ -3217,8 +3230,8 @@ const CANNON_ROAD_B=makeOpenCourseRoad('cannonLanding',[
   new THREE.Vector3(805,38,670),
   new THREE.Vector3(CANNON_X,24,720)
 ],760,.61,1);
-const CANNON_ROADS=[CANNON_ROAD_A,CANNON_ROAD_B];
-const CANNON_TRACKLEN=CANNON_ROAD_A.length+CANNON_JUMP_DISTANCE_M+CANNON_ROAD_B.length+Math.PI*2*CANNON_LOOP.radius;
+const CANNON_ROADS=[CANNON_ROAD_A,CANNON_ROAD_A2,CANNON_ROAD_B];
+const CANNON_TRACKLEN=CANNON_ROAD_A.length+Math.PI*2*CANNON_LOOP.radius+CANNON_ROAD_A2.length+CANNON_JUMP_DISTANCE_M+CANNON_ROAD_B.length;
 function sampleOpenCourseRoad(road,t){
   const a=road.samples,s0=a[0].mainT,s1=a[a.length-1].mainT;
   const u=clamp((t-s0)/(s1-s0||1),0,1),f=u*(a.length-1),i=Math.min(a.length-2,Math.floor(f)),q=f-i;
@@ -3237,19 +3250,23 @@ function closestOpenCourseFrame(road,x,z){
   return best;
 }
 function cannonSampAt(t){
-  t=clamp(t,0,1);
-  if(t<=.57)return sampleOpenCourseRoad(CANNON_ROAD_A,t);
+  if(t<=.50)return sampleOpenCourseRoad(CANNON_ROAD_A,t);
+  if(t<.52)return sampleOpenCourseRoad(CANNON_ROAD_A,0.50); // hold at entry during loop gap
+  if(t<=.57)return sampleOpenCourseRoad(CANNON_ROAD_A2,t);
   if(t>=.61)return sampleOpenCourseRoad(CANNON_ROAD_B,t);
-  const u=(t-.57)/.04,p=CANNON_LIP.clone().lerp(CANNON_LANDING,u);
-  return {p,tan:new THREE.Vector3(0,0,1),right:new THREE.Vector3(-1,0,0)};
+  /* jump air gap — interpolate lip → landing */
+  const u=(t-.57)/(.61-.57);
+  const p=CANNON_LIP.clone().lerp(CANNON_LANDING,u);
+  const tan=new THREE.Vector3(0,0,1);
+  return {p,tan,right:new THREE.Vector3(-1,0,0)};
 }
 function courseSampAt(t){return SELECTED_COURSE_KEY==='cannon'?cannonSampAt(t):sampAt(t);}
 function activeTrackLength(){return SELECTED_COURSE_KEY==='cannon'?CANNON_TRACKLEN:TRACKLEN;}
 const CANNON_START_FRAME=cannonSampAt(.004);
 const CANNON_FINISH_FRAME=cannonSampAt(1);
-const CANNON_LOOP_ENTRY_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z-.7);
-const CANNON_LOOP_EXIT_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z+5.5);
-const CANNON_PREBOOST_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_X+16,-220);
+const CANNON_LOOP_ENTRY_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z-16);
+const CANNON_LOOP_EXIT_FRAME=closestOpenCourseFrame(CANNON_ROAD_A2,CANNON_LOOP.x,CANNON_LOOP.z+16);
+const CANNON_PREBOOST_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_X+22,-235);
 const CANNON_LANDING_BOOST_FRAME={p:CANNON_LANDING.clone(),tan:new THREE.Vector3(0,0,1),right:new THREE.Vector3(-1,0,0)};
 function crossedCourseFinishForward(frame,x0,z0,x1,z1){
   const tan=new THREE.Vector3(frame.tan.x,0,frame.tan.z).normalize();
@@ -3295,7 +3312,7 @@ window.ACR_COURSE_FEATURES={
     largerGrades:true,canyonWalls:true,trees:true,animals:true,centralStream:true,
     stream:{z:CANYON_STREAM_BASE_Z,waterY:CANYON_STREAM_WATER_Y,bridge:true},
     loop:{x:CANNON_LOOP.x,y:CANNON_LOOP.centerY,z:CANNON_LOOP.z,radius:CANNON_LOOP.radius,
-      entrySide:'left',exit:'rightJagToMainCourse',roadHalfWidth:CANNON_LOOP_ROAD_W,
+      entrySide:'right',exit:'forwardThenMainCourse',roadHalfWidth:CANNON_LOOP_ROAD_W,
       clearApronSpan:CANNON_LOOP_APRON_SPAN,preLoopBooster:true},
     apples:true,
     jump:{distanceFeet:50,distanceMeters:CANNON_JUMP_DISTANCE_M,landingBooster:true},
@@ -3415,6 +3432,7 @@ function drawCoursePickerMaps(){
     for(let i=0;i<=40;i++){const wx=500+i*13,wz=canyonStreamZ(wx),p=cannonPt({x:wx,z:wz});i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]);}x.stroke();
     x.strokeStyle='#38b9e6';x.lineWidth=7;x.stroke();x.restore();
     road(x,CANNON_ROAD_A.samples,cannonPt,false,'#c77b3e',4,10);
+    road(x,CANNON_ROAD_A2.samples,cannonPt,false,'#c77b3e',4,10);
     road(x,CANNON_ROAD_B.samples,cannonPt,false,'#c77b3e',4,10);
     const bridge=cannonPt({x:CANNON_X,z:CANYON_STREAM_BASE_Z});
     x.save();x.translate(bridge[0],bridge[1]);x.fillStyle='#21140b';x.fillRect(-7,-8,14,16);x.fillStyle='#bd783c';x.fillRect(-6,-6,12,12);
@@ -3427,7 +3445,7 @@ function drawCoursePickerMaps(){
     tag(x,bridge[0],bridge[1]+22,'STREAM BRIDGE','#145b75');northArrow(x);
   }
 
-  /* Apple Canyon Loop: exact closed spline around every lake arm, all detected
+  /* Apple Canyon Lake: exact closed spline around every lake arm, all detected
      bridges, and the real traffic-circle / 100-foot jump branch and rejoin. */
   {
     const x=prep(aclCanvas,'#3d8b46','#18492c');
