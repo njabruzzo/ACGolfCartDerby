@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- DEFINITIVE SIMPLE CART PICKER BUILD 2026-08-11F: every cart matches the Abruzzo artwork size, inset, bottom-center position, and black card background. -->
+<!-- DEFINITIVE SIMPLE CART PICKER BUILD 2026-08-11G: equal centered cart artwork on black, plus a responsive ACL Derby picker banner. -->
 <!-- PERMANENT BLUE SKY LOCK 2026-08-09: sky, fog horizon, sky dome, and post-processing output remain the same blue in every gameplay state. -->
 <!-- ORIGINAL CART INTERFACE ROLLBACK + START-LIGHT FIX 2026-08-09: removed the forced gameplay-interface override and made the countdown lights reliably auto-hide. -->
 <!-- HOUSE GROUNDING FIX 2026-08-09: terrain-footprint anchoring plus a small foundation sink prevents billboard houses from floating on uneven yards. -->
@@ -46,7 +46,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-11f-ABRUZZO-CART-FRAMING">
+<meta name="acr-build" content="2026-08-11g-ACL-DERBY-UNIFORM-CARTS">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1696,8 +1696,8 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
     <span class="hill h1"></span><span class="hill h2"></span>
   </div>
   <div class="cart-select-inner">
-    <div class="logo-lockup small">
-      <div class="logo-badge">APPLE CANYON</div>
+    <div class="cart-picker-banner">
+      <div class="cart-picker-title">ACL DERBY</div>
       <h2>CHOOSE YOUR CART!</h2>
     </div>
     <div class="cart-grid">
@@ -10696,7 +10696,7 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   }
 }
 </style>
-<style id="acr-definitive-abruzzo-framing-20260811f">
+<style id="acr-definitive-acl-uniform-picker-20260811g">
 /* FINAL PICKER RULES: no legacy rule may restore ratings or seat badges. */
 #cartselect .stats,
 #cartselect .fixed-stats,
@@ -10754,11 +10754,53 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   padding:9px 10px 7px!important;
   background:#000!important;
 }
+#cartselect .cart-picker-banner{
+  box-sizing:border-box!important;
+  width:100vw!important;
+  margin:0 calc(50% - 50vw) clamp(8px,1.2vh,14px)!important;
+  padding:clamp(10px,1.7vh,18px) max(18px,env(safe-area-inset-right,0px)) clamp(8px,1.3vh,14px) max(18px,env(safe-area-inset-left,0px))!important;
+  background:#000!important;
+  border-bottom:clamp(3px,.45vw,6px) solid #d8402c!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.42)!important;
+  text-align:center!important;
+}
+#cartselect .cart-picker-title{
+  margin:0!important;
+  color:#fff!important;
+  font-family:Futura,'Avenir Next',Avenir,'Trebuchet MS',sans-serif!important;
+  font-size:clamp(40px,5.4vw,74px)!important;
+  font-weight:900!important;
+  line-height:.88!important;
+  letter-spacing:clamp(3px,.65vw,10px)!important;
+  text-transform:uppercase!important;
+  text-shadow:0 3px 0 #7e1d14,0 8px 20px rgba(216,64,44,.32)!important;
+}
+#cartselect .cart-picker-banner h2{
+  margin:clamp(7px,1vh,11px) 0 0!important;
+  color:#ffe08a!important;
+  font-family:'Avenir Next','Segoe UI',system-ui,Arial,sans-serif!important;
+  font-size:clamp(14px,1.55vw,21px)!important;
+  font-weight:800!important;
+  line-height:1!important;
+  letter-spacing:clamp(2px,.35vw,5px)!important;
+  text-transform:uppercase!important;
+  text-shadow:none!important;
+}
 #cartselect .fixed-cart-head>div{
   width:100%!important;
   max-width:100%!important;
 }
+#cartselect .cart-card h3{
+  font-size:clamp(12px,1.12vw,16px)!important;
+  line-height:1.08!important;
+}
+#cartselect .cart-card .cart-desc{
+  font-size:clamp(7px,.68vw,9.5px)!important;
+  line-height:1.15!important;
+}
 #cartselect .cart-art-frame{
+  position:relative!important;
+  display:block!important;
   box-sizing:border-box!important;
   flex:1 1 auto!important;
   width:100%!important;
@@ -10773,18 +10815,21 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
 }
 #cartselect .cart-card[data-cart] .cart-art{
   display:block!important;
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
   width:calc(100% - 20px)!important;
-  height:calc(100% - 12px)!important;
+  height:calc(100% - 20px)!important;
   max-width:none!important;
   max-height:none!important;
   box-sizing:border-box!important;
   padding:0!important;
-  margin:6px 10px!important;
+  margin:0!important;
   background:#000!important;
   object-fit:contain!important;
-  object-position:center bottom!important;
-  transform:none!important;
-  transform-origin:center bottom!important;
+  object-position:center center!important;
+  transform:translate(-50%,-50%)!important;
+  transform-origin:center center!important;
   filter:none!important;
   opacity:1!important;
 }
@@ -10793,6 +10838,7 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
 }
 @media (min-width:781px){
   #cartselect .cart-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
     grid-auto-rows:minmax(270px,auto)!important;
   }
   #cartselect .cart-card{
@@ -10801,8 +10847,40 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
     max-height:270px!important;
   }
 }
-@media (min-width:1041px) and (min-height:820px){
+@media (min-width:781px) and (max-width:1040px){
+  #cartselect{
+    overflow-y:auto!important;
+  }
+  #cartselect .cart-select-inner{
+    height:auto!important;
+    min-height:100%!important;
+    max-height:none!important;
+    overflow:visible!important;
+    padding-top:0!important;
+    padding-bottom:92px!important;
+  }
   #cartselect .cart-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-rows:252px!important;
+  }
+  #cartselect .cart-card{
+    height:252px!important;
+    min-height:252px!important;
+    max-height:252px!important;
+  }
+  #cartselect .cart-card h3{
+    font-size:clamp(12px,1.6vw,15px)!important;
+  }
+  #cartselect .cart-card .cart-desc{
+    font-size:clamp(7.5px,.9vw,9px)!important;
+  }
+}
+@media (min-width:1041px) and (min-height:820px){
+  #cartselect .cart-select-inner{
+    padding-top:0!important;
+  }
+  #cartselect .cart-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
     grid-template-rows:repeat(3,minmax(0,1fr))!important;
     grid-auto-rows:minmax(0,1fr)!important;
   }
@@ -10822,7 +10900,68 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
     min-height:0!important;
   }
 }
+@media (min-width:1041px) and (max-height:819px){
+  #cartselect{
+    overflow-y:auto!important;
+  }
+  #cartselect .cart-select-inner{
+    height:auto!important;
+    min-height:100%!important;
+    max-height:none!important;
+    overflow:visible!important;
+    padding:0 14px 92px!important;
+  }
+  #cartselect .cart-picker-banner{
+    margin-bottom:8px!important;
+    padding-top:7px!important;
+    padding-bottom:7px!important;
+  }
+  #cartselect .cart-picker-title{
+    font-size:clamp(34px,7vh,50px)!important;
+    letter-spacing:clamp(3px,.55vw,8px)!important;
+  }
+  #cartselect .cart-picker-banner h2{
+    margin-top:5px!important;
+    font-size:clamp(11px,1.15vw,15px)!important;
+  }
+  #cartselect .cart-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    grid-auto-rows:240px!important;
+  }
+  #cartselect .cart-card{
+    height:240px!important;
+    min-height:240px!important;
+    max-height:240px!important;
+  }
+  #cartselect .fixed-cart-head{
+    flex-basis:54px!important;
+    height:54px!important;
+    min-height:54px!important;
+    max-height:54px!important;
+  }
+  #cartselect .cart-art-frame{
+    min-height:0!important;
+  }
+}
 @media (max-width:780px){
+  #cartselect .cart-select-inner{
+    padding-top:0!important;
+  }
+  #cartselect .cart-picker-banner{
+    margin-bottom:12px!important;
+    padding-top:clamp(12px,3.4vw,18px)!important;
+    padding-bottom:clamp(10px,2.8vw,15px)!important;
+  }
+  #cartselect .cart-picker-title{
+    font-size:clamp(30px,10.5vw,46px)!important;
+    line-height:.92!important;
+    letter-spacing:clamp(2px,1.4vw,6px)!important;
+  }
+  #cartselect .cart-picker-banner h2{
+    margin-top:7px!important;
+    font-size:clamp(12px,3.7vw,17px)!important;
+    letter-spacing:clamp(1.5px,.9vw,3.5px)!important;
+  }
   #cartselect .cart-card{
     height:auto!important;
     min-height:0!important;
@@ -10834,6 +10973,12 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
     min-height:76px!important;
     max-height:76px!important;
     padding:11px 14px 8px!important;
+  }
+  #cartselect .cart-card h3{
+    font-size:clamp(18px,5.2vw,24px)!important;
+  }
+  #cartselect .cart-card .cart-desc{
+    font-size:clamp(10px,2.7vw,13px)!important;
   }
   #cartselect .cart-art-frame{
     flex:0 0 240px!important;
