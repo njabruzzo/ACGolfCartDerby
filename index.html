@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- GITHUB-OPTIMIZED BUILD: embedded artwork and radio audio compressed; no game content removed. -->
-<!-- DERBY BUILD 2026-08-12ZB-FIXED: dual course leaderboards + Bigfoot art; neutralized conflicting portrait CSS roof bars so JS cabin slicer is sole authority; coalesced cabin layout scheduler. -->
+<!-- DERBY BUILD 2026-08-12ZC-FIXED: dual course leaderboards; cabin CSS fix; OPEN LOOP ENTRY — vertical loop deck/rails no longer close across the approach mouth. -->
 <!-- PERMANENT BLUE SKY LOCK 2026-08-09: sky, fog horizon, sky dome, and post-processing output remain the same blue in every gameplay state. -->
 <!-- ORIGINAL CART INTERFACE ROLLBACK + START-LIGHT FIX 2026-08-09: removed the forced gameplay-interface override and made the countdown lights reliably auto-hide. -->
 <!-- HOUSE GROUNDING FIX 2026-08-09: terrain-footprint anchoring plus a small foundation sink prevents billboard houses from floating on uneven yards. -->
@@ -47,7 +47,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-12zb-FIXED-CABIN-CSS-SCHEDULER">
+<meta name="acr-build" content="2026-08-12zc-OPEN-LOOP-ENTRY">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -4404,8 +4404,14 @@ function courseGateTexture(label,color){
     }
     return best;
   }
+  /* Open the bottom of the vertical loop so the approach apron feeds in
+     unobstructed. A full closed ribbon previously sat a solid deck across the
+     entry mouth and visually blocked the track. Leave ±entryGap rad open at
+     the bottom (a≈0); build the driving surface from entryGap → 2π-entryGap. */
+  const entryGap=0.38;                 // ~22° each side of bottom → clear mouth
+  const arcStart=entryGap, arcEnd=Math.PI*2-entryGap;
   for(let i=0;i<=n;i++){
-    const a=(i%n)/n*Math.PI*2;
+    const a=arcStart+(i/n)*(arcEnd-arcStart);
     const z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
     const y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a);
     P.push(CANNON_LOOP.x-CANNON_LOOP_ROAD_W,y+.08,z,CANNON_LOOP.x+CANNON_LOOP_ROAD_W,y+.08,z);
@@ -4448,18 +4454,23 @@ function courseGateTexture(label,color){
   const apronGeo=new THREE.BufferGeometry();apronGeo.setAttribute('position',new THREE.Float32BufferAttribute(apronP,3));apronGeo.setAttribute('uv',new THREE.Float32BufferAttribute(apronUV,2));apronGeo.setIndex(apronI);apronGeo.computeVertexNormals();
   const apron=new THREE.Mesh(apronGeo,loopMat);apron.userData.courseFeature='cannonLoopApron';scene.add(apron);
 
-  const closedPts=loopPts.slice(0,n),loopCurve=new THREE.CatmullRomCurve3(closedPts,true,'centripetal');
+  /* Rails follow the same open arc as the deck — never close across the
+     entry mouth. Support towers sit off to the sides at the loop center. */
+  const openPts=loopPts.slice(); // already built only over the open arc
   const railMat=new THREE.MeshLambertMaterial({color:PALETTE.hazard,emissive:0x4d3600});
   for(const xOff of[-CANNON_LOOP_ROAD_W-.4,CANNON_LOOP_ROAD_W+.4]){
-    const edge=closedPts.map(p=>new THREE.Vector3(CANNON_LOOP.x+xOff,p.y,p.z));
-    const railCurve=new THREE.CatmullRomCurve3(edge,true,'centripetal');
-    scene.add(new THREE.Mesh(new THREE.TubeGeometry(railCurve,128,.18,6,true),railMat));
+    const edge=openPts.map(p=>new THREE.Vector3(CANNON_LOOP.x+xOff,p.y,p.z));
+    if(edge.length<2)continue;
+    const railCurve=new THREE.CatmullRomCurve3(edge,false,'centripetal');
+    scene.add(new THREE.Mesh(new THREE.TubeGeometry(railCurve,128,.18,6,false),railMat));
   }
   const towerMat=new THREE.MeshLambertMaterial({color:0x6a4a22,map:TEX.rep(TEX.timber,1,4)});
   towerMat.userData.mat='wood';
+  /* Towers offset slightly toward the far (+z) side of the loop so they do
+     not sit in the approach mouth on the -z entry side. */
   for(const sd of[-1,1]){
     const p=new THREE.Mesh(new THREE.BoxGeometry(.8,CANNON_LOOP.radius*2+4,.8),towerMat);
-    p.position.set(CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+2.2),CANNON_LOOP.centerY,CANNON_LOOP.z);scene.add(p);
+    p.position.set(CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+2.2),CANNON_LOOP.centerY,CANNON_LOOP.z+4.5);scene.add(p);
   }
   /* A side-mounted sign identifies the curved left entrance without spanning
      or obscuring the lane. */
@@ -4722,7 +4733,10 @@ function obstNear(x,z){
   for(let i=0;i<N;i++){
     let t=.012+(i+.5)/N*.976;if(t>.555&&t<.625)t=.625+(t-.555);
     t=clamp(t,0,1);const s=cannonSampAt(t),side=i%2?1:-1;
-    const loopEntranceClear=Math.abs(s.p.z-CANNON_LOOP.z)<CANNON_LOOP_APRON_SPAN+15?7.5:0;
+    /* Extra lateral clearance at the open loop mouth so trees never pinch
+       the approach apron or the entry gap in the vertical loop graphic. */
+    const nearLoop=Math.abs(s.p.z-CANNON_LOOP.z)<CANNON_LOOP_APRON_SPAN+18;
+    const loopEntranceClear=nearLoop?12.5:0;
     const off=10.8+loopEntranceClear+(i%7)*2.9+hash2(i*3.7,19)*10.5;
     const P=s.p.clone().addScaledVector(s.right,side*off);
     const gy=surfaceH(P.x,P.z)-.06,sc=.82+hash2(i*8.1,44)*.75;
