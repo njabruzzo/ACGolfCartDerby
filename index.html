@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- DEFINITIVE SIMPLE CART PICKER BUILD 2026-08-11E: every cart uses the same centered artwork scale and solid black stage. -->
+<!-- DEFINITIVE SIMPLE CART PICKER BUILD 2026-08-11F: every cart matches the Abruzzo artwork size, inset, bottom-center position, and black card background. -->
 <!-- PERMANENT BLUE SKY LOCK 2026-08-09: sky, fog horizon, sky dome, and post-processing output remain the same blue in every gameplay state. -->
 <!-- ORIGINAL CART INTERFACE ROLLBACK + START-LIGHT FIX 2026-08-09: removed the forced gameplay-interface override and made the countdown lights reliably auto-hide. -->
 <!-- HOUSE GROUNDING FIX 2026-08-09: terrain-footprint anchoring plus a small foundation sink prevents billboard houses from floating on uneven yards. -->
@@ -46,7 +46,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-11e-UNIFORM-CART-ART">
+<meta name="acr-build" content="2026-08-11f-ABRUZZO-CART-FRAMING">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -10696,7 +10696,7 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   }
 }
 </style>
-<style id="acr-definitive-balanced-picker-20260811b">
+<style id="acr-definitive-abruzzo-framing-20260811f">
 /* FINAL PICKER RULES: no legacy rule may restore ratings or seat badges. */
 #cartselect .stats,
 #cartselect .fixed-stats,
@@ -10710,6 +10710,7 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   display:flex!important;
   flex-direction:column!important;
   padding:0!important;
+  background:#000!important;
   overflow:hidden!important;
 }
 #cartselect .cart-card.selected{
@@ -10751,6 +10752,7 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
   min-height:66px!important;
   max-height:66px!important;
   padding:9px 10px 7px!important;
+  background:#000!important;
 }
 #cartselect .fixed-cart-head>div{
   width:100%!important;
@@ -10771,18 +10773,18 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
 }
 #cartselect .cart-card[data-cart] .cart-art{
   display:block!important;
-  width:100%!important;
-  height:100%!important;
+  width:calc(100% - 20px)!important;
+  height:calc(100% - 12px)!important;
   max-width:none!important;
   max-height:none!important;
   box-sizing:border-box!important;
-  padding:10px!important;
-  margin:0!important;
+  padding:0!important;
+  margin:6px 10px!important;
   background:#000!important;
   object-fit:contain!important;
-  object-position:center center!important;
+  object-position:center bottom!important;
   transform:none!important;
-  transform-origin:center center!important;
+  transform-origin:center bottom!important;
   filter:none!important;
   opacity:1!important;
 }
