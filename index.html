@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- GITHUB-OPTIMIZED BUILD: embedded artwork and radio audio compressed; no game content removed. -->
-<!-- DERBY BUILD 2026-08-12ZD: right-shifted open loop (split approach, no trail through interior); second course renamed Apple Canyon Lake. -->
+<!-- DERBY BUILD 2026-08-12ZE: restored original Canyon Ball Run loop+bridge path; second course name remains Apple Canyon Lake. -->
 <!-- PERMANENT BLUE SKY LOCK 2026-08-09: sky, fog horizon, sky dome, and post-processing output remain the same blue in every gameplay state. -->
 <!-- ORIGINAL CART INTERFACE ROLLBACK + START-LIGHT FIX 2026-08-09: removed the forced gameplay-interface override and made the countdown lights reliably auto-hide. -->
 <!-- HOUSE GROUNDING FIX 2026-08-09: terrain-footprint anchoring plus a small foundation sink prevents billboard houses from floating on uneven yards. -->
@@ -47,7 +47,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-12zd-RIGHT-LOOP-ACL-LAKE">
+<meta name="acr-build" content="2026-08-12ze-RESTORE-LOOP-BRIDGE-LAKE-NAME">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1730,7 +1730,7 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
         <span class="course-route canyon-route" aria-hidden="true">
           <canvas class="course-map-canvas" data-course-map="cannon" width="840" height="276"></canvas>
         </span>
-        <span class="course-desc">TWO CANYON S-CURVES &middot; RIGHT-ENTRY LOOP THEN FORWARD &middot; 50-FOOT JUMP</span>
+        <span class="course-desc">TWO CANYON S-CURVES &middot; LEFT-ENTRY LOOP + RIGHT JAG &middot; 50-FOOT JUMP</span>
       </button>
       <button class="course-card" data-course="acl" type="button" role="radio" aria-checked="false">
         <span class="course-pick-ribbon">SELECTED</span>
@@ -3178,14 +3178,10 @@ function makeOpenCourseRoad(name,points,sampleCount,t0,t1){
   }
   return finishAuxRoad({name,samples,closed:false,course:'cannon',pointToPoint:true,length:c.getLength()});
 }
-/* Vertical loop sits clearly to the RIGHT of the main line. The approach
-   trail curves right into the loop mouth, the loop ride owns the circle, then
-   the trail continues FORWARD (higher z) — never a flat road through the
-   loop interior that would obstruct the entry. */
-const CANNON_LOOP={x:CANNON_X+48,z:-180,bottomY:9,radius:23}; // right of main line
+const CANNON_LOOP={x:CANNON_X+26,z:-180,bottomY:9,radius:23}; // left of the southbound main line
 CANNON_LOOP.centerY=CANNON_LOOP.bottomY+CANNON_LOOP.radius;
 const CANNON_LOOP_ROAD_W=7.35;          // wider, forgiving loop deck
-const CANNON_LOOP_APRON_SPAN=58;        // dirt-to-loop transition on both sides
+const CANNON_LOOP_APRON_SPAN=52;        // dirt-to-loop transition on both sides
 function cannonLoopRoadHalfWidth(z){
   const d=Math.abs(z-CANNON_LOOP.z);
   if(d>=CANNON_LOOP_APRON_SPAN)return ROAD_W;
@@ -3193,10 +3189,6 @@ function cannonLoopRoadHalfWidth(z){
 }
 const CANNON_LIP=new THREE.Vector3(CANNON_X,10,-132);
 const CANNON_LANDING=new THREE.Vector3(CANNON_X,10,CANNON_LIP.z+CANNON_JUMP_DISTANCE_M);
-/* Split the approach at the vertical loop the same way the jump is split:
-   ROAD_A ends at the entry lip, ROAD_A2 resumes after the exit lip, and the
-   loop ride owns the open circle between them. No flat trail strip runs
-   through the loop interior. */
 const CANNON_ROAD_A=makeOpenCourseRoad('cannonApproach',[
   new THREE.Vector3(CANNON_X,118,-680),
   new THREE.Vector3(715,104,-646),
@@ -3205,17 +3197,15 @@ const CANNON_ROAD_A=makeOpenCourseRoad('cannonApproach',[
   new THREE.Vector3(620,26,-500),
   new THREE.Vector3(900,105,-390),
   new THREE.Vector3(650,21,-295),
-  new THREE.Vector3(CANNON_X,13,-250),                  // main line approach
-  new THREE.Vector3(CANNON_X+18,11,-230),               // begin veering RIGHT
-  new THREE.Vector3(CANNON_LOOP.x,9,-212),              // aligned with loop, south of mouth
-  new THREE.Vector3(CANNON_LOOP.x,9,-198)               // entry lip — end of approach
-],520,0,.50);
-const CANNON_ROAD_A2=makeOpenCourseRoad('cannonAfterLoop',[
-  new THREE.Vector3(CANNON_LOOP.x,9,-162),              // exit lip — resume FORWARD
-  new THREE.Vector3(CANNON_LOOP.x-12,10,-148),          // ease back toward main line
-  new THREE.Vector3(CANNON_X+6,10,-138),
+  new THREE.Vector3(CANNON_X,13,-240),
+  new THREE.Vector3(CANNON_X+13,10,-225),
+  new THREE.Vector3(CANNON_LOOP.x,9,-202),
+  new THREE.Vector3(CANNON_LOOP.x,9,-180),              // enter the loop on the left
+  new THREE.Vector3(CANNON_LOOP.x,9,-167),
+  new THREE.Vector3(CANNON_X-26,10,-151),               // exit jag to the right
+  new THREE.Vector3(CANNON_X-10,10,-141),
   CANNON_LIP.clone()
-],200,.52,.57);
+],720,0,.57);
 const CANNON_ROAD_B=makeOpenCourseRoad('cannonLanding',[
   CANNON_LANDING.clone(),
   new THREE.Vector3(CANNON_X,7,-55),
@@ -3230,8 +3220,8 @@ const CANNON_ROAD_B=makeOpenCourseRoad('cannonLanding',[
   new THREE.Vector3(805,38,670),
   new THREE.Vector3(CANNON_X,24,720)
 ],760,.61,1);
-const CANNON_ROADS=[CANNON_ROAD_A,CANNON_ROAD_A2,CANNON_ROAD_B];
-const CANNON_TRACKLEN=CANNON_ROAD_A.length+Math.PI*2*CANNON_LOOP.radius+CANNON_ROAD_A2.length+CANNON_JUMP_DISTANCE_M+CANNON_ROAD_B.length;
+const CANNON_ROADS=[CANNON_ROAD_A,CANNON_ROAD_B];
+const CANNON_TRACKLEN=CANNON_ROAD_A.length+CANNON_JUMP_DISTANCE_M+CANNON_ROAD_B.length+Math.PI*2*CANNON_LOOP.radius;
 function sampleOpenCourseRoad(road,t){
   const a=road.samples,s0=a[0].mainT,s1=a[a.length-1].mainT;
   const u=clamp((t-s0)/(s1-s0||1),0,1),f=u*(a.length-1),i=Math.min(a.length-2,Math.floor(f)),q=f-i;
@@ -3250,23 +3240,19 @@ function closestOpenCourseFrame(road,x,z){
   return best;
 }
 function cannonSampAt(t){
-  if(t<=.50)return sampleOpenCourseRoad(CANNON_ROAD_A,t);
-  if(t<.52)return sampleOpenCourseRoad(CANNON_ROAD_A,0.50); // hold at entry during loop gap
-  if(t<=.57)return sampleOpenCourseRoad(CANNON_ROAD_A2,t);
+  t=clamp(t,0,1);
+  if(t<=.57)return sampleOpenCourseRoad(CANNON_ROAD_A,t);
   if(t>=.61)return sampleOpenCourseRoad(CANNON_ROAD_B,t);
-  /* jump air gap — interpolate lip → landing */
-  const u=(t-.57)/(.61-.57);
-  const p=CANNON_LIP.clone().lerp(CANNON_LANDING,u);
-  const tan=new THREE.Vector3(0,0,1);
-  return {p,tan,right:new THREE.Vector3(-1,0,0)};
+  const u=(t-.57)/.04,p=CANNON_LIP.clone().lerp(CANNON_LANDING,u);
+  return {p,tan:new THREE.Vector3(0,0,1),right:new THREE.Vector3(-1,0,0)};
 }
 function courseSampAt(t){return SELECTED_COURSE_KEY==='cannon'?cannonSampAt(t):sampAt(t);}
 function activeTrackLength(){return SELECTED_COURSE_KEY==='cannon'?CANNON_TRACKLEN:TRACKLEN;}
 const CANNON_START_FRAME=cannonSampAt(.004);
 const CANNON_FINISH_FRAME=cannonSampAt(1);
-const CANNON_LOOP_ENTRY_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z-16);
-const CANNON_LOOP_EXIT_FRAME=closestOpenCourseFrame(CANNON_ROAD_A2,CANNON_LOOP.x,CANNON_LOOP.z+16);
-const CANNON_PREBOOST_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_X+22,-235);
+const CANNON_LOOP_ENTRY_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z-.7);
+const CANNON_LOOP_EXIT_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z+5.5);
+const CANNON_PREBOOST_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_X+16,-220);
 const CANNON_LANDING_BOOST_FRAME={p:CANNON_LANDING.clone(),tan:new THREE.Vector3(0,0,1),right:new THREE.Vector3(-1,0,0)};
 function crossedCourseFinishForward(frame,x0,z0,x1,z1){
   const tan=new THREE.Vector3(frame.tan.x,0,frame.tan.z).normalize();
@@ -3312,7 +3298,7 @@ window.ACR_COURSE_FEATURES={
     largerGrades:true,canyonWalls:true,trees:true,animals:true,centralStream:true,
     stream:{z:CANYON_STREAM_BASE_Z,waterY:CANYON_STREAM_WATER_Y,bridge:true},
     loop:{x:CANNON_LOOP.x,y:CANNON_LOOP.centerY,z:CANNON_LOOP.z,radius:CANNON_LOOP.radius,
-      entrySide:'right',exit:'forwardThenMainCourse',roadHalfWidth:CANNON_LOOP_ROAD_W,
+      entrySide:'left',exit:'rightJagToMainCourse',roadHalfWidth:CANNON_LOOP_ROAD_W,
       clearApronSpan:CANNON_LOOP_APRON_SPAN,preLoopBooster:true},
     apples:true,
     jump:{distanceFeet:50,distanceMeters:CANNON_JUMP_DISTANCE_M,landingBooster:true},
@@ -3432,7 +3418,6 @@ function drawCoursePickerMaps(){
     for(let i=0;i<=40;i++){const wx=500+i*13,wz=canyonStreamZ(wx),p=cannonPt({x:wx,z:wz});i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]);}x.stroke();
     x.strokeStyle='#38b9e6';x.lineWidth=7;x.stroke();x.restore();
     road(x,CANNON_ROAD_A.samples,cannonPt,false,'#c77b3e',4,10);
-    road(x,CANNON_ROAD_A2.samples,cannonPt,false,'#c77b3e',4,10);
     road(x,CANNON_ROAD_B.samples,cannonPt,false,'#c77b3e',4,10);
     const bridge=cannonPt({x:CANNON_X,z:CANYON_STREAM_BASE_Z});
     x.save();x.translate(bridge[0],bridge[1]);x.fillStyle='#21140b';x.fillRect(-7,-8,14,16);x.fillStyle='#bd783c';x.fillRect(-6,-6,12,12);
@@ -4422,14 +4407,8 @@ function courseGateTexture(label,color){
     }
     return best;
   }
-  /* Open the bottom of the vertical loop so the approach apron feeds in
-     unobstructed. A full closed ribbon previously sat a solid deck across the
-     entry mouth and visually blocked the track. Leave ±entryGap rad open at
-     the bottom (a≈0); build the driving surface from entryGap → 2π-entryGap. */
-  const entryGap=0.38;                 // ~22° each side of bottom → clear mouth
-  const arcStart=entryGap, arcEnd=Math.PI*2-entryGap;
   for(let i=0;i<=n;i++){
-    const a=arcStart+(i/n)*(arcEnd-arcStart);
+    const a=(i%n)/n*Math.PI*2;
     const z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
     const y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a);
     P.push(CANNON_LOOP.x-CANNON_LOOP_ROAD_W,y+.08,z,CANNON_LOOP.x+CANNON_LOOP_ROAD_W,y+.08,z);
@@ -4472,23 +4451,18 @@ function courseGateTexture(label,color){
   const apronGeo=new THREE.BufferGeometry();apronGeo.setAttribute('position',new THREE.Float32BufferAttribute(apronP,3));apronGeo.setAttribute('uv',new THREE.Float32BufferAttribute(apronUV,2));apronGeo.setIndex(apronI);apronGeo.computeVertexNormals();
   const apron=new THREE.Mesh(apronGeo,loopMat);apron.userData.courseFeature='cannonLoopApron';scene.add(apron);
 
-  /* Rails follow the same open arc as the deck — never close across the
-     entry mouth. Support towers sit off to the sides at the loop center. */
-  const openPts=loopPts.slice(); // already built only over the open arc
+  const closedPts=loopPts.slice(0,n),loopCurve=new THREE.CatmullRomCurve3(closedPts,true,'centripetal');
   const railMat=new THREE.MeshLambertMaterial({color:PALETTE.hazard,emissive:0x4d3600});
   for(const xOff of[-CANNON_LOOP_ROAD_W-.4,CANNON_LOOP_ROAD_W+.4]){
-    const edge=openPts.map(p=>new THREE.Vector3(CANNON_LOOP.x+xOff,p.y,p.z));
-    if(edge.length<2)continue;
-    const railCurve=new THREE.CatmullRomCurve3(edge,false,'centripetal');
-    scene.add(new THREE.Mesh(new THREE.TubeGeometry(railCurve,128,.18,6,false),railMat));
+    const edge=closedPts.map(p=>new THREE.Vector3(CANNON_LOOP.x+xOff,p.y,p.z));
+    const railCurve=new THREE.CatmullRomCurve3(edge,true,'centripetal');
+    scene.add(new THREE.Mesh(new THREE.TubeGeometry(railCurve,128,.18,6,true),railMat));
   }
   const towerMat=new THREE.MeshLambertMaterial({color:0x6a4a22,map:TEX.rep(TEX.timber,1,4)});
   towerMat.userData.mat='wood';
-  /* Towers offset slightly toward the far (+z) side of the loop so they do
-     not sit in the approach mouth on the -z entry side. */
   for(const sd of[-1,1]){
     const p=new THREE.Mesh(new THREE.BoxGeometry(.8,CANNON_LOOP.radius*2+4,.8),towerMat);
-    p.position.set(CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+2.2),CANNON_LOOP.centerY,CANNON_LOOP.z+4.5);scene.add(p);
+    p.position.set(CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+2.2),CANNON_LOOP.centerY,CANNON_LOOP.z);scene.add(p);
   }
   /* A side-mounted sign identifies the curved left entrance without spanning
      or obscuring the lane. */
@@ -4751,10 +4725,7 @@ function obstNear(x,z){
   for(let i=0;i<N;i++){
     let t=.012+(i+.5)/N*.976;if(t>.555&&t<.625)t=.625+(t-.555);
     t=clamp(t,0,1);const s=cannonSampAt(t),side=i%2?1:-1;
-    /* Extra lateral clearance at the open loop mouth so trees never pinch
-       the approach apron or the entry gap in the vertical loop graphic. */
-    const nearLoop=Math.abs(s.p.z-CANNON_LOOP.z)<CANNON_LOOP_APRON_SPAN+18;
-    const loopEntranceClear=nearLoop?12.5:0;
+    const loopEntranceClear=Math.abs(s.p.z-CANNON_LOOP.z)<CANNON_LOOP_APRON_SPAN+15?7.5:0;
     const off=10.8+loopEntranceClear+(i%7)*2.9+hash2(i*3.7,19)*10.5;
     const P=s.p.clone().addScaledVector(s.right,side*off);
     const gy=surfaceH(P.x,P.z)-.06,sc=.82+hash2(i*8.1,44)*.75;
