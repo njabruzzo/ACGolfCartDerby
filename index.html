@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!-- GITHUB-OPTIMIZED BUILD: embedded artwork and radio audio compressed; no game content removed. -->
+<!-- DERBY BUILD 2026-08-12ZK: restored a fully connected loop surface while keeping the lower guardrails open and the entrance unobstructed. -->
 <!-- DERBY BUILD 2026-08-12ZJ: Canyon Ball Run now uses a dark slot-track surface and an open-bottom striped loop that leaves the driving lane clear. -->
 <!-- DERBY BUILD 2026-08-12ZI: complete Supabase password-reset request, recovery-link and new-password flow on the login card. -->
 <!-- DERBY BUILD 2026-08-12ZH: historical local scores are reconciled to the shared board at sign-in. -->
@@ -52,7 +53,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-12zj-DARK-OPEN-LOOP">
+<meta name="acr-build" content="2026-08-12zk-CONNECTED-DARK-LOOP">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -3421,8 +3422,8 @@ const CANNON_LOOP={x:CANNON_X+26,z:-180,bottomY:9,radius:23}; // left of the sou
 CANNON_LOOP.centerY=CANNON_LOOP.bottomY+CANNON_LOOP.radius;
 const CANNON_LOOP_ROAD_W=7.35;          // wider, forgiving loop deck
 const CANNON_LOOP_APRON_SPAN=52;        // dirt-to-loop transition on both sides
-const CANNON_LOOP_OPEN_ANGLE=.46;        // raised loop begins above the uninterrupted base lane
-const CANNON_LOOP_CLEARANCE=CANNON_LOOP.radius*(1-Math.cos(CANNON_LOOP_OPEN_ANGLE));
+const CANNON_LOOP_OPEN_ANGLE=.46;        // only guardrails open here; the driving surface stays continuous
+const CANNON_LOOP_GUARD_CLEARANCE=CANNON_LOOP.radius*(1-Math.cos(CANNON_LOOP_OPEN_ANGLE));
 function cannonLoopRoadHalfWidth(z){
   const d=Math.abs(z-CANNON_LOOP.z);
   if(d>=CANNON_LOOP_APRON_SPAN)return ROAD_W;
@@ -3540,8 +3541,9 @@ window.ACR_COURSE_FEATURES={
     stream:{z:CANYON_STREAM_BASE_Z,waterY:CANYON_STREAM_WATER_Y,bridge:true},
     loop:{x:CANNON_LOOP.x,y:CANNON_LOOP.centerY,z:CANNON_LOOP.z,radius:CANNON_LOOP.radius,
       entrySide:'left',exit:'rightJagToMainCourse',roadHalfWidth:CANNON_LOOP_ROAD_W,
-      clearApronSpan:CANNON_LOOP_APRON_SPAN,openBottomAngle:CANNON_LOOP_OPEN_ANGLE,
-      baseLaneClearanceMeters:CANNON_LOOP_CLEARANCE,baseLaneUnobstructed:true,preLoopBooster:true},
+      clearApronSpan:CANNON_LOOP_APRON_SPAN,openBottomGuardAngle:CANNON_LOOP_OPEN_ANGLE,
+      guardClearanceMeters:CANNON_LOOP_GUARD_CLEARANCE,continuousLoopSurface:true,
+      baseLaneUnobstructed:true,preLoopBooster:true},
     apples:true,
     jump:{distanceFeet:50,distanceMeters:CANNON_JUMP_DISTANCE_M,landingBooster:true},
     start:{x:CANNON_START_FRAME.p.x,y:CANNON_START_FRAME.p.y,z:CANNON_START_FRAME.p.z},
@@ -4660,10 +4662,10 @@ function courseGateTexture(label,color){
 }
 
 /* Canyon Ball Run loop, start gate, finish gate, stream and canyon walls. The
-   dark slot-track ribbon follows the vertical circle but opens above the
-   continuous base lane. Gameplay keeps the same full-circle drive path. */
+   dark slot-track ribbon is a complete vertical circle. Only the lower walls
+   and rails open up, leaving the connected entrance visible and unobstructed. */
 (function buildCannonBallRunLandmarks(){
-  const n=128,P=[],UV=[],I=[],loopPts=[],loopAngles=[];
+  const n=128,P=[],UV=[],I=[];
   function cannonRoadFrameAt(road,x,z){
     let best=null,bd=Infinity;
     for(let i=0;i<road.samples.length-1;i++){
@@ -4675,15 +4677,12 @@ function courseGateTexture(label,color){
     }
     return best;
   }
-  const arcStart=CANNON_LOOP_OPEN_ANGLE,arcEnd=Math.PI*2-CANNON_LOOP_OPEN_ANGLE;
   for(let i=0;i<=n;i++){
-    const t=i/n,a=arcStart+(arcEnd-arcStart)*t;
+    const t=i/n,a=t*Math.PI*2;
     const z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
     const y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a);
     P.push(CANNON_LOOP.x-CANNON_LOOP_ROAD_W,y+.08,z,CANNON_LOOP.x+CANNON_LOOP_ROAD_W,y+.08,z);
     UV.push(0,t*18,1,t*18);
-    loopPts.push(new THREE.Vector3(CANNON_LOOP.x,y+.28,z));
-    loopAngles.push(a);
     if(i<n){const q=i*2;I.push(q,q+1,q+2,q+1,q+3,q+2);}
   }
   const g=new THREE.BufferGeometry();
@@ -4693,9 +4692,9 @@ function courseGateTexture(label,color){
   loopMat.userData.surface='trail';
   const loopMesh=new THREE.Mesh(g,loopMat);loopMesh.userData.courseFeature='cannonLoop';scene.add(loopMesh);
 
-  /* A wide, ground-following dark base lane passes cleanly beneath the open
-     loop. It follows the authored spline height at every slice, so the entry,
-     bottom transition and right-side exit jag remain one continuous road. */
+  /* A wide, ground-following dark approach meets the loop exactly at its
+     bottom tangent. It follows the authored spline height at every slice, so
+     the entry, complete loop and right-side exit jag remain one continuous road. */
   const apronP=[],apronUV=[],apronI=[],apronBaseP=[],apronBaseI=[];
   let apronStart=0,apronStartD=Infinity;
   for(let i=0;i<CANNON_ROAD_A.samples.length;i++){
@@ -4721,8 +4720,9 @@ function courseGateTexture(label,color){
   const apronGeo=new THREE.BufferGeometry();apronGeo.setAttribute('position',new THREE.Float32BufferAttribute(apronP,3));apronGeo.setAttribute('uv',new THREE.Float32BufferAttribute(apronUV,2));apronGeo.setIndex(apronI);apronGeo.computeVertexNormals();
   const apron=new THREE.Mesh(apronGeo,loopMat);apron.userData.courseFeature='cannonLoopApron';scene.add(apron);
 
-  /* Reference-style dark sidewalls with repeating white blocks. They use the
-     same open arc as the road surface, so no wall or rail crosses the base lane. */
+  /* Reference-style dark sidewalls with repeating white blocks. The surface is
+     complete, but these guards open around the bottom tangent so they cannot
+     hide or block the connected driving entrance. */
   const wallCanvas=document.createElement('canvas');wallCanvas.width=512;wallCanvas.height=64;
   const wallX=wallCanvas.getContext('2d');wallX.fillStyle='#0a0d10';wallX.fillRect(0,0,512,64);
   for(let x=5;x<512;x+=29){wallX.fillStyle='#f2f3ef';wallX.fillRect(x,5,13,54);}
@@ -4734,7 +4734,8 @@ function courseGateTexture(label,color){
     const wallP=[],wallUV=[],wallI=[],baseEdge=[],crownEdge=[];
     const xSide=CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+.22);
     for(let i=0;i<=n;i++){
-      const t=i/n,a=loopAngles[i],z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
+      const t=i/n,a=CANNON_LOOP_OPEN_ANGLE+(Math.PI*2-CANNON_LOOP_OPEN_ANGLE*2)*t;
+      const z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
       const y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a)+.1;
       const topY=y+Math.cos(a)*1.55,topZ=z-Math.sin(a)*1.55;
       wallP.push(xSide,y,z,xSide,topY,topZ);wallUV.push(t,0,t,1);
