@@ -1,5 +1,10 @@
 <!DOCTYPE html>
 <!-- GITHUB-OPTIMIZED BUILD: embedded artwork and radio audio compressed; no game content removed. -->
+<!-- DERBY BUILD 2026-08-12ZJ: Canyon Ball Run now uses a dark slot-track surface and an open-bottom striped loop that leaves the driving lane clear. -->
+<!-- DERBY BUILD 2026-08-12ZI: complete Supabase password-reset request, recovery-link and new-password flow on the login card. -->
+<!-- DERBY BUILD 2026-08-12ZH: historical local scores are reconciled to the shared board at sign-in. -->
+<!-- DERBY BUILD 2026-08-12ZG: both leaderboards page through and display every genuine completed score; diagnostic rows are excluded. -->
+<!-- DERBY BUILD 2026-08-12ZF: leaderboard shows every completed score; local/shared copies are de-duplicated one-for-one. -->
 <!-- DERBY BUILD 2026-08-12ZE: restored original Canyon Ball Run loop+bridge path; second course name remains Apple Canyon Lake. -->
 <!-- PERMANENT BLUE SKY LOCK 2026-08-09: sky, fog horizon, sky dome, and post-processing output remain the same blue in every gameplay state. -->
 <!-- ORIGINAL CART INTERFACE ROLLBACK + START-LIGHT FIX 2026-08-09: removed the forced gameplay-interface override and made the countdown lights reliably auto-hide. -->
@@ -47,7 +52,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-12ze-RESTORE-LOOP-BRIDGE-LAKE-NAME">
+<meta name="acr-build" content="2026-08-12zj-DARK-OPEN-LOOP">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1566,12 +1571,12 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
       <div class="acr-logo-sub">DRIVER SIGN-IN</div>
     </div>
 
-    <div class="acr-tabs">
+    <div id="acrAuthTabs" class="acr-tabs">
       <button type="button" class="acr-tab on" data-mode="login">SIGN IN</button>
       <button type="button" class="acr-tab" data-mode="register">NEW DRIVER</button>
     </div>
 
-    <div class="acr-form">
+    <div id="acrAuthForm" class="acr-form">
       <label class="acr-field">
         <span id="acrUserLabel">EMAIL</span>
         <input id="acrUser" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="120" placeholder="you@example.com">
@@ -1590,12 +1595,30 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
       </label>
 
       <div id="acrError" class="acr-error"></div>
+      <div id="acrResetNotice" class="acr-reset-notice" role="status" aria-live="polite"></div>
 
       <button id="acrSubmit" type="button" class="acr-primary">&#9654; ENTER THE CANYON</button>
+      <button id="acrForgot" type="button" class="acr-ghost acr-forgot">forgot password?</button>
       <button id="acrGuest" type="button" class="acr-ghost">race as guest &mdash; no score saved</button>
       <button id="acrGateBoard" type="button" class="acr-ghost2 gate-board">&#127942; DERBY RECORDS &mdash; view both leaderboards</button>
 
       <p class="acr-note" id="acrNote"></p>
+    </div>
+
+    <div id="acrPasswordForm" class="acr-form acr-password-form" hidden>
+      <div class="acr-reset-title">SET A NEW PASSWORD</div>
+      <p class="acr-reset-copy">Enter a new password for your Derby driver account.</p>
+      <label class="acr-field">
+        <span>NEW PASSWORD</span>
+        <input id="acrNewPass" type="password" autocomplete="new-password" maxlength="72" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;">
+      </label>
+      <label class="acr-field">
+        <span>CONFIRM NEW PASSWORD</span>
+        <input id="acrNewPass2" type="password" autocomplete="new-password" maxlength="72" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;">
+      </label>
+      <div id="acrResetError" class="acr-error" role="alert"></div>
+      <button id="acrSetPassword" type="button" class="acr-primary">&#9654; SAVE NEW PASSWORD</button>
+      <button id="acrResetCancel" type="button" class="acr-ghost">back to sign in</button>
     </div>
   </div>
 </div>
@@ -1832,7 +1855,10 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
 window.ACR_CONFIG = {
   supabaseUrl:            'https://jlygeouxfgxorpifgrqg.supabase.co',
   supabasePublishableKey: 'sb_publishable_6M8vypcVTPr3GSBK1KXA5w_us6sEO0j',
-  boardLimit:             100
+  /* Leave blank to return to the exact published game URL. That URL must be
+     included in Supabase Authentication > URL Configuration > Redirect URLs. */
+  passwordResetRedirectUrl:'',
+  boardPageSize:          500
 };
 </script>
 <script>
@@ -1843,11 +1869,10 @@ window.ACR_CONFIG = {
   var SUPA_URL = (CFG.supabaseUrl||'').replace(/\/+$/,'');
   var SUPA_KEY = CFG.supabasePublishableKey||CFG.supabaseAnonKey||'';
   var REMOTE   = !!(SUPA_URL && SUPA_KEY);
-  var LIMIT    = CFG.boardLimit || 100;
-  /* Pull far more rows than the board shows: the visible list is one line per
-     driver, so a driver with 60 runs must not push everyone else off the query
-     before the collapse below has a chance to run. */
-  var FETCH_LIMIT = Math.max(LIMIT*5, 500);
+  /* Fetch the shared board in stable pages. A single REST request previously
+     imposed a hidden limit, so older scores would eventually disappear even
+     after the best-per-driver display collapse was removed. */
+  var PAGE_SIZE=Math.max(100,Math.min(1000,CFG.boardPageSize||500));
 
   var K_ACCT='acr_accounts_v1', K_SCORE='acr_scores_v1', K_SESS='acr_session_v1',
       K_TOK='acr_token_v1', K_PEND='acr_pending_v1';
@@ -1945,6 +1970,12 @@ window.ACR_CONFIG = {
         return Promise.resolve({id:a.user,screen:a.screen});
       },
       signOut:function(){ drop(K_SESS); return Promise.resolve(); },
+      requestPasswordReset:function(){
+        return Promise.reject('Password reset by email is available only for shared Derby accounts.');
+      },
+      updatePassword:function(){
+        return Promise.reject('This recovery link is not for a local-only account.');
+      },
 
       submit:function(user,run){
         var row={
@@ -1956,7 +1987,9 @@ window.ACR_CONFIG = {
           wrecks:run.wrecks|0, cart:run.cart||'', course_key:runCourseKey(run),
           laps:RACE_LAPS, created_at:Date.now()
         };
-        var all=scores(); all.push(row); write(K_SCORE,all);
+        var all=scores(); all.push(row);
+        if(!write(K_SCORE,all))
+          return Promise.reject('Browser storage is blocked or full.');
         return Promise.resolve(row);
       },
       board:function(){
@@ -1965,7 +1998,7 @@ window.ACR_CONFIG = {
           return r;
         });
         list.sort(function(a,b){ return a.time_sec-b.time_sec; });
-        return Promise.resolve(list.slice(0,FETCH_LIMIT));
+        return Promise.resolve(list);
       }
     };
   })();
@@ -1996,12 +2029,18 @@ window.ACR_CONFIG = {
         return 'Wrong email or password.';
       if(low.indexOf('already registered')>=0||low.indexOf('already been registered')>=0)
         return 'That email already has an account \u2014 switch to SIGN IN.';
-      if(low.indexOf('no api key')>=0||code===401)
+      if(low.indexOf('no api key')>=0)
         return 'The leaderboard key was rejected (401). Check the publishable key in ACR_CONFIG.';
+      if(code===401&&(low.indexOf('jwt')>=0||low.indexOf('token')>=0||low.indexOf('session')>=0||low.indexOf('expired')>=0))
+        return 'This password-recovery link is invalid or expired. Request a new link.';
+      if(code===401)
+        return 'Authorization failed (401). Sign in again or request a new password-recovery link.';
       if(code===403)
         return 'Permission denied (403) \u2014 check the Row Level Security policy on the runs table.';
       if(code===404)
         return 'Endpoint not found (404) \u2014 check the Supabase project URL.';
+      if(code===429||low.indexOf('rate limit')>=0)
+        return 'Too many reset requests. Wait a few minutes, then try again.';
       if(code===422&&low.indexOf('password')>=0)
         return 'Password is too short \u2014 Supabase needs at least 6 characters.';
       if(raw) return raw+(code?' ('+code+')':'');
@@ -2020,8 +2059,8 @@ window.ACR_CONFIG = {
         });
       }).then(function(v){ clearTimeout(timer); return v; },function(err){
         clearTimeout(timer);
-        if(err&&err.name==='AbortError') throw 'The leaderboard server timed out. Try again.';
-        throw (typeof err==='string'?err:'Could not reach the leaderboard server.');
+        if(err&&err.name==='AbortError') throw 'The Derby account server timed out. Try again.';
+        throw (typeof err==='string'?err:'Could not reach the Derby account server.');
       });
     }
 
@@ -2104,6 +2143,28 @@ window.ACR_CONFIG = {
         return fetch(SUPA_URL+'/auth/v1/logout',{
           method:'POST',headers:authHeaders({'Authorization':'Bearer '+t.access_token})
         }).then(function(){},function(){});
+      },
+      requestPasswordReset:function(id,redirectTo){
+        var email=String(id||'').trim();
+        if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+          return Promise.reject('Enter the email address used for your Derby account.');
+        var url=SUPA_URL+'/auth/v1/recover';
+        if(redirectTo)url+='?redirect_to='+encodeURIComponent(redirectTo);
+        return jfetch(url,{
+          method:'POST',headers:authHeaders(),body:JSON.stringify({email:email})
+        });
+      },
+      updatePassword:function(accessToken,pass){
+        if(!accessToken)return Promise.reject('This recovery link is missing its secure token. Request a new link.');
+        if(String(pass||'').length<6)return Promise.reject('Password needs at least 6 characters.');
+        return jfetch(SUPA_URL+'/auth/v1/user',{
+          method:'PUT',headers:authHeaders({'Authorization':'Bearer '+accessToken}),
+          body:JSON.stringify({password:String(pass)})
+        }).then(function(d){
+          /* A recovery session should never silently replace a different saved
+             driver session. Return to a clean sign-in after the password changes. */
+          TOK=null;drop(K_TOK);return d;
+        });
       },
 
       submit:function(user,run){
@@ -2203,12 +2264,23 @@ window.ACR_CONFIG = {
            error, so reading with only the anon key made a perfectly healthy
            shared board look like it held nothing but this device's own runs.
            Anon is still the fallback for a public-read policy. */
-        var url=SUPA_URL+'/rest/v1/runs?select=id,user_id,screen,time_sec,animals,goblins,best_lap,wrecks,cart,created_at'
-              +'&order='+encodeURIComponent('time_sec.asc')+'&limit='+FETCH_LIMIT;
+        var baseUrl=SUPA_URL+'/rest/v1/runs?select=id,user_id,screen,time_sec,animals,goblins,best_lap,wrecks,cart,created_at'
+              +'&order='+encodeURIComponent('time_sec.asc,created_at.asc');
         function map(rows){
           return (rows||[]).map(function(r){ r.apples=r.wrecks|0; return r; });
         }
-        function go(h){ return jfetch(url,{headers:h}).then(map); }
+        function go(h){
+          var all=[];
+          function page(offset){
+            var url=baseUrl+'&limit='+PAGE_SIZE+'&offset='+offset;
+            return jfetch(url,{headers:h}).then(function(rows){
+              rows=map(rows);
+              all=all.concat(rows);
+              return rows.length===PAGE_SIZE?page(offset+PAGE_SIZE):all;
+            });
+          }
+          return page(0);
+        }
         if(!TOK) return go(authHeaders());
         return fresh().then(function(t){
           return go(authHeaders({'Authorization':'Bearer '+t.access_token}));
@@ -2234,20 +2306,109 @@ window.ACR_CONFIG = {
     },Promise.resolve()).then(function(){ return sent; });
   }
 
+  /* Older builds always saved an authenticated run in this browser, even when
+     its shared upload failed. Reconcile those durable local rows at sign-in so
+     opening the repaired game on the original device restores missing history.
+     Counts make the comparison one-for-one, preserving legitimate repeat
+     scores while preventing a local/shared copy from being uploaded twice. */
+  function localRowAsRun(r){
+    return {
+      time:Number(r.time_sec), animals:r.animals|0, goblins:r.goblins|0,
+      apples:r.apples|0, best:r.best_lap, wrecks:r.wrecks|0,
+      cart:displayCart(r), courseKey:rowCourseKey(r)
+    };
+  }
+  function recoverHistoricalScores(){
+    if(BACKEND.mode!=='supabase'||!CURRENT||CURRENT.guest)return Promise.resolve(0);
+    var user=CURRENT;
+    return Promise.all([BACKEND.board(),LocalBackend.board()]).then(function(parts){
+      var remoteCounts={}, missing=[];
+      genuineScores(parts[0]).forEach(function(r){
+        if(r.user_id!==user.id)return;
+        var k=rowKey(r);remoteCounts[k]=(remoteCounts[k]||0)+1;
+      });
+      genuineScores(parts[1]).forEach(function(r){
+        if(r.user_id!==user.id)return;
+        var k=rowKey(r);
+        if(remoteCounts[k]){remoteCounts[k]--;return;}
+        missing.push(localRowAsRun(r));
+      });
+      var recovered=0;
+      return missing.reduce(function(chain,run){
+        return chain.then(function(){
+          return BACKEND.submit(user,run).then(function(){recovered++;});
+        });
+      },Promise.resolve()).then(function(){
+        if(recovered){
+          console.log('[ACR] recovered '+recovered+' historical score'+(recovered===1?'':'s')+' from this browser');
+          if(boardVisible())loadBoard(true);
+        }
+        return recovered;
+      });
+    }).catch(function(err){
+      console.warn('[ACR] historical score recovery will retry next sign-in:',err);
+      return 0;
+    });
+  }
+  function syncStoredScores(){
+    return flushQueue().then(recoverHistoricalScores);
+  }
+
   /* ---------- session ---------- */
   var CURRENT=null;
   function setUser(u){ CURRENT=u; paintWhoami(); }
 
   /* ---------- DOM ---------- */
   var $=function(id){ return document.getElementById(id); };
-  var gate,board,results,whoami,mode='login',busy=false;
+  var gate,board,results,whoami,mode='login',busy=false,resetBusy=false,recoveryToken='';
 
   function openGate(){ gate.classList.add('show'); gate.setAttribute('aria-hidden','false'); setErr(''); }
   function closeGate(){ gate.classList.remove('show'); gate.setAttribute('aria-hidden','true'); }
   function setErr(m){ $('acrError').textContent=m||''; }
+  function setResetErr(m){ $('acrResetError').textContent=m||''; }
+  function setResetNotice(m){ $('acrResetNotice').textContent=m||''; }
+  function resetReturnUrl(){
+    var configured=String(CFG.passwordResetRedirectUrl||'').trim();
+    if(configured)return configured;
+    if(location.protocol!=='http:'&&location.protocol!=='https:')return '';
+    return location.origin+location.pathname;
+  }
+  function recoveryFromLocation(){
+    var raw=String(location.hash||'').replace(/^#/,'');
+    if(!raw)return null;
+    var p;try{p=new URLSearchParams(raw);}catch(e){return null;}
+    var type=p.get('type')||'';
+    var token=p.get('access_token')||'';
+    var error=p.get('error_description')||p.get('error_code')||p.get('error')||'';
+    if(type==='recovery'&&token)return {token:token};
+    if(type==='recovery'||error)return {error:error||'This recovery link is invalid or has expired.'};
+    return null;
+  }
+  function clearRecoveryLocation(){
+    try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
+  }
+  function showAuthForm(notice){
+    recoveryToken='';resetBusy=false;
+    $('acrAuthTabs').hidden=false;$('acrAuthForm').hidden=false;$('acrPasswordForm').hidden=true;
+    $('acrNewPass').value='';$('acrNewPass2').value='';setResetErr('');
+    setMode('login');setResetNotice(notice||'');
+    var stamp=document.querySelector('.acr-logo-sub');
+    if(stamp)stamp.textContent='DRIVER SIGN-IN \u00b7 BUILD '+ACR_BUILD;
+    openGate();
+  }
+  function showPasswordForm(info){
+    recoveryToken=info.token||'';
+    clearRecoveryLocation(); // keep the recovery token out of the address bar/history
+    $('acrAuthTabs').hidden=true;$('acrAuthForm').hidden=true;$('acrPasswordForm').hidden=false;
+    $('acrNewPass').value='';$('acrNewPass2').value='';setResetErr('');
+    var stamp=document.querySelector('.acr-logo-sub');
+    if(stamp)stamp.textContent='SECURE PASSWORD RECOVERY';
+    gate.classList.add('show');gate.setAttribute('aria-hidden','false');
+    setTimeout(function(){$('acrNewPass').focus();},0);
+  }
   function clearFields(){
     ['acrUser','acrScreen','acrPass','acrPass2'].forEach(function(id){ var el=$(id); if(el)el.value=''; });
-    setErr('');
+    setErr('');setResetNotice('');
   }
   function setBusy(b,label){
     busy=b;
@@ -2267,8 +2428,10 @@ window.ACR_CONFIG = {
       el.hidden = (m!=='register');
     });
     $('acrPass').setAttribute('autocomplete',m==='register'?'new-password':'current-password');
+    $('acrForgot').hidden=(m!=='login');
     setBusy(false);
     setErr('');
+    setResetNotice('');
   }
 
   function paintWhoami(){
@@ -2332,40 +2495,53 @@ window.ACR_CONFIG = {
     return [rowCourseKey(r),String(r.user_id||''),String(r.screen||''),displayCart(r),
       Number(r.time_sec||0).toFixed(1),r.animals|0,r.goblins|0,r.apples|0].join('|');
   }
+  function isGenuineScore(r){
+    if(!r||!isFinite(Number(r.time_sec))||Number(r.time_sec)<0)return false;
+    return untagCart(r.cart||'').trim().toUpperCase()!=='DIAGNOSTIC';
+  }
+  function genuineScores(rows){
+    return (rows||[]).filter(isGenuineScore);
+  }
   function mergeRows(remoteRows,localRows){
-    var seen={}, out=[];
-    (remoteRows||[]).concat(localRows||[]).forEach(function(r){
+    var remoteCopies={}, out=[];
+    /* Keep every genuine completed run. A shared upload and its durable local
+       copy have different ids, so de-duplicate those copies one-for-one by
+       score signature instead of collapsing every identical-looking result. */
+    genuineScores(remoteRows).forEach(function(r){
       if(r.apples==null)r.apples=0;
       r.course_key=rowCourseKey(r);
       var k=rowKey(r);
-      if(seen[k])return;
-      seen[k]=1; out.push(r);
+      remoteCopies[k]=(remoteCopies[k]||0)+1;
+      out.push(r);
     });
-    out.sort(function(a,b){ return (+a.time_sec||Infinity)-(+b.time_sec||Infinity); });
+    genuineScores(localRows).forEach(function(r){
+      if(r.apples==null)r.apples=0;
+      r.course_key=rowCourseKey(r);
+      var k=rowKey(r);
+      if(remoteCopies[k]){ remoteCopies[k]--; return; }
+      out.push(r);
+    });
+    out.sort(function(a,b){
+      var byTime=(+a.time_sec||Infinity)-(+b.time_sec||Infinity);
+      if(byTime)return byTime;
+      var at=typeof a.created_at==='number'?a.created_at:Date.parse(a.created_at||'')||0;
+      var bt=typeof b.created_at==='number'?b.created_at:Date.parse(b.created_at||'')||0;
+      return bt-at;
+    });
     return out;
   }
 
-  /* The board is a table of DRIVERS, not of runs. Listing every run meant one
-     enthusiastic driver's fifty attempts could fill the whole board and hide
-     everybody else. Each course now collapses independently to one best time
-     per driver, while the run count remains visible in the row tooltip. */
-  function bestPerDriver(rows){
-    var seen={}, order=[];
-    (rows||[]).forEach(function(r){
-      var k=String(r.user_id||r.screen||'?').toLowerCase();
-      var e=seen[k];
-      if(!e){ seen[k]={row:r,runs:1}; order.push(k); return; }
-      e.runs++;
-      if((+r.time_sec||Infinity)<(+e.row.time_sec||Infinity)) e.row=r;
+  /* Rank completed scores, not drivers. The previous best-per-driver collapse
+     successfully stored later scores but hid them, making the board look as
+     if it had stopped recording. The scroll area handles the additional rows. */
+  function rankedScores(rows){
+    return (rows||[]).slice().sort(function(a,b){
+      var byTime=(+a.time_sec||Infinity)-(+b.time_sec||Infinity);
+      if(byTime)return byTime;
+      var at=typeof a.created_at==='number'?a.created_at:Date.parse(a.created_at||'')||0;
+      var bt=typeof b.created_at==='number'?b.created_at:Date.parse(b.created_at||'')||0;
+      return bt-at;
     });
-    var out=order.map(function(k){
-      var e=seen[k], c={};
-      for(var f in e.row) c[f]=e.row[f];
-      c._runs=e.runs;
-      return c;
-    });
-    out.sort(function(a,b){ return (+a.time_sec||Infinity)-(+b.time_sec||Infinity); });
-    return out.slice(0,LIMIT);
   }
 
   var BOARD_UI={
@@ -2380,7 +2556,7 @@ window.ACR_CONFIG = {
     list.forEach(function(r){
       var mine=CURRENT&&!CURRENT.guest&&r.user_id===CURRENT.id;
       out+='<div class="lb-row'+(mine?' me':'')+'">'+
-        '<div class="lb-cell lb-name" data-label="USER NAME" title="'+((r._runs||1)+((r._runs||1)===1?' run':' runs')+' recorded')+'">'+
+        '<div class="lb-cell lb-name" data-label="USER NAME" title="'+esc(ago(r.created_at)?'Recorded '+ago(r.created_at):'Completed run')+'">'+
           esc(r.screen||r.user_id||'DRIVER')+'</div>'+
         '<div class="lb-cell lb-cart" data-label="CART">'+esc(displayCart(r))+'</div>'+
         '<div class="lb-cell lb-time" data-label="TIME">'+fmt(r.time_sec)+'</div>'+
@@ -2395,17 +2571,15 @@ window.ACR_CONFIG = {
     empty.style.display=list.length?'none':'';
     empty.className='lb-empty'+(isError?' err':'');
     empty.textContent=noteText||ui.emptyText;
-    var runs=0;
-    list.forEach(function(r){ runs+=(r._runs||1); });
     $(ui.count).textContent=list.length
-      ? (list.length+(list.length===1?' driver':' drivers')+' \u00b7 '+runs+(runs===1?' run':' runs'))
+      ? (list.length+(list.length===1?' score':' scores'))
       : 'no runs yet';
 
     var you=$(ui.you);
     if(CURRENT&&!CURRENT.guest&&list.length){
       var idx=list.findIndex(function(r){ return r.user_id===CURRENT.id; });
       if(idx>=0){
-        you.innerHTML='YOUR BEST <b>'+fmt(list[idx].time_sec)+'</b> \u00b7 #'+(idx+1)+' of '+list.length+' drivers';
+        you.innerHTML='YOUR BEST <b>'+fmt(list[idx].time_sec)+'</b> \u00b7 #'+(idx+1)+' of '+list.length+' scores';
         you.hidden=false;
       }else you.hidden=true;
     }else you.hidden=true;
@@ -2424,13 +2598,13 @@ window.ACR_CONFIG = {
   var lastSig='';
   function sigOf(rows){
     return (rows||[]).map(function(r){
-      return rowCourseKey(r)+':'+(r.user_id||r.screen)+':'+r.time_sec+':'+(r._runs||1);
+      return rowCourseKey(r)+':'+(r.user_id||r.screen)+':'+r.time_sec+':'+(r.created_at||'');
     }).join('|');
   }
   function splitCourseRows(rows){
     return {
-      cannon:bestPerDriver((rows||[]).filter(function(r){return rowCourseKey(r)==='cannon';})),
-      acl:bestPerDriver((rows||[]).filter(function(r){return rowCourseKey(r)==='acl';}))
+      cannon:rankedScores((rows||[]).filter(function(r){return rowCourseKey(r)==='cannon';})),
+      acl:rankedScores((rows||[]).filter(function(r){return rowCourseKey(r)==='acl';}))
     };
   }
   function acceptBoardRows(rows,note,isError){
@@ -2457,7 +2631,7 @@ window.ACR_CONFIG = {
     if(!quiet){ lastSig='';resetBoardUi(); }
     if(BACKEND.mode!=='supabase'){
       return LocalBackend.board().then(function(list){
-        lastRemoteCount=0;lastLocalCount=(list||[]).length;
+        lastRemoteCount=0;lastLocalCount=genuineScores(list).length;
         acceptBoardRows(list||[]);
       });
     }
@@ -2465,9 +2639,11 @@ window.ACR_CONFIG = {
       BACKEND.board().then(function(x){return {ok:true,rows:x||[]};},function(e){return {ok:false,error:e,rows:[]};}),
       LocalBackend.board().then(function(x){return x||[];})
     ]).then(function(parts){
-      lastRemoteCount=parts[0].rows.length;
-      lastLocalCount=parts[1].length;
-      var merged=mergeRows(parts[0].rows,parts[1]);
+      var remoteScores=genuineScores(parts[0].rows);
+      var localScores=genuineScores(parts[1]);
+      lastRemoteCount=remoteScores.length;
+      lastLocalCount=localScores.length;
+      var merged=mergeRows(remoteScores,localScores);
 
       var note='',isErr=false;
       if(!parts[0].ok){
@@ -2670,9 +2846,58 @@ window.ACR_CONFIG = {
       }
       job.then(function(u){
         setBusy(false); setUser(u); closeGate(); clearFields();
-        flushQueue();
+        syncStoredScores();
         enterGame();
       },function(e){ setBusy(false); setErr(String(e)); });
+    });
+
+    $('acrForgot').addEventListener('click',function(){
+      if(busy||resetBusy)return;
+      setErr('');setResetNotice('');
+      var email=String($('acrUser').value||'').trim();
+      if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+        setErr('Enter your account email above, then choose FORGOT PASSWORD.');
+        $('acrUser').focus();return;
+      }
+      var redirectTo=resetReturnUrl();
+      if(!redirectTo){
+        setErr('Password reset must be requested from the published game, not a downloaded file.');
+        return;
+      }
+      resetBusy=true;
+      var btn=$('acrForgot'),old=btn.textContent;
+      btn.disabled=true;btn.textContent='SENDING RESET LINK\u2026';
+      BACKEND.requestPasswordReset(email,redirectTo).then(function(){
+        /* Always use the same response so the screen never reveals whether an
+           email address is registered. */
+        setResetNotice('If that email is registered, a password-reset link is on its way. Check your inbox and spam folder.');
+      },function(e){setErr(String(e));}).then(function(){
+        resetBusy=false;btn.disabled=false;btn.textContent=old;
+      });
+    });
+
+    $('acrSetPassword').addEventListener('click',function(){
+      if(resetBusy)return;
+      setResetErr('');
+      var p=$('acrNewPass').value,p2=$('acrNewPass2').value;
+      if(String(p).length<6)return setResetErr('Password needs at least 6 characters.');
+      if(p!==p2)return setResetErr('Passwords do not match.');
+      if(!recoveryToken)return setResetErr('This recovery link is invalid or expired. Request a new link.');
+      resetBusy=true;
+      var btn=$('acrSetPassword'),old=btn.textContent;
+      btn.disabled=true;btn.textContent='\u2026 SAVING PASSWORD';
+      BACKEND.updatePassword(recoveryToken,p).then(function(user){
+        var email=(user&&user.email)||'';
+        clearRecoveryLocation();showAuthForm('Password updated. Sign in with your new password.');
+        if(email)$('acrUser').value=email;
+      },function(e){
+        setResetErr(String(e));
+      }).then(function(){
+        resetBusy=false;btn.disabled=false;btn.textContent=old;
+      });
+    });
+    $('acrResetCancel').addEventListener('click',function(){
+      clearRecoveryLocation();showAuthForm('Password was not changed.');
     });
 
     $('acrGateBoard').addEventListener('click',function(){ openBoard('time',false); });
@@ -2683,6 +2908,9 @@ window.ACR_CONFIG = {
     });
     ['acrUser','acrPass','acrPass2','acrScreen'].forEach(function(id){
       $(id).addEventListener('keydown',function(e){ if(e.key==='Enter')$('acrSubmit').click(); });
+    });
+    ['acrNewPass','acrNewPass2'].forEach(function(id){
+      $(id).addEventListener('keydown',function(e){if(e.key==='Enter')$('acrSetPassword').click();});
     });
 
     $('acrBoardRace').addEventListener('click',function(){
@@ -2706,7 +2934,9 @@ window.ACR_CONFIG = {
         pre.textContent='No shared board configured \u2014 this build is running the local backend only.';
         return;
       }
-      BACKEND.diag(true).then(function(txt){
+      /* Diagnostics are read-only here. The former insert test wrote a 999.9
+         fake score every time this button was pressed and polluted the board. */
+      BACKEND.diag(false).then(function(txt){
         pre.textContent=txt;
       },function(e){ pre.textContent='Diagnostic failed: '+String(e); });
     });
@@ -2731,8 +2961,17 @@ window.ACR_CONFIG = {
     setMode((REMOTE||hasLocal) ? 'login' : 'register');
 
     openGate();
+    var recovery=recoveryFromLocation();
+    if(recovery){
+      if(recovery.token)showPasswordForm(recovery);
+      else{
+        clearRecoveryLocation();showAuthForm('');
+        setErr(String(recovery.error||'This recovery link is invalid or expired.'));
+      }
+      return; // never let a saved/late session close the recovery form
+    }
     BACKEND.restore().then(function(u){
-      if(u&&!CURRENT){ setUser(u); closeGate(); flushQueue(); }
+      if(u&&!CURRENT){ setUser(u); closeGate(); syncStoredScores(); }
     },function(){ /* login/guest gate is already usable */ });
   }
 
@@ -3182,6 +3421,8 @@ const CANNON_LOOP={x:CANNON_X+26,z:-180,bottomY:9,radius:23}; // left of the sou
 CANNON_LOOP.centerY=CANNON_LOOP.bottomY+CANNON_LOOP.radius;
 const CANNON_LOOP_ROAD_W=7.35;          // wider, forgiving loop deck
 const CANNON_LOOP_APRON_SPAN=52;        // dirt-to-loop transition on both sides
+const CANNON_LOOP_OPEN_ANGLE=.46;        // raised loop begins above the uninterrupted base lane
+const CANNON_LOOP_CLEARANCE=CANNON_LOOP.radius*(1-Math.cos(CANNON_LOOP_OPEN_ANGLE));
 function cannonLoopRoadHalfWidth(z){
   const d=Math.abs(z-CANNON_LOOP.z);
   if(d>=CANNON_LOOP_APRON_SPAN)return ROAD_W;
@@ -3299,7 +3540,8 @@ window.ACR_COURSE_FEATURES={
     stream:{z:CANYON_STREAM_BASE_Z,waterY:CANYON_STREAM_WATER_Y,bridge:true},
     loop:{x:CANNON_LOOP.x,y:CANNON_LOOP.centerY,z:CANNON_LOOP.z,radius:CANNON_LOOP.radius,
       entrySide:'left',exit:'rightJagToMainCourse',roadHalfWidth:CANNON_LOOP_ROAD_W,
-      clearApronSpan:CANNON_LOOP_APRON_SPAN,preLoopBooster:true},
+      clearApronSpan:CANNON_LOOP_APRON_SPAN,openBottomAngle:CANNON_LOOP_OPEN_ANGLE,
+      baseLaneClearanceMeters:CANNON_LOOP_CLEARANCE,baseLaneUnobstructed:true,preLoopBooster:true},
     apples:true,
     jump:{distanceFeet:50,distanceMeters:CANNON_JUMP_DISTANCE_M,landingBooster:true},
     start:{x:CANNON_START_FRAME.p.x,y:CANNON_START_FRAME.p.y,z:CANNON_START_FRAME.p.z},
@@ -3417,12 +3659,13 @@ function drawCoursePickerMaps(){
     x.strokeStyle='#082d44';x.lineWidth=11;x.beginPath();
     for(let i=0;i<=40;i++){const wx=500+i*13,wz=canyonStreamZ(wx),p=cannonPt({x:wx,z:wz});i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]);}x.stroke();
     x.strokeStyle='#38b9e6';x.lineWidth=7;x.stroke();x.restore();
-    road(x,CANNON_ROAD_A.samples,cannonPt,false,'#c77b3e',4,10);
-    road(x,CANNON_ROAD_B.samples,cannonPt,false,'#c77b3e',4,10);
+    road(x,CANNON_ROAD_A.samples,cannonPt,false,'#151a1f',4,10);
+    road(x,CANNON_ROAD_B.samples,cannonPt,false,'#151a1f',4,10);
     const bridge=cannonPt({x:CANNON_X,z:CANYON_STREAM_BASE_Z});
     x.save();x.translate(bridge[0],bridge[1]);x.fillStyle='#21140b';x.fillRect(-7,-8,14,16);x.fillStyle='#bd783c';x.fillRect(-6,-6,12,12);
     x.strokeStyle='#f0c37a';x.lineWidth=1;for(let i=-4;i<=4;i+=2){x.beginPath();x.moveTo(i,-6);x.lineTo(i,6);x.stroke();}x.restore();
-    const loop=cannonPt(CANNON_LOOP);x.save();x.strokeStyle='#171006';x.lineWidth=7;x.beginPath();x.arc(loop[0],loop[1],10,0,Math.PI*2);x.stroke();x.strokeStyle='#f2bd1f';x.lineWidth=4;x.stroke();x.restore();
+    const loop=cannonPt(CANNON_LOOP);x.save();x.strokeStyle='#07090b';x.lineWidth=8;x.beginPath();x.arc(loop[0],loop[1],10,0,Math.PI*2);x.stroke();
+    x.strokeStyle='#20272e';x.lineWidth=5;x.stroke();x.strokeStyle='#f4f4ef';x.lineWidth=1.3;x.setLineDash([2.2,3]);x.stroke();x.setLineDash([]);x.restore();
     tag(x,loop[0],loop[1]-16,'VERTICAL LOOP','#34200b');
     jumpGap(x,cannonPt(CANNON_LIP),cannonPt(CANNON_LANDING),'50-FT JUMP',27,19);
     for(const f of[.12,.39,.72,.91])direction(x,f<.55?CANNON_ROAD_A.samples:CANNON_ROAD_B.samples,cannonPt,f<.55?f/.55:(f-.55)/.45);
@@ -4232,6 +4475,24 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
   scene.add(new THREE.Mesh(sg,shoulderMat));
 })();
 
+function makeCannonTrackTexture(){
+  const c=document.createElement('canvas');c.width=128;c.height=256;
+  const x=c.getContext('2d');
+  x.fillStyle='#151a1f';x.fillRect(0,0,c.width,c.height);
+  const shade=x.createLinearGradient(0,0,c.width,0);
+  shade.addColorStop(0,'rgba(0,0,0,.58)');shade.addColorStop(.12,'rgba(255,255,255,.025)');
+  shade.addColorStop(.5,'rgba(255,255,255,.055)');shade.addColorStop(.88,'rgba(255,255,255,.025)');
+  shade.addColorStop(1,'rgba(0,0,0,.58)');x.fillStyle=shade;x.fillRect(0,0,c.width,c.height);
+  for(const rx of[9,34,64,94,119]){
+    x.fillStyle='rgba(2,4,6,.72)';x.fillRect(rx-2,0,4,c.height);
+    x.fillStyle='rgba(115,127,136,.14)';x.fillRect(rx+2,0,1,c.height);
+  }
+  x.strokeStyle='rgba(4,6,8,.62)';x.lineWidth=2;
+  for(let y=32;y<c.height;y+=48){x.beginPath();x.moveTo(7,y);x.lineTo(c.width-7,y);x.stroke();}
+  const tex=TEX.mip(new THREE.CanvasTexture(c));tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  return tex;
+}
+
 /* roundabout, left exit and the post-jump road */
 (function buildCourseExtension(){
   const cv=document.createElement('canvas');cv.width=128;cv.height=256;
@@ -4252,6 +4513,12 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
   roadMat.userData.surface='trail';
   const roadBaseMat=new THREE.MeshLambertMaterial({color:0x2b1d12,side:THREE.DoubleSide});
   roadBaseMat.userData.surface='trail';
+  const cannonTrackMat=new THREE.MeshLambertMaterial({map:makeCannonTrackTexture(),color:0xffffff,side:THREE.DoubleSide});
+  cannonTrackMat.userData.surface='trail';
+  const cannonEdgeMat=new THREE.MeshLambertMaterial({color:0x090c0f,side:THREE.DoubleSide});
+  cannonEdgeMat.userData.surface='trail';
+  const cannonBaseMat=new THREE.MeshLambertMaterial({color:0x07090b,side:THREE.DoubleSide});
+  cannonBaseMat.userData.surface='trail';
   const shoulderMat=new THREE.MeshLambertMaterial({color:PALETTE.grassRough,side:THREE.DoubleSide,
     map:TEX.mip(TEX.rep(TEX.rough,3,1))});
   shoulderMat.userData.surface='shoulder'; shoulderMat.userData.mat='grass';
@@ -4271,7 +4538,7 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
     g.setIndex(I);g.computeVertexNormals();
     const mesh=new THREE.Mesh(g,mat);mesh.userData.courseRoad=road.name;scene.add(mesh);
   }
-  function solidRoadBase(road,width,depth){
+  function solidRoadBase(road,width,depth,mat=roadBaseMat){
     const P=[],I=[],n=road.samples.length,segN=road.closed?n:n-1;
     for(let j=0;j<=segN;j++){
       const s=road.samples[j%n],l=s.p.clone().addScaledVector(s.right,-width),r=s.p.clone().addScaledVector(s.right,width);
@@ -4289,12 +4556,13 @@ deep.rotation.x=-Math.PI/2;deep.position.y=WATER_Y-.5;scene.add(deep);
     }
     const g=new THREE.BufferGeometry();
     g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setIndex(I);g.computeVertexNormals();
-    const mesh=new THREE.Mesh(g,roadBaseMat);mesh.userData.courseRoad=road.name+'SolidBase';scene.add(mesh);
+    const mesh=new THREE.Mesh(g,mat);mesh.userData.courseRoad=road.name+'SolidBase';scene.add(mesh);
   }
   for(const road of AUX_ROADS){
-    solidRoadBase(road,ROAD_W+1.62,2.20);
-    strip(road,ROAD_W+1.5,shoulderMat,.012);
-    strip(road,ROAD_W,roadMat,.045);
+    const cannon=road.course==='cannon';
+    solidRoadBase(road,ROAD_W+1.62,2.20,cannon?cannonBaseMat:roadBaseMat);
+    strip(road,ROAD_W+1.5,cannon?cannonEdgeMat:shoulderMat,.012);
+    strip(road,ROAD_W,cannon?cannonTrackMat:roadMat,.045);
   }
 
   // Raised center island and a deliberately small, unmistakably purple tower.
@@ -4391,11 +4659,11 @@ function courseGateTexture(label,color){
   return new THREE.CanvasTexture(c);
 }
 
-/* Canyon Ball Run loop, start gate, finish gate, stream and canyon walls. The loop is a rotating
-   flat road ribbon in a vertical plane; gameplay locks the cart to the same
-   circle so it genuinely drives inverted across the top. */
+/* Canyon Ball Run loop, start gate, finish gate, stream and canyon walls. The
+   dark slot-track ribbon follows the vertical circle but opens above the
+   continuous base lane. Gameplay keeps the same full-circle drive path. */
 (function buildCannonBallRunLandmarks(){
-  const n=128,P=[],UV=[],I=[],loopPts=[];
+  const n=128,P=[],UV=[],I=[],loopPts=[],loopAngles=[];
   function cannonRoadFrameAt(road,x,z){
     let best=null,bd=Infinity;
     for(let i=0;i<road.samples.length-1;i++){
@@ -4407,25 +4675,27 @@ function courseGateTexture(label,color){
     }
     return best;
   }
+  const arcStart=CANNON_LOOP_OPEN_ANGLE,arcEnd=Math.PI*2-CANNON_LOOP_OPEN_ANGLE;
   for(let i=0;i<=n;i++){
-    const a=(i%n)/n*Math.PI*2;
+    const t=i/n,a=arcStart+(arcEnd-arcStart)*t;
     const z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
     const y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a);
     P.push(CANNON_LOOP.x-CANNON_LOOP_ROAD_W,y+.08,z,CANNON_LOOP.x+CANNON_LOOP_ROAD_W,y+.08,z);
-    UV.push(0,i/10,1,i/10);
+    UV.push(0,t*18,1,t*18);
     loopPts.push(new THREE.Vector3(CANNON_LOOP.x,y+.28,z));
+    loopAngles.push(a);
     if(i<n){const q=i*2;I.push(q,q+1,q+2,q+1,q+3,q+2);}
   }
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));
   g.setAttribute('uv',new THREE.Float32BufferAttribute(UV,2));g.setIndex(I);g.computeVertexNormals();
-  const loopMat=new THREE.MeshLambertMaterial({color:0x3a2a1b,side:THREE.DoubleSide,map:TEX.mip(TEX.rep(TEX.plank,2,14))});
+  const loopMat=new THREE.MeshLambertMaterial({color:0xffffff,side:THREE.DoubleSide,map:makeCannonTrackTexture()});
   loopMat.userData.surface='trail';
   const loopMesh=new THREE.Mesh(g,loopMat);loopMesh.userData.courseFeature='cannonLoop';scene.add(loopMesh);
 
-  /* A wide, ground-following wooden apron makes the dirt trail visibly feed
-     into the vertical loop. The apron follows the authored spline height at
-     every slice, so neither end can float above or cut into the trail. */
+  /* A wide, ground-following dark base lane passes cleanly beneath the open
+     loop. It follows the authored spline height at every slice, so the entry,
+     bottom transition and right-side exit jag remain one continuous road. */
   const apronP=[],apronUV=[],apronI=[],apronBaseP=[],apronBaseI=[];
   let apronStart=0,apronStartD=Infinity;
   for(let i=0;i<CANNON_ROAD_A.samples.length;i++){
@@ -4446,24 +4716,41 @@ function courseGateTexture(label,color){
     }
   }
   const apronBaseGeo=new THREE.BufferGeometry();apronBaseGeo.setAttribute('position',new THREE.Float32BufferAttribute(apronBaseP,3));apronBaseGeo.setIndex(apronBaseI);apronBaseGeo.computeVertexNormals();
-  const apronBaseMat=new THREE.MeshLambertMaterial({color:0x21150d,side:THREE.DoubleSide});apronBaseMat.userData.surface='trail';
+  const apronBaseMat=new THREE.MeshLambertMaterial({color:0x07090b,side:THREE.DoubleSide});apronBaseMat.userData.surface='trail';
   const apronBase=new THREE.Mesh(apronBaseGeo,apronBaseMat);apronBase.userData.courseFeature='cannonLoopApronBase';scene.add(apronBase);
   const apronGeo=new THREE.BufferGeometry();apronGeo.setAttribute('position',new THREE.Float32BufferAttribute(apronP,3));apronGeo.setAttribute('uv',new THREE.Float32BufferAttribute(apronUV,2));apronGeo.setIndex(apronI);apronGeo.computeVertexNormals();
   const apron=new THREE.Mesh(apronGeo,loopMat);apron.userData.courseFeature='cannonLoopApron';scene.add(apron);
 
-  const closedPts=loopPts.slice(0,n),loopCurve=new THREE.CatmullRomCurve3(closedPts,true,'centripetal');
-  const railMat=new THREE.MeshLambertMaterial({color:PALETTE.hazard,emissive:0x4d3600});
-  for(const xOff of[-CANNON_LOOP_ROAD_W-.4,CANNON_LOOP_ROAD_W+.4]){
-    const edge=closedPts.map(p=>new THREE.Vector3(CANNON_LOOP.x+xOff,p.y,p.z));
-    const railCurve=new THREE.CatmullRomCurve3(edge,true,'centripetal');
-    scene.add(new THREE.Mesh(new THREE.TubeGeometry(railCurve,128,.18,6,true),railMat));
-  }
-  const towerMat=new THREE.MeshLambertMaterial({color:0x6a4a22,map:TEX.rep(TEX.timber,1,4)});
-  towerMat.userData.mat='wood';
+  /* Reference-style dark sidewalls with repeating white blocks. They use the
+     same open arc as the road surface, so no wall or rail crosses the base lane. */
+  const wallCanvas=document.createElement('canvas');wallCanvas.width=512;wallCanvas.height=64;
+  const wallX=wallCanvas.getContext('2d');wallX.fillStyle='#0a0d10';wallX.fillRect(0,0,512,64);
+  for(let x=5;x<512;x+=29){wallX.fillStyle='#f2f3ef';wallX.fillRect(x,5,13,54);}
+  wallX.fillStyle='#050709';wallX.fillRect(0,0,512,5);wallX.fillRect(0,59,512,5);
+  const wallTex=TEX.mip(new THREE.CanvasTexture(wallCanvas));
+  const wallMat=new THREE.MeshLambertMaterial({map:wallTex,color:0xffffff,side:THREE.DoubleSide});
+  const railMat=new THREE.MeshLambertMaterial({color:0x07090c,emissive:0x010203});
   for(const sd of[-1,1]){
-    const p=new THREE.Mesh(new THREE.BoxGeometry(.8,CANNON_LOOP.radius*2+4,.8),towerMat);
-    p.position.set(CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+2.2),CANNON_LOOP.centerY,CANNON_LOOP.z);scene.add(p);
+    const wallP=[],wallUV=[],wallI=[],baseEdge=[],crownEdge=[];
+    const xSide=CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+.22);
+    for(let i=0;i<=n;i++){
+      const t=i/n,a=loopAngles[i],z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
+      const y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a)+.1;
+      const topY=y+Math.cos(a)*1.55,topZ=z-Math.sin(a)*1.55;
+      wallP.push(xSide,y,z,xSide,topY,topZ);wallUV.push(t,0,t,1);
+      baseEdge.push(new THREE.Vector3(xSide,y+.08,z));crownEdge.push(new THREE.Vector3(xSide,topY,topZ));
+      if(i<n){const q=i*2;wallI.push(q,q+1,q+2,q+1,q+3,q+2);}
+    }
+    const wallGeo=new THREE.BufferGeometry();wallGeo.setAttribute('position',new THREE.Float32BufferAttribute(wallP,3));
+    wallGeo.setAttribute('uv',new THREE.Float32BufferAttribute(wallUV,2));wallGeo.setIndex(wallI);wallGeo.computeVertexNormals();
+    const wall=new THREE.Mesh(wallGeo,wallMat);wall.userData.courseFeature='cannonLoopStripedSidewall';scene.add(wall);
+    for(const pts of[baseEdge,crownEdge]){
+      const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal');
+      const rail=new THREE.Mesh(new THREE.TubeGeometry(curve,n,.18,6,false),railMat);
+      rail.userData.courseFeature='cannonLoopOpenRail';scene.add(rail);
+    }
   }
+  const loopSupportMat=new THREE.MeshLambertMaterial({color:0x090c0f});
   /* A side-mounted sign identifies the curved left entrance without spanning
      or obscuring the lane. */
   {
@@ -4472,7 +4759,7 @@ function courseGateTexture(label,color){
     signPos.y=s.p.y+3.15;
     const sign=new THREE.Mesh(new THREE.BoxGeometry(8.7,1.85,.24),new THREE.MeshLambertMaterial({map:courseGateTexture('LOOP ENTRY','#f2bd1f')}));
     sign.position.copy(signPos);sign.lookAt(signPos.clone().sub(forward));sign.userData.courseFeature='cannonLoopEntrySign';scene.add(sign);
-    const post=new THREE.Mesh(new THREE.BoxGeometry(.32,3.6,.32),towerMat);
+    const post=new THREE.Mesh(new THREE.BoxGeometry(.32,3.6,.32),loopSupportMat);
     post.position.copy(signPos);post.position.y-=2.35;post.userData.courseFeature='cannonLoopEntrySignPost';scene.add(post);
   }
   function gate(frame,label,color){
@@ -10527,6 +10814,7 @@ body.menuMode #map,body.menuMode #tach{display:none!important}
 .acr-tab.on,.acr-btab.on{background:linear-gradient(180deg,#ffd77a,#f0961b);color:#22160a;border-color:transparent;font-weight:700}
 
 .acr-form{display:flex;flex-direction:column;gap:11px}
+.acr-form[hidden],.acr-tabs[hidden]{display:none!important}
 .acr-field{display:flex;flex-direction:column;gap:5px}
 .acr-field[hidden]{display:none}
 .acr-field>span{font-size:9.5px;letter-spacing:.24em;opacity:.7}
@@ -10554,6 +10842,13 @@ body.menuMode #map,body.menuMode #tach{display:none!important}
 }
 .acr-ghost2.danger{border-color:rgba(255,120,120,.4);color:#ffb3b3}
 .acr-error{min-height:14px;font-size:11px;letter-spacing:.05em;color:#ff9a9a}
+.acr-reset-notice{min-height:0;font-size:11px;line-height:1.45;letter-spacing:.035em;color:#b9f7c8;text-align:center}
+.acr-reset-notice:empty{display:none}
+.acr-forgot{font-weight:700;color:#ffd98a;opacity:.92;text-transform:uppercase;text-decoration:none}
+.acr-forgot:hover{text-decoration:underline}
+.acr-reset-title{text-align:center;color:#ffd166;font-size:18px;font-weight:900;letter-spacing:.14em}
+.acr-reset-copy{margin:0;text-align:center;color:#e9dfc9;font-size:11px;line-height:1.55;opacity:.8}
+.acr-password-form{padding-top:4px}
 .acr-note{font-size:10px;line-height:1.55;opacity:.55;margin:2px 0 0;letter-spacing:.02em}
 
 /* ---------------- leaderboard: a pit-lane timing tower ----------------
