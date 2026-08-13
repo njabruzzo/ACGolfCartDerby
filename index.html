@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!-- GITHUB-OPTIMIZED BUILD: embedded artwork and radio audio compressed; no game content removed. -->
+<!-- DERBY BUILD 2026-08-12ZM: photo-guided dark U-channel loop with continuous walls, tangent ramps, a low support base and matched cart travel. -->
 <!-- DERBY BUILD 2026-08-12ZL: the Canyon loop is one continuous entry-circle-exit ribbon and captures the cart only at its true bottom tangent. -->
 <!-- DERBY BUILD 2026-08-12ZK: restored a fully connected loop surface while keeping the lower guardrails open and the entrance unobstructed. -->
 <!-- DERBY BUILD 2026-08-12ZJ: Canyon Ball Run now uses a dark slot-track surface and an open-bottom striped loop that leaves the driving lane clear. -->
@@ -54,7 +55,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-12zl-ENTRY-LOOP-EXIT">
+<meta name="acr-build" content="2026-08-12zm-PHOTO-ARCHITECTURE-LOOP">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -3419,12 +3420,11 @@ function makeOpenCourseRoad(name,points,sampleCount,t0,t1){
   }
   return finishAuxRoad({name,samples,closed:false,course:'cannon',pointToPoint:true,length:c.getLength()});
 }
-const CANNON_LOOP={x:CANNON_X+26,z:-180,bottomY:9,radius:23}; // left of the southbound main line
+const CANNON_LOOP={x:CANNON_X+26,z:-180,bottomY:9.8,radius:23}; // raised U-channel loop on the left route
 CANNON_LOOP.centerY=CANNON_LOOP.bottomY+CANNON_LOOP.radius;
 const CANNON_LOOP_ROAD_W=7.35;          // wider, forgiving loop deck
 const CANNON_LOOP_APRON_SPAN=52;        // dirt-to-loop transition on both sides
-const CANNON_LOOP_OPEN_ANGLE=.46;        // only guardrails open here; the driving surface stays continuous
-const CANNON_LOOP_GUARD_CLEARANCE=CANNON_LOOP.radius*(1-Math.cos(CANNON_LOOP_OPEN_ANGLE));
+const CANNON_LOOP_WALL_H=1.45;           // molded U-channel wall height, based on the supplied loop structure
 function cannonLoopRoadHalfWidth(z){
   const d=Math.abs(z-CANNON_LOOP.z);
   if(d>=CANNON_LOOP_APRON_SPAN)return ROAD_W;
@@ -3493,8 +3493,15 @@ function courseSampAt(t){return SELECTED_COURSE_KEY==='cannon'?cannonSampAt(t):s
 function activeTrackLength(){return SELECTED_COURSE_KEY==='cannon'?CANNON_TRACKLEN:TRACKLEN;}
 const CANNON_START_FRAME=cannonSampAt(.004);
 const CANNON_FINISH_FRAME=cannonSampAt(1);
-const CANNON_LOOP_ENTRY_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z-.35);
-const CANNON_LOOP_EXIT_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z+1.2);
+const CANNON_LOOP_ENTRY_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z-24);
+const CANNON_LOOP_EXIT_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z+15);
+const CANNON_LOOP_BOTTOM_POINT=new THREE.Vector3(CANNON_LOOP.x,CANNON_LOOP.bottomY,CANNON_LOOP.z);
+const CANNON_LOOP_ENTRY_LEG=CANNON_LOOP_ENTRY_FRAME.p.distanceTo(CANNON_LOOP_BOTTOM_POINT);
+const CANNON_LOOP_CIRCLE_LEN=Math.PI*2*CANNON_LOOP.radius;
+const CANNON_LOOP_EXIT_LEG=CANNON_LOOP_BOTTOM_POINT.distanceTo(CANNON_LOOP_EXIT_FRAME.p);
+const CANNON_LOOP_ROUTE_LEN=CANNON_LOOP_ENTRY_LEG+CANNON_LOOP_CIRCLE_LEN+CANNON_LOOP_EXIT_LEG;
+const CANNON_LOOP_ENTRY_FRAC=CANNON_LOOP_ENTRY_LEG/CANNON_LOOP_ROUTE_LEN;
+const CANNON_LOOP_EXIT_FRAC=(CANNON_LOOP_ENTRY_LEG+CANNON_LOOP_CIRCLE_LEN)/CANNON_LOOP_ROUTE_LEN;
 const CANNON_PREBOOST_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_X+16,-220);
 const CANNON_LANDING_BOOST_FRAME={p:CANNON_LANDING.clone(),tan:new THREE.Vector3(0,0,1),right:new THREE.Vector3(-1,0,0)};
 function crossedCourseFinishForward(frame,x0,z0,x1,z1){
@@ -3542,9 +3549,9 @@ window.ACR_COURSE_FEATURES={
     stream:{z:CANYON_STREAM_BASE_Z,waterY:CANYON_STREAM_WATER_Y,bridge:true},
     loop:{x:CANNON_LOOP.x,y:CANNON_LOOP.centerY,z:CANNON_LOOP.z,radius:CANNON_LOOP.radius,
       entrySide:'left',exit:'rightJagToMainCourse',roadHalfWidth:CANNON_LOOP_ROAD_W,
-      clearApronSpan:CANNON_LOOP_APRON_SPAN,openBottomGuardAngle:CANNON_LOOP_OPEN_ANGLE,
-      guardClearanceMeters:CANNON_LOOP_GUARD_CLEARANCE,continuousLoopSurface:true,
-      connectedEntryLoopExit:true,forwardExit:true,baseLaneUnobstructed:true,preLoopBooster:true},
+      clearApronSpan:CANNON_LOOP_APRON_SPAN,wallHeight:CANNON_LOOP_WALL_H,
+      continuousLoopSurface:true,continuousUChannelWalls:true,raisedSupportBase:true,
+      tangentEntryRamp:true,connectedEntryLoopExit:true,forwardExit:true,preLoopBooster:true},
     apples:true,
     jump:{distanceFeet:50,distanceMeters:CANNON_JUMP_DISTANCE_M,landingBooster:true},
     start:{x:CANNON_START_FRAME.p.x,y:CANNON_START_FRAME.p.y,z:CANNON_START_FRAME.p.z},
@@ -4663,47 +4670,36 @@ function courseGateTexture(label,color){
 }
 
 /* Canyon Ball Run loop, start gate, finish gate, stream and canyon walls. The
-   dark slot-track ribbon is a complete vertical circle. Only the lower walls
-   and rails open up, leaving the connected entrance visible and unobstructed. */
+   loop follows the supplied molded-track architecture: tangent approach ramp,
+   raised U-channel circle, supported bottom saddle and forward exit ramp. */
 (function buildCannonBallRunLandmarks(){
   const n=128;
-  function cannonRoadFrameAt(road,x,z){
-    let best=null,bd=Infinity;
-    for(let i=0;i<road.samples.length-1;i++){
-      const A=road.samples[i],B=road.samples[i+1],dx=B.p.x-A.p.x,dz=B.p.z-A.p.z;
-      const u=clamp(((x-A.p.x)*dx+(z-A.p.z)*dz)/(dx*dx+dz*dz||1),0,1);
-      const p=A.p.clone().lerp(B.p,u),d=Math.hypot(x-p.x,z-p.z);
-      if(d>=bd)continue;
-      bd=d;best={p,tan:A.tan.clone().lerp(B.tan,u).normalize(),right:A.right.clone().lerp(B.right,u).normalize(),sampleIndex:i+u};
-    }
-    return best;
-  }
   /* Build one topologically continuous driving ribbon: the authored approach
      blends into the bottom tangent, the complete circle follows, and a second
      tongue blends back into the forward trail. There is no separate floating
      loop piece and no missing surface at either junction. */
   const P=[],UV=[],I=[],route=[];
   const loopRight=new THREE.Vector3(-1,0,0);
-  const entryConnect=cannonRoadFrameAt(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z-24);
-  const exitConnect=cannonRoadFrameAt(CANNON_ROAD_A,CANNON_LOOP.x,CANNON_LOOP.z+15);
-  const bottom=new THREE.Vector3(CANNON_LOOP.x,CANNON_LOOP.bottomY+.08,CANNON_LOOP.z);
-  function routePoint(p,right,width){
-    route.push({p:p.clone(),right:right.clone().normalize(),width:width});
+  const worldUp=new THREE.Vector3(0,1,0),entryConnect=CANNON_LOOP_ENTRY_FRAME,exitConnect=CANNON_LOOP_EXIT_FRAME;
+  const bottom=CANNON_LOOP_BOTTOM_POINT.clone();bottom.y+=.08;
+  function routePoint(p,right,up,width){
+    route.push({p:p.clone(),right:right.clone().normalize(),up:up.clone().normalize(),width:width});
   }
   for(let i=0;i<=24;i++){
     const t=i/24,e=smooth(0,1,t),p=entryConnect.p.clone().lerp(bottom,e);p.y+=.08*(1-e);
     const right=entryConnect.right.clone().lerp(loopRight,e).normalize();
-    routePoint(p,right,ROAD_W+(CANNON_LOOP_ROAD_W-ROAD_W)*e);
+    routePoint(p,right,worldUp,ROAD_W+(CANNON_LOOP_ROAD_W-ROAD_W)*e);
   }
   for(let i=1;i<=n;i++){
     const t=i/n,a=t*Math.PI*2;
     routePoint(new THREE.Vector3(CANNON_LOOP.x,CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a)+.08,
-      CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a)),loopRight,CANNON_LOOP_ROAD_W);
+      CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a)),loopRight,
+      new THREE.Vector3(0,Math.cos(a),-Math.sin(a)),CANNON_LOOP_ROAD_W);
   }
   for(let i=1;i<=24;i++){
     const t=i/24,e=smooth(0,1,t),p=bottom.clone().lerp(exitConnect.p,e);p.y+=.08*e;
     const right=loopRight.clone().lerp(exitConnect.right,e).normalize();
-    routePoint(p,right,CANNON_LOOP_ROAD_W+(cannonLoopRoadHalfWidth(exitConnect.p.z)-CANNON_LOOP_ROAD_W)*e);
+    routePoint(p,right,worldUp,CANNON_LOOP_ROAD_W+(cannonLoopRoadHalfWidth(exitConnect.p.z)-CANNON_LOOP_ROAD_W)*e);
   }
   let ribbonLen=0;
   for(let i=0;i<route.length;i++){
@@ -4747,38 +4743,54 @@ function courseGateTexture(label,color){
   const apronGeo=new THREE.BufferGeometry();apronGeo.setAttribute('position',new THREE.Float32BufferAttribute(apronP,3));apronGeo.setAttribute('uv',new THREE.Float32BufferAttribute(apronUV,2));apronGeo.setIndex(apronI);apronGeo.computeVertexNormals();
   const apron=new THREE.Mesh(apronGeo,loopMat);apron.userData.courseFeature='cannonLoopApron';scene.add(apron);
 
-  /* Reference-style dark sidewalls with repeating white blocks. The surface is
-     complete, but these guards open around the bottom tangent so they cannot
-     hide or block the connected driving entrance. */
+  /* The photo's defining architecture is a single molded U-channel. Both side
+     walls therefore run without interruption from the approach tongue, around
+     the complete circle and onto the forward exit tongue. */
   const wallCanvas=document.createElement('canvas');wallCanvas.width=512;wallCanvas.height=64;
   const wallX=wallCanvas.getContext('2d');wallX.fillStyle='#0a0d10';wallX.fillRect(0,0,512,64);
   for(let x=5;x<512;x+=29){wallX.fillStyle='#f2f3ef';wallX.fillRect(x,5,13,54);}
   wallX.fillStyle='#050709';wallX.fillRect(0,0,512,5);wallX.fillRect(0,59,512,5);
-  const wallTex=TEX.mip(new THREE.CanvasTexture(wallCanvas));
+  const wallTex=TEX.mip(new THREE.CanvasTexture(wallCanvas));wallTex.wrapS=THREE.RepeatWrapping;
   const wallMat=new THREE.MeshLambertMaterial({map:wallTex,color:0xffffff,side:THREE.DoubleSide});
   const railMat=new THREE.MeshLambertMaterial({color:0x07090c,emissive:0x010203});
+  const loopEndIndex=24+n;
+  const railSections=[route.slice(0,25),route.slice(24,loopEndIndex+1),route.slice(loopEndIndex)];
   for(const sd of[-1,1]){
-    const wallP=[],wallUV=[],wallI=[],baseEdge=[],crownEdge=[];
-    const xSide=CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+.22);
-    for(let i=0;i<=n;i++){
-      const t=i/n,a=CANNON_LOOP_OPEN_ANGLE+(Math.PI*2-CANNON_LOOP_OPEN_ANGLE*2)*t;
-      const z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
-      const y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a)+.1;
-      const topY=y+Math.cos(a)*1.55,topZ=z-Math.sin(a)*1.55;
-      wallP.push(xSide,y,z,xSide,topY,topZ);wallUV.push(t,0,t,1);
-      baseEdge.push(new THREE.Vector3(xSide,y+.08,z));crownEdge.push(new THREE.Vector3(xSide,topY,topZ));
-      if(i<n){const q=i*2;wallI.push(q,q+1,q+2,q+1,q+3,q+2);}
+    const wallP=[],wallUV=[],wallI=[];let wallLen=0;
+    for(let i=0;i<route.length;i++){
+      const s=route[i];if(i)wallLen+=s.p.distanceTo(route[i-1].p);
+      const base=s.p.clone().addScaledVector(s.right,sd*(s.width+.18));
+      const top=base.clone().addScaledVector(s.up,CANNON_LOOP_WALL_H);
+      wallP.push(base.x,base.y,base.z,top.x,top.y,top.z);wallUV.push(wallLen/10,0,wallLen/10,1);
+      if(i<route.length-1){const q=i*2;wallI.push(q,q+1,q+2,q+1,q+3,q+2);}
     }
     const wallGeo=new THREE.BufferGeometry();wallGeo.setAttribute('position',new THREE.Float32BufferAttribute(wallP,3));
     wallGeo.setAttribute('uv',new THREE.Float32BufferAttribute(wallUV,2));wallGeo.setIndex(wallI);wallGeo.computeVertexNormals();
-    const wall=new THREE.Mesh(wallGeo,wallMat);wall.userData.courseFeature='cannonLoopStripedSidewall';scene.add(wall);
-    for(const pts of[baseEdge,crownEdge]){
-      const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal');
-      const rail=new THREE.Mesh(new THREE.TubeGeometry(curve,n,.18,6,false),railMat);
-      rail.userData.courseFeature='cannonLoopOpenRail';scene.add(rail);
+    const wall=new THREE.Mesh(wallGeo,wallMat);wall.userData.courseFeature='cannonLoopContinuousUChannelWall';scene.add(wall);
+    for(const section of railSections){
+      const baseEdge=[],crownEdge=[];
+      for(const s of section){
+        const base=s.p.clone().addScaledVector(s.right,sd*(s.width+.18));
+        baseEdge.push(base);crownEdge.push(base.clone().addScaledVector(s.up,CANNON_LOOP_WALL_H));
+      }
+      for(const pts of[baseEdge,crownEdge]){
+        const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal');
+        const rail=new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(12,(pts.length-1)*2),.16,6,false),railMat);
+        rail.userData.courseFeature='cannonLoopContinuousEdgeRail';scene.add(rail);
+      }
     }
   }
-  const loopSupportMat=new THREE.MeshLambertMaterial({color:0x090c0f});
+  /* Low dark saddle and four outboard feet support the raised bottom exactly as
+     in the reference architecture. Every piece stays below or outside the lane. */
+  const loopSupportMat=new THREE.MeshLambertMaterial({color:0x11161b});
+  const saddle=new THREE.Mesh(new THREE.BoxGeometry(CANNON_LOOP_ROAD_W*2+3.6,.78,9.5),loopSupportMat);
+  saddle.position.set(CANNON_LOOP.x,CANNON_LOOP.bottomY-.39,CANNON_LOOP.z);
+  saddle.userData.courseFeature='cannonLoopLowSupportSaddle';scene.add(saddle);
+  for(const sd of[-1,1])for(const zd of[-1,1]){
+    const foot=new THREE.Mesh(new THREE.BoxGeometry(2.1,1.08,3.1),loopSupportMat);
+    foot.position.set(CANNON_LOOP.x+sd*(CANNON_LOOP_ROAD_W+1.65),CANNON_LOOP.bottomY-.54,CANNON_LOOP.z+zd*3.8);
+    foot.userData.courseFeature='cannonLoopOutboardSupportFoot';scene.add(foot);
+  }
   /* A side-mounted sign identifies the curved left entrance without spanning
      or obscuring the lane. */
   {
@@ -4835,7 +4847,7 @@ function courseGateTexture(label,color){
   const bridgeWood=new THREE.MeshLambertMaterial({color:PALETTE.woodDark,map:TEX.rep(TEX.timber,1,5)});bridgeWood.userData.mat='wood';
   const bridgeHalf=19,bridgeSections=18,bridgePosts=[];
   function bridgeFrameAt(z){
-    return cannonRoadFrameAt(CANNON_ROAD_B,CANNON_X,z);
+    return closestOpenCourseFrame(CANNON_ROAD_B,CANNON_X,z);
   }
   for(let i=0;i<bridgeSections;i++){
     const za=CANYON_STREAM_BASE_Z-bridgeHalf+i*(bridgeHalf*2/bridgeSections);
@@ -8211,19 +8223,32 @@ function guideCircleJumpLanding(dt){
 function beginCannonLoop(){
   if(SELECTED_COURSE_KEY!=='cannon'||cart._cannonLoopDone||cart._cannonLoop>0)return;
   cart._cannonLoop=.0001;cart.v=Math.max(27,Math.abs(cart.v));cart.vy=0;cart.airT=0;
-  cart.x=CANNON_LOOP.x;cart.z=CANNON_LOOP.z;cart.y=CANNON_LOOP.bottomY;
+  cart.x=CANNON_LOOP_ENTRY_FRAME.p.x;cart.z=CANNON_LOOP_ENTRY_FRAME.p.z;cart.y=CANNON_LOOP_ENTRY_FRAME.p.y+.05;
   toast('BOOSTED LOOP!',1200);
 }
 function updateCannonLoop(dt){
   if(!(cart._cannonLoop>0))return false;
-  cart._cannonLoop+=dt/2.05;
-  const q=clamp(cart._cannonLoop,0,1),a=q*Math.PI*2;
-  cart.x=CANNON_LOOP.x;
-  cart.z=CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a);
-  cart.y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a)+.14;
-  cart.heading=0;cart.v=Math.max(cart.v,27);
-  const tangent=new THREE.Vector3(0,Math.sin(a),Math.cos(a)).normalize();
-  const up=new THREE.Vector3(0,Math.cos(a),-Math.sin(a)).normalize();
+  cart._cannonLoop+=dt*Math.max(38,Math.abs(cart.v))/CANNON_LOOP_ROUTE_LEN;
+  const q=clamp(cart._cannonLoop,0,1),worldUp=new THREE.Vector3(0,1,0);
+  const bottom=CANNON_LOOP_BOTTOM_POINT.clone(),entry=CANNON_LOOP_ENTRY_FRAME.p,exit=CANNON_LOOP_EXIT_FRAME.p;
+  let p,tangent,up;
+  if(q<CANNON_LOOP_ENTRY_FRAC){
+    const e=smooth(0,1,q/CANNON_LOOP_ENTRY_FRAC);
+    p=entry.clone().lerp(bottom,e);p.y+=.08;
+    tangent=bottom.clone().sub(entry).normalize();up=worldUp;
+  }else if(q<CANNON_LOOP_EXIT_FRAC){
+    const u=(q-CANNON_LOOP_ENTRY_FRAC)/(CANNON_LOOP_EXIT_FRAC-CANNON_LOOP_ENTRY_FRAC),a=u*Math.PI*2;
+    p=new THREE.Vector3(CANNON_LOOP.x,CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a)+.08,
+      CANNON_LOOP.z+CANNON_LOOP.radius*Math.sin(a));
+    tangent=new THREE.Vector3(0,Math.sin(a),Math.cos(a)).normalize();
+    up=new THREE.Vector3(0,Math.cos(a),-Math.sin(a)).normalize();
+  }else{
+    const e=smooth(0,1,(q-CANNON_LOOP_EXIT_FRAC)/(1-CANNON_LOOP_EXIT_FRAC));
+    p=bottom.clone().lerp(exit,e);p.y+=.08;
+    tangent=exit.clone().sub(bottom).normalize();up=worldUp;
+  }
+  cart.x=p.x;cart.z=p.z;cart.y=p.y+.06;
+  cart.heading=Math.atan2(tangent.x,tangent.z);cart.v=Math.max(cart.v,27);
   camera.up.copy(up);
   camera.position.set(cart.x,cart.y+up.y*cartCameraHeight()-tangent.y*.18,cart.z+up.z*cartCameraHeight()-tangent.z*.18);
   camera.lookAt(cart.x+tangent.x*9,cart.y+tangent.y*9,cart.z+tangent.z*9);
@@ -9193,8 +9218,8 @@ function tick(now){
   cart.x+=fwd.x*cart.v*dt;cart.z+=fwd.z*cart.v*dt;
   guideCircleJumpLanding(dt);
   const loopEntryDistance=Math.hypot(cart.x-CANNON_LOOP_ENTRY_FRAME.p.x,cart.z-CANNON_LOOP_ENTRY_FRAME.p.z);
-  const crossedLoopTangent=crossedCourseFinishForward(CANNON_LOOP_ENTRY_FRAME,px,pz,cart.x,cart.z);
-  if(SELECTED_COURSE_KEY==='cannon'&&!cart._cannonLoopDone&&(loopEntryDistance<2.35||crossedLoopTangent)){
+  const crossedLoopEntry=crossedCourseFinishForward(CANNON_LOOP_ENTRY_FRAME,px,pz,cart.x,cart.z);
+  if(SELECTED_COURSE_KEY==='cannon'&&!cart._cannonLoopDone&&(loopEntryDistance<2.35||crossedLoopEntry)){
     beginCannonLoop();
     if(updateCannonLoop(0)){arcadeRender(scene,camera);requestAnimationFrame(tick);return;}
   }
