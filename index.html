@@ -5615,6 +5615,7 @@ function trackMonsterShadow(){
   monsterKey.target.updateMatrixWorld();
 }
 const MONSTER_ISLAND={walkers:[],harpies:[],staticAudit:[],harpyCooldown:0,snake:null,snakeStop:0,snakeWarned:false};
+window.ACR_MONSTER_ISLAND=MONSTER_ISLAND;
 /* The world lighting is deliberately flat and ambient-heavy so open trail reads as
    bright daylight. That is exactly wrong for giant creatures, so Monster Island
    pulls the global fill down while it is active and restores it on exit. Sky, fog
@@ -10061,6 +10062,7 @@ const cart={
   broomFlight:0,broomFlightMax:0,
   _circleLandingGuide:0,_cannonLoop:0,_cannonLoopDone:false,_cannonRampAir:0,_cannonLaunchV:0,
 };
+window.ACR_CART=cart;
 (function initCartPos(){
   const s=courseSampAt(0.003);
   cart.x=s.p.x;cart.z=s.p.z;
@@ -12321,7 +12323,6 @@ derbyStartEl.addEventListener('click',startRaceNow);
     try{
       startAppleCanyonRun();
       window.ACR_GAME_READY=true;
-      window.ACR_MONSTER_ISLAND=MONSTER_ISLAND;window.ACR_CART=cart;
       goButton.onclick=null;
       goButton.disabled=false;
       goButton.textContent='▶ ENTER DERBY';
