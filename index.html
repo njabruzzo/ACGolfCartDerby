@@ -12321,6 +12321,7 @@ derbyStartEl.addEventListener('click',startRaceNow);
     try{
       startAppleCanyonRun();
       window.ACR_GAME_READY=true;
+      window.ACR_MONSTER_ISLAND=MONSTER_ISLAND;window.ACR_CART=cart;
       goButton.onclick=null;
       goButton.disabled=false;
       goButton.textContent='▶ ENTER DERBY';
