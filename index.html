@@ -6877,50 +6877,6 @@ function updateMonsterIslandCinematic(dt){
   return false;
 }
 
-/* bridges from mask runs */
-(function(){
-  const railMat=new THREE.MeshLambertMaterial({color:PALETTE.woodMid,map:TEX.rep(TEX.timber,1,3)});
-  const postMat=new THREE.MeshLambertMaterial({color:PALETTE.woodDark,map:TEX.rep(TEX.timber,1,4)});
-  const plankMat=new THREE.MeshLambertMaterial({color:PALETTE.woodLight,map:TEX.rep(TEX.plank,3,1)});
-  railMat.userData.mat='wood'; postMat.userData.mat='wood'; plankMat.userData.mat='wood';
-  let i=0;
-  while(i<NS){
-    if(!bridgeMask[i]){i++;continue;}
-    let j=i;while(j<NS&&bridgeMask[j])j++;
-    for(let k=i;k<j;k++){
-      const s=SAMP[k];
-      if(k%(MOBILE?3:2)===0){
-        const plank=new THREE.Mesh(new THREE.BoxGeometry(ROAD_W*2+1.2,.16,MOBILE?2.4:1.6),plankMat);
-        plank.position.copy(s.p);plank.position.y+=.06;
-        plank.lookAt(s.p.clone().add(s.tan));scene.add(plank);
-      }
-      if(k%(MOBILE?5:3)===0){
-        for(const side of[-1,1]){
-          const post=new THREE.Mesh(new THREE.BoxGeometry(.22,1.15,.22),railMat);
-          post.position.copy(s.p).addScaledVector(s.right,side*(ROAD_W+.45));
-          post.position.y+=.62;scene.add(post);
-          const depth=s.p.y-WATER_Y+1.4;
-          const pil=new THREE.Mesh(new THREE.CylinderGeometry(.3,.34,depth,6),postMat);
-          pil.position.copy(s.p).addScaledVector(s.right,side*(ROAD_W+.45));
-          pil.position.y=s.p.y-depth/2+.1;scene.add(pil);
-        }
-        if(k>i){
-          const prev=SAMP[k-3<i?i:k-3];
-          for(const side of[-1,1]){
-            const a=prev.p.clone().addScaledVector(prev.right,side*(ROAD_W+.45));
-            const b=s.p.clone().addScaledVector(s.right,side*(ROAD_W+.45));
-            const mid=a.clone().add(b).multiplyScalar(.5);mid.y+=1.08;
-            const rail=new THREE.Mesh(new THREE.BoxGeometry(a.distanceTo(b)+.1,.14,.14),railMat);
-            rail.position.copy(mid);rail.lookAt(b.clone().setY(mid.y));rail.rotateY(Math.PI/2);
-            scene.add(rail);
-          }
-        }
-      }
-    }
-    i=j;
-  }
-})();
-
 
 /* DENSE forest: 3200 pines + 800 bushes, instanced */
 (function(){
