@@ -6364,11 +6364,9 @@ try{(function buildMonsterIsland(){
     }
     part(bodyRig,new THREE.SphereGeometry(1,SEG(16,10),SEG(12,8)),armorHide,0,26.0,4.6,4.9,6.4,1.35);
     const core=part(bodyRig,new THREE.OctahedronGeometry(1.35,1),armorCore,0,29.4,5.45,1.45,1.95,.55);core.name='armoredChestCore';
-    for(let i=0;i<8;i++){
-      const s=3.1-Math.abs(i-3.5)*.26;
-      part(bodyRig,new THREE.ConeGeometry(Math.max(.7,s),4.4,SEG(6,4)),armorGold,0,19.6+i*2.5,-5.1,1,1,1,-Math.PI/2,0,Math.PI/4);
-      part(bodyRig,new THREE.ConeGeometry(Math.max(.3,s*.4),1.9,SEG(5,4)),armorRed,0,19.6+i*2.5,-6.3,1,1,1,-Math.PI/2,0,Math.PI/4);
-    }
+    part(bodyRig,new THREE.SphereGeometry(1,SEG(14,9),SEG(11,7)),armorHide,0,28.6,-4.4,5.4,3.6,4.0);
+    part(bodyRig,new THREE.SphereGeometry(1,SEG(12,8),SEG(9,6)),armorGold,0,24.0,-3.8,4.8,2.8,3.4);
+    part(bodyRig,new THREE.SphereGeometry(1,SEG(11,8),SEG(8,6)),armorHide,0,20.6,-3.2,4.2,2.2,2.9);
     for(const sd of[-1,1]){
       part(bodyRig,new THREE.SphereGeometry(1,SEG(13,9),SEG(10,7)),armorGold,sd*6.55,32.4,-.2,3.35,3.15,3.45);
       part(bodyRig,new THREE.ConeGeometry(1.50,5.6,SEG(9,6)),armorRed,sd*8.75,33.6,-.3,1,1,1,0,0,-sd*Math.PI/2);
