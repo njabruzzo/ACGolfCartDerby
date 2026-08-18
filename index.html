@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- MONSTER ISLAND COURSE 2026-08-18: third selectable derby course — volcanic jungle loop west of Apple Canyon Lake. -->
 <!-- MONSTER ISLAND VISUALS 2026-08-18: rebuilt every wildlife and monster sprite, swapped in the illustrated musky, and lifted lighting/UI polish. -->
 <!-- GITHUB-OPTIMIZED BUILD: embedded artwork and radio audio compressed; no game content removed. -->
 <!-- DERBY BUILD 2026-08-12ZM: photo-guided dark U-channel loop with continuous walls, tangent ramps, a low support base and matched cart travel. -->
@@ -56,7 +57,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-18-MONSTER-ISLAND-VISUALS">
+<meta name="acr-build" content="2026-08-18-MONSTER-ISLAND-COURSE">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1644,7 +1645,7 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
 
     <div class="lb-head">
       <h2>DERBY RECORDS</h2>
-      <div class="lb-sub">TWO COURSES &middot; ONE LAP EACH &middot; <span id="acrBoardMode">local</span></div>
+      <div class="lb-sub">THREE COURSES &middot; ONE LAP EACH &middot; <span id="acrBoardMode">local</span></div>
     </div>
 
     <div class="lb-course-grid">
@@ -1675,6 +1676,21 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
           </div>
           <div id="acrBoardBody" class="lb-list"></div>
           <div id="acrBoardEmpty" class="lb-empty">Finish Apple Canyon Lake and your run lands here.</div>
+        </div>
+      </section>
+
+      <section class="lb-course-board" aria-labelledby="acrIslandBoardTitle">
+        <div class="lb-course-head">
+          <h3 id="acrIslandBoardTitle">MONSTER ISLAND</h3>
+          <span id="acrBoardCountIsland">no runs yet</span>
+        </div>
+        <div id="acrBoardYouIsland" class="lb-you" hidden></div>
+        <div class="lb-scroll lb-course-scroll" data-course-board="island">
+          <div class="lb-table-head" aria-hidden="true">
+            <span>USER NAME</span><span>CART</span><span>TIME</span><span>ANIMALS SAVED</span><span>GOBLINS DESTROYED</span><span>APPLES COLLECTED</span>
+          </div>
+          <div id="acrBoardBodyIsland" class="lb-list"></div>
+          <div id="acrBoardEmptyIsland" class="lb-empty">Finish Monster Island and your run lands here.</div>
         </div>
       </section>
     </div>
@@ -1731,10 +1747,10 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
       <h1>RUN<em>golf cart derby</em></h1>
     </div>
 
-    <p class="pitch">A rugged loop around Apple Canyon Lake — over the dam, across two fork
-       bridges, past the marina, up brutal ridge climbs and under Apple Falls.
-       The woods are alive: rescue deer, foxes and frogs, flatten goblins, and
-       don't let the lake musky swallow the cart.</p>
+    <p class="pitch">Three courses: Canyon Ball Run, the Apple Canyon Lake loop, and
+       Monster Island — a volcanic jungle ring packed with goblins and wildlife.
+       Rescue deer, foxes and frogs, flatten goblins, and don't let the lake musky
+       swallow the cart.</p>
     <div class="wildlife-row" aria-hidden="true">🦌 🦫 🦊 🦃 🐸 👣 👺</div>
 
     <div class="chip-row">
@@ -1781,6 +1797,15 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
           <canvas class="course-map-canvas" data-course-map="acl" width="840" height="276"></canvas>
         </span>
         <span class="course-desc">FORESTED LAKE LOOP &middot; WILDLIFE &middot; GOBLINS &middot; LAKE MUSKY</span>
+      </button>
+      <button class="course-card" data-course="island" type="button" role="radio" aria-checked="false">
+        <span class="course-pick-ribbon">SELECTED</span>
+        <span class="course-option">OPTION 3</span>
+        <span class="course-name">MONSTER ISLAND</span>
+        <span class="course-route island-route" aria-hidden="true">
+          <canvas class="course-map-canvas" data-course-map="island" width="840" height="276"></canvas>
+        </span>
+        <span class="course-desc">VOLCANIC JUNGLE LOOP &middot; GOBLIN SWARM &middot; BIGFOOT &middot; LAVA CRATER</span>
       </button>
     </div>
     <div class="course-select-bar">
@@ -2489,22 +2514,25 @@ window.ACR_CONFIG = {
     /* Explicit Canyon Ball Run tags only. Do NOT treat every "canyon" string as
        cannon — "Apple Canyon Lake" must stay on the acl board. */
     if(s==='cannon'||s.indexOf('cannon')>=0||s.indexOf('canyon ball')>=0||s==='cbr') return 'cannon';
+    if(s==='island'||s==='isl'||s.indexOf('monster island')>=0||s.indexOf('monsterisland')>=0) return 'island';
     return 'acl';
   }
   function runCourseKey(run){
     return normalizeCourseKey(run&&(run.courseKey||run.course_key||run.course));
   }
   function untagCart(v){
-    return String(v||'').replace(/^(?:CBR|ACL)::/,'');
+    return String(v||'').replace(/^(?:CBR|ACL|ISL)::/,'');
   }
   function taggedCart(cart,key){
-    return (normalizeCourseKey(key)==='cannon'?'CBR::':'ACL::')+untagCart(cart);
+    var k=normalizeCourseKey(key);
+    return (k==='cannon'?'CBR::':k==='island'?'ISL::':'ACL::')+untagCart(cart);
   }
   function rowCourseKey(r){
     if(r&&(r.course_key||r.course)) return normalizeCourseKey(r.course_key||r.course);
     var cart=String((r&&r.cart)||'');
     if(cart.indexOf('CBR::')===0) return 'cannon';
     if(cart.indexOf('ACL::')===0) return 'acl';
+    if(cart.indexOf('ISL::')===0) return 'island';
     /* Every untagged stored result predates Canyon Ball Run, so preserving it
        on the original ACL board is the only lossless migration. */
     return 'acl';
@@ -2568,7 +2596,9 @@ window.ACR_CONFIG = {
     cannon:{body:'acrBoardBodyCannon',empty:'acrBoardEmptyCannon',count:'acrBoardCountCannon',you:'acrBoardYouCannon',
             emptyText:'Finish Canyon Ball Run and your run lands here.'},
     acl:{body:'acrBoardBody',empty:'acrBoardEmpty',count:'acrBoardCount',you:'acrBoardYou',
-         emptyText:'Finish Apple Canyon Lake and your run lands here.'}
+         emptyText:'Finish Apple Canyon Lake and your run lands here.'},
+    island:{body:'acrBoardBodyIsland',empty:'acrBoardEmptyIsland',count:'acrBoardCountIsland',you:'acrBoardYouIsland',
+            emptyText:'Finish Monster Island and your run lands here.'}
   };
 
   function renderRows(courseKey,list,noteText,isError){
@@ -2624,22 +2654,24 @@ window.ACR_CONFIG = {
   function splitCourseRows(rows){
     return {
       cannon:rankedScores((rows||[]).filter(function(r){return rowCourseKey(r)==='cannon';})),
-      acl:rankedScores((rows||[]).filter(function(r){return rowCourseKey(r)==='acl';}))
+      acl:rankedScores((rows||[]).filter(function(r){return rowCourseKey(r)==='acl';})),
+      island:rankedScores((rows||[]).filter(function(r){return rowCourseKey(r)==='island';}))
     };
   }
   function acceptBoardRows(rows,note,isError){
     var all=mergeRows(rows||[],[]), byCourse=splitCourseRows(all);
-    lastRows=byCourse.cannon.concat(byCourse.acl);
-    var sig=sigOf(byCourse.cannon)+'||'+sigOf(byCourse.acl)+'|'+String(note||'')+
+    lastRows=byCourse.cannon.concat(byCourse.acl,byCourse.island||[]);
+    var sig=sigOf(byCourse.cannon)+'||'+sigOf(byCourse.acl)+'||'+sigOf(byCourse.island)+'|'+String(note||'')+
             '|'+lastRemoteCount+'|'+lastLocalCount;
     if(sig===lastSig)return;
     lastSig=sig;
     renderRows('cannon',byCourse.cannon,note,isError);
     renderRows('acl',byCourse.acl,note,isError);
+    renderRows('island',byCourse.island||[],note,isError);
     updateBoardMode();
   }
   function resetBoardUi(){
-    ['cannon','acl'].forEach(function(key){
+    ['cannon','acl','island'].forEach(function(key){
       var ui=BOARD_UI[key];
       $(ui.you).hidden=true;
       $(ui.body).innerHTML='';
@@ -3110,7 +3142,8 @@ let SELECTED_CART_KEY='abruzzo';
 let ACTIVE_CART=DERBY_CARTS[SELECTED_CART_KEY];
 const DERBY_COURSES={
   cannon:{key:'cannon',name:'CANYON BALL RUN',pointToPoint:true},
-  acl:{key:'acl',name:'APPLE CANYON LAKE',pointToPoint:false}
+  acl:{key:'acl',name:'APPLE CANYON LAKE',pointToPoint:false},
+  island:{key:'island',name:'MONSTER ISLAND',pointToPoint:false}
 };
 let SELECTED_COURSE_KEY='cannon';
 function activeCourse(){return DERBY_COURSES[SELECTED_COURSE_KEY]||DERBY_COURSES.cannon;}
@@ -3197,6 +3230,42 @@ function awayFromWater(x,z){ // unit xz vector pointing away from the lake
   const fz=(lakeField(x,z+e)-lakeField(x,z-e))/(2*e);
   const l=Math.hypot(fx,fz)||1;
   return new THREE.Vector3(fx/l,0,fz/l);
+}
+
+/* ---------------- Monster Island: volcanic jungle west of the lake ----------------
+   A closed loop on its own landmass, ringed by a saltwater moat so it cannot
+   be confused with Apple Canyon Lake. Negative islandOceanField = in the moat. */
+const ISLAND_CX=-820, ISLAND_CZ=48;
+const ISLAND_SHORE=192, ISLAND_MOAT=318, ISLAND_CRATER=34, ISLAND_CONE=62;
+function islandRadial(x,z){return Math.hypot(x-ISLAND_CX,z-ISLAND_CZ);}
+function islandOceanField(x,z){
+  const r=islandRadial(x,z);
+  if(r<=ISLAND_SHORE) return ISLAND_SHORE-r;
+  if(r>=ISLAND_MOAT) return r-ISLAND_MOAT;
+  return -Math.min(r-ISLAND_SHORE, ISLAND_MOAT-r);
+}
+function islandHeight(x,z){
+  const dx=x-ISLAND_CX,dz=z-ISLAND_CZ,r=Math.hypot(dx,dz),ang=Math.atan2(dz,dx);
+  if(r>ISLAND_MOAT+88)return null;
+  if(r>=ISLAND_MOAT){
+    const k=smooth(ISLAND_MOAT,ISLAND_MOAT+88,r);
+    const beach=1.15+(fbm(x,z)-.4)*3.4;
+    let h=1.2+(fbm(x,z)-.42)*2*(6+smooth(0,95,Math.max(lakeField(x,z),0))*24);
+    const edge=Math.max(Math.abs(x),Math.abs(z));
+    if(edge>560)h+=Math.min(90,(edge-560)*.16);
+    return beach*(1-k)+h*k;
+  }
+  if(r>ISLAND_SHORE){
+    const u=(r-ISLAND_SHORE)/(ISLAND_MOAT-ISLAND_SHORE);
+    return -1.15-6.4*Math.sin(u*Math.PI);
+  }
+  let h=2.6+(ISLAND_SHORE-r)*.02+(fbm(x,z)-.4)*4.2;
+  h+=Math.abs(Math.sin(ang*3.15+r*.035))*smooth(48,ISLAND_SHORE,r)*7;
+  if(r<118){
+    h+=46*smooth(118,ISLAND_CONE,r);
+    if(r<ISLAND_CRATER) h=35.4-(ISLAND_CRATER-r)*.62;
+  }
+  return Math.max(h,.75);
 }
 
 /* ---------------- the trail loop around the lake ---------------- */
@@ -3437,6 +3506,15 @@ function makeOpenCourseRoad(name,points,sampleCount,t0,t1){
   }
   return finishAuxRoad({name,samples,closed:false,course:'cannon',pointToPoint:true,length:c.getLength()});
 }
+function makeClosedCourseRoad(name,points,sampleCount,course){
+  const c=new THREE.CatmullRomCurve3(points,true,'centripetal'),samples=[];
+  for(let i=0;i<sampleCount;i++){
+    const u=i/sampleCount,p=c.getPointAt(u),tan=c.getTangentAt(u);
+    const flat=new THREE.Vector3(tan.x,0,tan.z).normalize();
+    samples.push({p,tan,right:new THREE.Vector3(-flat.z,0,flat.x),mainT:u});
+  }
+  return finishAuxRoad({name,samples,closed:true,course:course||'island',pointToPoint:false,length:c.getLength()});
+}
 let TRAIL_TEX=null;
 /* Travelling forward (+z) the right-hand side is -X, so the loop sits at
    CANNON_X-26: the cart veers RIGHT off the entry lane, takes the circle, and
@@ -3525,8 +3603,46 @@ function cannonSampAt(t){
   const u=(t-.57)/.04,p=CANNON_LIP.clone().lerp(CANNON_LANDING,u);
   return {p,tan:new THREE.Vector3(0,0,1),right:new THREE.Vector3(-1,0,0)};
 }
-function courseSampAt(t){return SELECTED_COURSE_KEY==='cannon'?cannonSampAt(t):sampAt(t);}
-function activeTrackLength(){return SELECTED_COURSE_KEY==='cannon'?CANNON_TRACKLEN:TRACKLEN;}
+/* Monster Island closed loop: a wiggling ring around the volcano with steep
+   rollers, a beach dip and a crater-side ridge. Lives at ISLAND_CX so it
+   never overlaps Apple Canyon Lake or Canyon Ball Run. */
+const ISLAND_RING=[
+  [0.00,134,14],[0.36,116,23],[0.70,150,10],[1.04,124,29],
+  [1.38,108,17],[1.76,144,9],[2.12,128,26],[2.50,114,15],
+  [2.88,154,12],[3.26,122,31],[3.64,110,18],[4.00,142,10],
+  [4.38,130,25],[4.76,112,16],[5.16,148,13],[5.52,118,22],
+  [5.88,136,18]
+];
+const ISLAND_POINTS=ISLAND_RING.map(([a,r,y])=>new THREE.Vector3(
+  ISLAND_CX+Math.cos(a)*r,y,ISLAND_CZ+Math.sin(a)*r));
+const ISLAND_ROAD=makeClosedCourseRoad('monsterIsland',ISLAND_POINTS,640,'island');
+const ISLAND_TRACKLEN=ISLAND_ROAD.length;
+function islandSampAt(t){
+  t=courseWrapT(t);
+  const a=ISLAND_ROAD.samples,n=a.length,f=t*n,i=Math.floor(f)%n,q=f-Math.floor(f);
+  const A=a[i],B=a[(i+1)%n];
+  return {p:A.p.clone().lerp(B.p,q),tan:A.tan.clone().lerp(B.tan,q).normalize(),
+    right:A.right.clone().lerp(B.right,q).normalize()};
+}
+function islandZone(t){
+  t=courseWrapT(t);
+  const name=t<.14?'JUNGLE GATE':t<.32?'EMBER RIDGE':t<.48?'CRATER WALL':
+    t<.64?'GOBLIN BEACH':t<.82?'BONE SPINE':'LAVA SWITCHBACKS';
+  return {name};
+}
+const ISLAND_START_FRAME=islandSampAt(.004);
+const ISLAND_FINISH_FRAME=islandSampAt(.006);
+function courseSampAt(t){
+  if(SELECTED_COURSE_KEY==='cannon')return cannonSampAt(t);
+  if(SELECTED_COURSE_KEY==='island')return islandSampAt(t);
+  return sampAt(t);
+}
+function activeTrackLength(){
+  if(SELECTED_COURSE_KEY==='cannon')return CANNON_TRACKLEN;
+  if(SELECTED_COURSE_KEY==='island')return ISLAND_TRACKLEN;
+  return TRACKLEN;
+}
+
 const CANNON_START_FRAME=cannonSampAt(.004);
 const CANNON_FINISH_FRAME=cannonSampAt(1);
 const CANNON_LOOP_ENTRY_FRAME=closestOpenCourseFrame(CANNON_ROAD_A,CANNON_LOOP.xIn,CANNON_LOOP.z-24);
@@ -3592,7 +3708,10 @@ window.ACR_COURSE_FEATURES={
     apples:true,
     jump:{distanceFeet:50,distanceMeters:CANNON_JUMP_DISTANCE_M,landingBooster:true},
     start:{x:CANNON_START_FRAME.p.x,y:CANNON_START_FRAME.p.y,z:CANNON_START_FRAME.p.z},
-    finish:{x:CANNON_FINISH_FRAME.p.x,y:CANNON_FINISH_FRAME.p.y,z:CANNON_FINISH_FRAME.p.z}}
+    finish:{x:CANNON_FINISH_FRAME.p.x,y:CANNON_FINISH_FRAME.p.y,z:CANNON_FINISH_FRAME.p.z}},
+  monsterIsland:{closedLoop:true,volcano:true,lavaCrater:true,jungle:true,goblinSwarm:true,
+    start:{x:ISLAND_START_FRAME.p.x,y:ISLAND_START_FRAME.p.y,z:ISLAND_START_FRAME.p.z},
+    finish:{x:ISLAND_FINISH_FRAME.p.x,y:ISLAND_FINISH_FRAME.p.y,z:ISLAND_FINISH_FRAME.p.z}}
 };
 
 /* bridges auto-detected: samples whose ground is underwater */
@@ -3619,6 +3738,7 @@ function drawCoursePickerMaps(){
   const W=420,H=138,S=2;
   const cannonCanvas=document.querySelector('[data-course-map="cannon"]');
   const aclCanvas=document.querySelector('[data-course-map="acl"]');
+  const islandCanvas=document.querySelector('[data-course-map="island"]');
   if(!cannonCanvas||!aclCanvas)return;
 
   function prep(canvas,top,bottom){
@@ -3755,6 +3875,22 @@ function drawCoursePickerMaps(){
     tag(x,tower[0]-14,tower[1]+18,'TRAFFIC CIRCLE','#34200b');
     finishSign(x,aclPt(FINISH_FRAME.p),'START / FINISH');northArrow(x);
   }
+
+  if(islandCanvas){
+    const x=prep(islandCanvas,'#6a2a18','#1a0c08');
+    const islandPt=p=>[18+(p.z-(ISLAND_CZ-210))/420*384,10+(p.x-(ISLAND_CX-210))/420*118];
+    x.fillStyle='#1a4a6a';x.beginPath();x.arc(210,69,78,0,Math.PI*2);x.fill();
+    x.fillStyle='#2a6a3a';x.beginPath();x.arc(210,69,52,0,Math.PI*2);x.fill();
+    x.fillStyle='#5a4030';x.beginPath();x.arc(210,69,22,0,Math.PI*2);x.fill();
+    x.fillStyle='#c43a18';x.beginPath();x.arc(210,69,9,0,Math.PI*2);x.fill();
+    for(const p of[[48,28,.7],[72,110,.65],[338,22,.7],[372,108,.75],[120,18,.6],[300,120,.65]])tree(x,p[0],p[1],p[2]);
+    road(x,ISLAND_ROAD.samples,islandPt,true,'#3a2416',4,10);
+    for(const f of[.08,.32,.55,.8])direction(x,ISLAND_ROAD.samples,islandPt,f);
+    tag(x,210,28,'VOLCANO','#7a2214');
+    startFlag(x,islandPt(ISLAND_START_FRAME.p));
+    finishSign(x,islandPt(ISLAND_FINISH_FRAME.p),'START / FINISH');
+    northArrow(x);
+  }
 }
 drawCoursePickerMaps();
 
@@ -3788,6 +3924,8 @@ function roadNear(x,z){
 }
 
 function terrainRaw(x,z){
+  const islandH=islandHeight(x,z);
+  if(islandH!=null) return islandH;
   const f=lakeField(x,z);
   if(f<0) return -1.2-5.5*smooth(0,40,-f);          // lake bed
   const k=smooth(0,95,f);
@@ -4414,7 +4552,13 @@ function surfaceH(x,z){
     pos.setY(i,hh);
     const ix=Math.round((x+SIZE*.5)/TERRAIN_STEP),iz=Math.round((z+SIZE*.5)/TERRAIN_STEP);
     if(ix>=0&&ix<=SEG&&iz>=0&&iz<=SEG)TERRAIN_HGRID[terrainGridIndex(ix,iz)]=hh;
-    if(hh<WATER_Y-.4)c.copy(cBed);
+    const iR=Math.hypot(x-ISLAND_CX,z-ISLAND_CZ);
+    if(iR<ISLAND_MOAT+6){
+      if(hh<WATER_Y-.4)c.setHex(0x14344c);
+      else if(hh<3.4)c.setHex(0xcbb07a);
+      else if(iR<ISLAND_CONE+8)c.setHex(0x4a3228);
+      else c.setHex(0x2f5c2c);
+    }else if(hh<WATER_Y-.4)c.copy(cBed);
     else if(hh<1.6)c.copy(cSand);
     /* High ground used to blend toward pale rock, which read as snow on the
        canyon ridges. Every dry terrain elevation is grass now. */
@@ -4606,11 +4750,18 @@ function makeCannonTrackTexture(){
     g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setIndex(I);g.computeVertexNormals();
     const mesh=new THREE.Mesh(g,mat);mesh.userData.courseRoad=road.name+'SolidBase';scene.add(mesh);
   }
+  const islandTrackMat=new THREE.MeshLambertMaterial({color:0x3d2a1c,side:THREE.DoubleSide,
+    map:TEX.mip(TEX.rep(TEX.rough,2,1))});
+  islandTrackMat.userData.surface='trail';
+  const islandEdgeMat=new THREE.MeshLambertMaterial({color:0x24160e,side:THREE.DoubleSide});
+  islandEdgeMat.userData.surface='trail';
+  const islandBaseMat=new THREE.MeshLambertMaterial({color:0x1a100a,side:THREE.DoubleSide});
+  islandBaseMat.userData.surface='trail';
   for(const road of AUX_ROADS){
-    const cannon=road.course==='cannon';
-    solidRoadBase(road,ROAD_W+1.62,2.20,cannon?cannonBaseMat:roadBaseMat);
-    strip(road,ROAD_W+1.5,cannon?cannonEdgeMat:shoulderMat,.012);
-    strip(road,ROAD_W,cannon?cannonTrackMat:roadMat,.045);
+    const cannon=road.course==='cannon',isle=road.course==='island';
+    solidRoadBase(road,ROAD_W+1.62,2.20,cannon?cannonBaseMat:isle?islandBaseMat:roadBaseMat);
+    strip(road,ROAD_W+1.5,cannon?cannonEdgeMat:isle?islandEdgeMat:shoulderMat,.012);
+    strip(road,ROAD_W,cannon?cannonTrackMat:isle?islandTrackMat:roadMat,.045);
   }
 
   // Raised center island and a deliberately small, unmistakably purple tower.
@@ -5115,6 +5266,67 @@ function obstNear(x,z){
     obstAdd(P.x,P.z,.58*sc+.35,'tree',{meshes:[trunks,c1,c2],idx:i,x:P.x,z:P.z,gy,sc,rotY:dm.rotation.y,heights:[1.9,5.8,9.1]});
   }
   scene.add(trunks,c1,c2);
+})();
+
+/* Monster Island landmarks: crater lava, jungle walls, bone totems. */
+(function buildMonsterIsland(){
+  const lavaMat=new THREE.MeshLambertMaterial({color:0xc43a12,emissive:0x7a1408,emissiveIntensity:.85});
+  const lava=new THREE.Mesh(new THREE.CircleGeometry(ISLAND_CRATER-3.2,28),lavaMat);
+  lava.rotation.x=-Math.PI/2;lava.position.set(ISLAND_CX,35.6,ISLAND_CZ);
+  lava.userData.courseFeature='monsterIslandLava';scene.add(lava);
+  const crustMat=new THREE.MeshLambertMaterial({color:0x2a1a14});
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(ISLAND_CRATER-1.4,2.4,8,28),crustMat);
+  rim.rotation.x=Math.PI/2;rim.position.set(ISLAND_CX,36.4,ISLAND_CZ);
+  rim.userData.courseFeature='monsterIslandCraterRim';scene.add(rim);
+  const glow=new THREE.PointLight(0xff6a22,1.35,90,2);
+  glow.position.set(ISLAND_CX,42,ISLAND_CZ);scene.add(glow);
+
+  const rockM=new THREE.MeshLambertMaterial({color:PALETTE.rockDark});rockM.userData.mat='rock';
+  for(let i=0;i<7;i++){
+    const a=i/7*Math.PI*2+0.4,rr=ISLAND_CONE+10+i*1.4;
+    const spire=new THREE.Mesh(new THREE.ConeGeometry(2.4+i*.18,11+i*1.1,6),rockM);
+    spire.position.set(ISLAND_CX+Math.cos(a)*rr,surfaceH(ISLAND_CX+Math.cos(a)*rr,ISLAND_CZ+Math.sin(a)*rr)+6,
+      ISLAND_CZ+Math.sin(a)*rr);
+    spire.rotation.z=(i%2?-.12:.1);spire.userData.courseFeature='monsterIslandSpire';scene.add(spire);
+  }
+
+  const boneM=new THREE.MeshLambertMaterial({color:0xe8d9b8});
+  function totem(x,z){
+    const g=new THREE.Group(),gy=surfaceH(x,z);
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.28,.38,5.4,7),new THREE.MeshLambertMaterial({color:PALETTE.woodDark}));
+    post.position.y=2.7;g.add(post);
+    const skull=new THREE.Mesh(new THREE.SphereGeometry(.72,10,8),boneM);skull.position.y=5.5;g.add(skull);
+    const jaw=new THREE.Mesh(new THREE.SphereGeometry(.48,8,6),boneM);jaw.scale.set(1,.45,1);jaw.position.y=4.95;g.add(jaw);
+    g.position.set(x,gy,z);g.userData.courseFeature='monsterIslandTotem';scene.add(g);
+  }
+  totem(ISLAND_CX+18,ISLAND_CZ+22);totem(ISLAND_CX-24,ISLAND_CZ-16);
+
+  const N=MOBILE?260:480,trunkG=new THREE.CylinderGeometry(.32,.5,4.2,6);
+  const coneG=new THREE.ConeGeometry(2.55,6.8,7),cone2G=new THREE.ConeGeometry(1.7,5.0,7);
+  const trunkM=new THREE.MeshLambertMaterial({color:0x4a3320,map:TEX.mip(TEX.rep(TEX.bark,2,2))});
+  const jungleM=new THREE.MeshLambertMaterial({color:0x1c5a28,map:TEX.mip(TEX.rep(TEX.needle,3,2))});
+  const jungleM2=new THREE.MeshLambertMaterial({color:0x0f3a1c,map:TEX.mip(TEX.rep(TEX.leaf,2,2))});
+  trunkM.userData.mat='wood';jungleM.userData.mat='conifer';jungleM2.userData.mat='foliage';
+  const trunks=new THREE.InstancedMesh(trunkG,trunkM,N),c1=new THREE.InstancedMesh(coneG,jungleM,N),
+        c2=new THREE.InstancedMesh(cone2G,jungleM2,N);
+  const dm=new THREE.Object3D();
+  let n=0,guard=0;
+  while(n<N&&guard++<N*4){
+    const i=n+guard;
+    const t=((i+.37)%N)/N,s=islandSampAt(t),side=i%2?1:-1;
+    const off=11.4+(i%6)*2.6+hash2(i*4.1,21)*9.5;
+    const P=s.p.clone().addScaledVector(s.right,side*off);
+    if(islandOceanField(P.x,P.z)<6||islandRadial(P.x,P.z)<ISLAND_CONE+8)continue;
+    if(islandRadial(P.x,P.z)>ISLAND_SHORE-8)continue;
+    const gy=surfaceH(P.x,P.z)-.06,sc=.78+hash2(i*9.2,33)*.82;
+    dm.rotation.y=hash2(i*2.2,8)*Math.PI*2;dm.scale.setScalar(sc);
+    dm.position.set(P.x,gy+2.1*sc,P.z);dm.updateMatrix();trunks.setMatrixAt(n,dm.matrix);
+    dm.position.y=gy+6.2*sc;dm.updateMatrix();c1.setMatrixAt(n,dm.matrix);
+    dm.position.y=gy+9.8*sc;dm.updateMatrix();c2.setMatrixAt(n,dm.matrix);
+    obstAdd(P.x,P.z,.6*sc+.35,'tree',{meshes:[trunks,c1,c2],idx:n,x:P.x,z:P.z,gy,sc,rotY:dm.rotation.y,heights:[2.1,6.2,9.8]});
+    n++;
+  }
+  trunks.count=c1.count=c2.count=n;scene.add(trunks,c1,c2);
 })();
 
 /* DENSE forest: 3200 pines + 800 bushes, instanced */
@@ -7131,6 +7343,21 @@ function drawMap(px,pz){
     mapX.fillStyle='#f2b64a';mapX.beginPath();mapX.arc(car[0],car[1],4,0,Math.PI*2);mapX.fill();
     return;
   }
+  if(SELECTED_COURSE_KEY==='island'){
+    const islandMpt=(x,z)=>[12+(z-(ISLAND_CZ-210))/420*94,106-(x-(ISLAND_CX-210))/420*94];
+    mapX.fillStyle='rgba(26,74,106,.9)';mapX.beginPath();
+    const oc=islandMpt(ISLAND_CX,ISLAND_CZ);mapX.arc(oc[0],oc[1],42,0,Math.PI*2);mapX.fill();
+    mapX.fillStyle='rgba(42,106,58,.95)';mapX.beginPath();mapX.arc(oc[0],oc[1],28,0,Math.PI*2);mapX.fill();
+    mapX.fillStyle='#c43a18';mapX.beginPath();mapX.arc(oc[0],oc[1],6,0,Math.PI*2);mapX.fill();
+    mapX.strokeStyle='rgba(243,234,216,.95)';mapX.lineWidth=2.4;mapX.beginPath();
+    ISLAND_ROAD.samples.filter((_,i)=>i%12===0).forEach((s,i)=>{
+      const p=islandMpt(s.p.x,s.p.z);i?mapX.lineTo(p[0],p[1]):mapX.moveTo(p[0],p[1]);
+    });
+    mapX.closePath();mapX.stroke();
+    const car=islandMpt(px,pz);
+    mapX.fillStyle='#f2b64a';mapX.beginPath();mapX.arc(car[0],car[1],4,0,Math.PI*2);mapX.fill();
+    return;
+  }
   mapX.strokeStyle='rgba(46,109,158,.9)';mapX.lineCap='round';
   for(const s of LAKESEGS){
     mapX.lineWidth=Math.max(3,s[4]*2*MSC);
@@ -7576,6 +7803,7 @@ function spawnBigfootEvent(nearT){
   const caveOffset=SELECTED_COURSE_KEY==='cannon'?16.5:22.6;
   const cavePos=s.p.clone().addScaledVector(s.right,side*caveOffset);
   if(SELECTED_COURSE_KEY==='acl'&&(lakeField(start.x,start.z)<4||lakeField(cavePos.x,cavePos.z)<4))return false;
+  if(SELECTED_COURSE_KEY==='island'&&(islandOceanField(start.x,start.z)<6||islandOceanField(cavePos.x,cavePos.z)<6))return false;
   const cave=makeCaveEntrance();
   const caveY=groundYAt(cavePos.x,cavePos.z).y;
   cave.position.set(cavePos.x,caveY,cavePos.z);
@@ -7593,9 +7821,13 @@ function spawnBigfootEvent(nearT){
   return true;
 }
 function randAnimalType(){
-  const total=ANIMAL_TYPES.reduce((a,t)=>a+t.weight,0);
+  const islandBias=SELECTED_COURSE_KEY==='island';
+  const total=ANIMAL_TYPES.reduce((a,t)=>a+(islandBias&&(t.big||t.name==='BIGFOOT')?t.weight*2.4:t.weight),0);
   let r=Math.random()*total;
-  for(const t of ANIMAL_TYPES){ if((r-=t.weight)<=0) return t; }
+  for(const t of ANIMAL_TYPES){
+    const w=islandBias&&(t.big||t.name==='BIGFOOT')?t.weight*2.4:t.weight;
+    if((r-=w)<=0) return t;
+  }
   return ANIMAL_TYPES[0];
 }
 /* Wildlife is rescued, not killed: every animal collision turns that critter into
@@ -7873,7 +8105,7 @@ function clearPassengers(){
 }
 let animalTimer=1.2;
 function spawnAnimal(nearT){
-  if(ANIMALS.length>=(MOBILE?3:5))return;
+  if(ANIMALS.length>=(SELECTED_COURSE_KEY==='island'?(MOBILE?5:8):(MOBILE?3:5)))return;
   const typ=randAnimalType();
   let t=nearT+(22+Math.random()*34)/activeTrackLength();   // just ahead, so you actually meet them
   if(SELECTED_COURSE_KEY==='cannon')t=clamp(t,.025,.96);else t=courseWrapT(t);
@@ -7883,6 +8115,7 @@ function spawnAnimal(nearT){
   const start=s.p.clone().addScaledVector(s.right,side*17);
   const end=s.p.clone().addScaledVector(s.right,-side*15);
   if(SELECTED_COURSE_KEY==='acl'&&(lakeField(start.x,start.z)<4||lakeField(end.x,end.z)<4))return;
+  if(SELECTED_COURSE_KEY==='island'&&(islandOceanField(start.x,start.z)<6||islandOceanField(end.x,end.z)<6))return;
   const grp=typ.build();
   const dir=end.clone().sub(start);dir.y=0;dir.normalize();
   grp.userData.dirX=dir.x;grp.userData.dirZ=dir.z;   // used to face the sprite
@@ -8036,6 +8269,11 @@ const APPLES=[];let appleScore=0;
     const y=CANNON_LOOP.centerY-CANNON_LOOP.radius*Math.cos(a);
     makeApple(cannonLoopXAt(a),y+1.45,z,'cannon',true);
   }
+  const islandAppleT=[.04,.10,.16,.22,.28,.34,.40,.46,.52,.58,.64,.70,.76,.82,.88,.94];
+  islandAppleT.forEach((t,i)=>{
+    const s=islandSampAt(t),off=((i%3)-1)*1.7,p=s.p.clone().addScaledVector(s.right,off);
+    makeApple(p.x,p.y+1.5,p.z,'island');
+  });
 })();
 function ding(){if(!AC)return;const a=AC;
   [880,1320].forEach((f,i)=>{const o=a.createOscillator(),g=a.createGain();
@@ -8714,7 +8952,7 @@ const WRONGWAY_MAX_D=ROAD_W+14, WRONGWAY_MIN_V=2.2,
 const RACE_LAPS_N=(window.ACR&&window.ACR.RACE_LAPS)||1;
 const GOB_TRAIL_EDGE=ROAD_W+2.6;   // goblins never cross inside this
 const GOB={pool:[],hits:0,heat:0,spawnT:0,warned:false,told:false,
-           sndCD:0,chitCD:0,fxCD:0,MAX:MOBILE?8:15};
+           sndCD:0,chitCD:0,fxCD:0,MAX:MOBILE?12:22};
 (function buildGoblinPool(){
   function build(){
     const g=makeSpriteCritter('goblin');
@@ -8777,6 +9015,7 @@ function inDeepWoods(nearT,dOff){
   /* Canyon Ball Run is tree-lined for almost its entire point-to-point route.
      Its course parameter is independent from the ACL deep-forest intervals,
      so using only forestDepth() kept the goblin pool cold on the new course. */
+  if(SELECTED_COURSE_KEY==='island')return true;
   if(SELECTED_COURSE_KEY==='cannon'){
     const t=clamp(Number.isFinite(nearT)?nearT:cart.lastNearT||0,0,1);
     return t>.035&&t<.97&&!(cart._cannonLoop>0);
@@ -8788,7 +9027,7 @@ function inDeepWoods(nearT,dOff){
 function updateGoblins(dt,nearT,dOff){
   const woods=inDeepWoods(nearT,dOff);
   GOB.sndCD-=dt;GOB.chitCD-=dt;GOB.fxCD-=dt;
-  GOB.heat=woods?Math.min(1,GOB.heat+dt*.55):Math.max(0,GOB.heat-dt*.75);
+  GOB.heat=woods?Math.min(1,GOB.heat+dt*(SELECTED_COURSE_KEY==='island'?1.35:.55)):Math.max(0,GOB.heat-dt*.75);
   const want=Math.round(GOB.heat*GOB.MAX);
   let live=0;for(const o of GOB.pool)if(o.live)live++;
 
@@ -9588,7 +9827,9 @@ function tick(now){
   const crossedCheckeredGround=cart.started&&
     (SELECTED_COURSE_KEY==='cannon'
       ? crossedCourseFinishForward(CANNON_FINISH_FRAME,px,pz,cart.x,cart.z)
-      : crossedCheckeredGroundForward(px,pz,cart.x,cart.z));
+      : SELECTED_COURSE_KEY==='island'
+        ? crossedCourseFinishForward(ISLAND_FINISH_FRAME,px,pz,cart.x,cart.z)
+        : crossedCheckeredGroundForward(px,pz,cart.x,cart.z));
   if(cart.started&&(rn2.d<24||crossedCheckeredGround)){
     const nearSample=roadFrame(rn2);
     const moveX=cart.x-px, moveZ=cart.z-pz;
@@ -9605,7 +9846,7 @@ function tick(now){
     }
 
     const crossedFinishForward=crossedCheckeredGround||
-      (SELECTED_COURSE_KEY==='acl'&&forwardProgress&&cart.lastNearT>.90&&nearT<.10);
+      ((SELECTED_COURSE_KEY==='acl'||SELECTED_COURSE_KEY==='island')&&forwardProgress&&cart.lastNearT>.90&&nearT<.10);
     if(cart.lapCheckpoint>=checkpoints.length&&crossedFinishForward){
       const lapTime=clockT-cart.lapStart+(cart.lapPenalty||0);
       if(SELECTED_COURSE_KEY==='cannon'){
@@ -9664,7 +9905,7 @@ function tick(now){
 
   const z=SELECTED_COURSE_KEY==='cannon'
     ? {name:nearT<.12?'START ZIGZAG':nearT<.43?'UPPER CANYON S':nearT<.60?'THE LOOP':nearT<.73?'STREAM STRAIGHT':nearT<.90?'LOWER CANYON S':'FINISH ZIGZAG'}
-    : zoneOf(nearT);
+    : SELECTED_COURSE_KEY==='island'?islandZone(nearT):zoneOf(nearT);
   if(z.name!==(cart.lastZone&&cart.lastZone.name)&&rn2.d<28){cart.lastZone=z;if(cart.started)toast(z.name);}
 
   /* ---- adaptive forest lighting + automatic headlamps ---- */
@@ -9820,7 +10061,7 @@ function tick(now){
   cart._rt=nearT;
 
   /* ---- animal spawns ahead ---- */
-  if(animalTimer<=0){animalTimer=2.6+Math.random()*3.4;
+  if(animalTimer<=0){animalTimer=(SELECTED_COURSE_KEY==='island'?1.05+Math.random()*1.7:2.6+Math.random()*3.4);
     if(rn2.d<40)spawnAnimal(nearT);}
 
   /* ---- camera ---- */
@@ -9959,6 +10200,9 @@ function resetRun(){
   animalTimer=1.2;
   if(SELECTED_COURSE_KEY==='cannon'){
     spawnAnimal(.035);spawnAnimal(.24); // guaranteed early canyon crossings
+  }
+  if(SELECTED_COURSE_KEY==='island'){
+    spawnAnimal(.04);spawnAnimal(.18);spawnAnimal(.36);
   }
   for(const ap of APPLES){ap.taken=false;ap.g.visible=ap.course===SELECTED_COURSE_KEY;}
   appleScore=0;goldCount=0;
@@ -10263,6 +10507,12 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
       }
       addCourseBoost(CANNON_PREBOOST_FRAME,'loop');
       addCourseBoost(CANNON_LANDING_BOOST_FRAME,'landing');
+      [islandSampAt(.22),islandSampAt(.58),islandSampAt(.84)].forEach(frame=>{
+        const pad=new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W*1.55,5.2),mat);
+        pad.rotation.x=-Math.PI/2;pad.position.copy(frame.p);pad.position.y+=.12;
+        pad.rotation.z=Math.atan2(frame.tan.x,frame.tan.z);pad.renderOrder=3;scene.add(pad);
+        KART.boosts.push({t:0,x:frame.p.x,z:frame.p.z,mesh:pad,course:'island',power:13,maxSpeed:44});
+      });
     })();
 
     /* ---------- 9. puffy bright clouds ---------- */
@@ -12320,12 +12570,12 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
 }
 #courseselect .course-grid{
   display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:clamp(14px,2.6vw,30px);
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:clamp(12px,2vw,24px);
 }
 #courseselect .course-card{
   position:relative;
-  min-height:clamp(270px,39vh,390px);
+  min-height:clamp(240px,34vh,360px);
   overflow:hidden;
   border:3px solid #3b3b3b;
   border-radius:18px;
@@ -12418,6 +12668,9 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
 #courseselect .course-card[data-course="acl"]{
   background:linear-gradient(155deg,#0d2e24 0%,#07110d 62%);
 }
+#courseselect .course-card[data-course="island"]{
+  background:linear-gradient(155deg,#3a140c 0%,#120806 62%);
+}
 #courseselect .course-select-bar{
   position:fixed;
   z-index:2;
@@ -12438,6 +12691,9 @@ body.menuMode #acrCabinRoof,body.menuMode #acrCabinPoles{display:none!important}
 }
 #courseBack{border:1px solid #696969;color:#fff;background:#171717}
 #courseContinue{border:2px solid #ffe074;color:#181100;background:#f2bd1f;box-shadow:0 4px 0 #745300,0 8px 22px #000}
+@media (max-width:980px){
+  #courseselect .course-grid{grid-template-columns:1fr;gap:12px}
+}
 @media (max-width:680px){
   #courseselect .course-select-inner{justify-content:flex-start;padding-top:18px}
   #courseselect .course-picker-title{font-size:clamp(39px,13vw,60px)}
