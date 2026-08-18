@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- RAMPAGE MONSTERS 2026-08-18: island walkers restyled as arcade city-kaiju — George, Lizzie, Ralph and a rhino — bright cel color, readable faces, no more dark blobs. -->
 <!-- STARTUP FIX 2026-08-18: show the sign-in gate immediately, keep a failed 3D boot from swallowing ENTER, and isolate Monster Island construction so the derby can still start. -->
 <!-- MONSTER ISLAND COURSE 2026-08-18: third selectable derby course — volcanic jungle loop west of Apple Canyon Lake. -->
 <!-- MONSTER ISLAND VISUALS 2026-08-18: rebuilt every wildlife and monster sprite, swapped in the illustrated musky, and lifted lighting/UI polish. -->
@@ -58,7 +59,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-18-STARTUP-FIX">
+<meta name="acr-build" content="2026-08-18-RAMPAGE-MONSTERS">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1806,7 +1807,7 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
         <span class="course-route island-route" aria-hidden="true">
           <canvas class="course-map-canvas" data-course-map="island" width="840" height="276"></canvas>
         </span>
-        <span class="course-desc">JUNGLE FIGURE 8 &middot; KAIJU CROSSING &middot; HARPY PASS &middot; SERPENT BACK</span>
+        <span class="course-desc">JUNGLE FIGURE 8 &middot; GEORGE LIZZIE RALPH &middot; HARPY PASS &middot; SERPENT BACK</span>
       </button>
     </div>
     <div class="course-select-bar">
@@ -3684,7 +3685,7 @@ const MONSTER_FINISH_FRAME=monsterSampAt(MONSTER_START_LINE_T);
 function islandSampAt(t){return monsterSampAt(t);}
 function islandZone(t){
   t=courseWrapT(t);
-  const name=t<.10?'JUNGLE GATE':t<.43?'KAIJU CROSSING':t<.50?'FIGURE-8 WAIST':
+  const name=t<.10?'JUNGLE GATE':t<.43?'RAMPAGE CROSSING':t<.50?'FIGURE-8 WAIST':
     t<.76?'HARPY PASS':t<.95?'SERPENT BACK':'SERPENT HEAD';
   return {name};
 }
@@ -3770,7 +3771,7 @@ window.ACR_COURSE_FEATURES={
     start:{x:CANNON_START_FRAME.p.x,y:CANNON_START_FRAME.p.y,z:CANNON_START_FRAME.p.z},
     finish:{x:CANNON_FINISH_FRAME.p.x,y:CANNON_FINISH_FRAME.p.y,z:CANNON_FINISH_FRAME.p.z}},
   monsterIsland:{closedFigureEight:true,jungle:true,oneLap:true,
-    kaijuCrossing:{startT:.10,endT:.46,monsters:['Charcoal Reptile','Giant Gorilla','Blue Horned Fur Beast','Gold Armored Spike Beast'],fullBody:true,
+    kaijuCrossing:{startT:.10,endT:.46,monsters:['Lizzie','George','Ralph','Rhino'],fullBody:true,rampageArcade:true,
       polishedMaterials:true,terrainAware:true,crossingMotion:'curvedCrossingWithPersistentWander',distinctGaits:true,
       plantedFeet:true,weightTransfer:true,secondaryMotion:true,highDetailFaces:true,animalAnatomy:true,
       suppliedReferenceDesigns:true,gorillaKnuckleWalk:true,persistentWorldPresence:true,wanderWhenNotCrossing:true,naturalPathTurning:true,headTracking:true,eyeTracking:true,
@@ -3972,7 +3973,7 @@ function drawCoursePickerMaps(){
     const harpy=monsterPt(monsterSampAt(.64).p),snake=monsterPt(monsterSampAt(.87).p);
     function miniKaiju(kind,p){
       x.save();x.translate(p[0],p[1]);x.scale(.72,.72);x.lineWidth=1.6;x.strokeStyle='#11180f';
-      x.fillStyle=kind==='godzilla'?'#171a18':kind==='kong'?'#2b1c17':kind==='furbeast'?'#35b9b9':'#b47a2d';
+      x.fillStyle=kind==='godzilla'?'#3db43a':kind==='kong'?'#6b3f24':kind==='furbeast'?'#7a5a38':'#a39c86';
       x.beginPath();x.ellipse(0,-5,5.5,8,0,0,Math.PI*2);x.fill();x.stroke();
       x.beginPath();x.arc(0,-14,kind==='furbeast'?4.4:3.8,0,Math.PI*2);x.fill();x.stroke();
       x.beginPath();x.moveTo(-3,-2);x.lineTo(-4,7);x.moveTo(3,-2);x.lineTo(4,7);x.stroke();
@@ -3981,17 +3982,17 @@ function drawCoursePickerMaps(){
       }else if(kind==='kong'){
         x.lineWidth=3.5;x.beginPath();x.moveTo(-5,-8);x.lineTo(-9,3);x.moveTo(5,-8);x.lineTo(9,3);x.stroke();
       }else if(kind==='furbeast'){
-        x.fillStyle='#7651a3';for(const q of[[-3,-7,1.8],[3,-2,1.5]]){x.beginPath();x.arc(q[0],q[1],q[2],0,Math.PI*2);x.fill();}
-        x.fillStyle='#ded1b4';for(const dx of[-2.2,2.2]){x.beginPath();x.moveTo(dx,-18);x.lineTo(dx+(dx<0?-2:2),-22);x.lineTo(dx+.5,-17);x.fill();}
+        x.fillStyle='#e8c9a0';x.beginPath();x.ellipse(0,-12,2.6,2.1,0,0,Math.PI*2);x.fill();
+        x.fillStyle='#7a5a38';for(const dx of[-2.4,2.4]){x.beginPath();x.moveTo(dx,-16);x.lineTo(dx+(dx<0?-1.6:1.6),-22);x.lineTo(dx+.4,-16);x.fill();}
       }else{
-        x.strokeStyle='#9a1f1d';x.lineWidth=2.4;x.beginPath();x.moveTo(0,-18);x.lineTo(-5,-24);x.lineTo(4,-22);x.moveTo(-5,-7);x.lineTo(-10,-11);x.moveTo(5,-7);x.lineTo(10,-11);x.stroke();
+        x.fillStyle='#f2e6c4';x.beginPath();x.moveTo(0,-18);x.lineTo(-1.6,-26);x.lineTo(1.6,-26);x.closePath();x.fill();x.stroke();
       }
       x.restore();
     }
     for(const K of kaiju)miniKaiju(K[0],K[1]);
     x.strokeStyle='#e9d7bd';x.lineWidth=3;x.beginPath();x.moveTo(harpy[0]-12,harpy[1]+6);x.lineTo(harpy[0],harpy[1]-5);x.lineTo(harpy[0]+12,harpy[1]+6);x.stroke();
     x.fillStyle='#96cf58';x.beginPath();x.ellipse(snake[0],snake[1],10,5,.35,0,Math.PI*2);x.fill();x.strokeStyle='#173e24';x.stroke();
-    tag(x,kaiju[1][1][0],kaiju[1][1][1]-25,'KAIJU CROSSING','#6d241c');
+    tag(x,kaiju[1][1][0],kaiju[1][1][1]-25,'GEORGE LIZZIE RALPH','#6d241c');
     tag(x,harpy[0],harpy[1]+20,'HARPY PASS','#40225d');
     tag(x,snake[0],snake[1]-16,'SERPENT BACK','#174d2d');
     finishSign(x,monsterPt(MONSTER_FINISH_FRAME.p),'START / FINISH');northArrow(x);
@@ -5559,19 +5560,19 @@ const MONSTER_NRM=(function(){
    background at distance. Costs one pow() per fragment. */
 function addCreatureRim(m,key){
   if(!m)return m;
-  const cool=key==='armor'?0x6f86ff:key==='fur'||key==='feather'?0x9db8e6:0x8fb0f0;
-  m.userData.rimColor=cool;
+  const warm=key==='fur'||key==='feather'?0xffe2a8:key==='armor'?0xfff0d0:0xfff6c2;
+  m.userData.rimColor=warm;
   m.onBeforeCompile=function(shader){
-    shader.uniforms.uRimColor={value:new THREE.Color(cool)};
-    shader.uniforms.uRimPower={value:key==='armor'?2.1:2.7};
-    shader.uniforms.uRimStrength={value:key==='armor'?.42:key==='fur'?.30:.34};
+    shader.uniforms.uRimColor={value:new THREE.Color(warm)};
+    shader.uniforms.uRimPower={value:key==='armor'?2.0:2.4};
+    shader.uniforms.uRimStrength={value:key==='fur'?.40:.46};
     shader.fragmentShader='uniform vec3 uRimColor;uniform float uRimPower;uniform float uRimStrength;\n'+shader.fragmentShader;
     shader.fragmentShader=shader.fragmentShader.replace('#include <dithering_fragment>',
       ['float rimF=1.0-clamp(dot(normalize(normal),normalize(vViewPosition)),0.0,1.0);',
        'gl_FragColor.rgb+=uRimColor*pow(rimF,uRimPower)*uRimStrength;',
        '#include <dithering_fragment>'].join('\n'));
   };
-  m.customProgramCacheKey=function(){return 'acrRim'+cool+key;};
+  m.customProgramCacheKey=function(){return 'acrRim'+warm+key;};
   return m;
 }
 
@@ -5586,8 +5587,8 @@ MONSTER_ROOT.name='MonsterIsland';MONSTER_ROOT.visible=false;scene.add(MONSTER_R
    almost equally from every direction and had no form. Fill is now low, the key is
    strong and casts a tight shadow map, and a cool back rim separates the silhouette
    from the jungle. */
-const monsterHemi=new THREE.HemisphereLight(0xcfe0ff,0x101f16,.22);MONSTER_ROOT.add(monsterHemi);
-const monsterKey=new THREE.DirectionalLight(0xfff0d2,2.15);
+const monsterHemi=new THREE.HemisphereLight(0xfff3d6,0x3d6b32,.48);MONSTER_ROOT.add(monsterHemi);
+const monsterKey=new THREE.DirectionalLight(0xfff4d8,1.05);
 monsterKey.position.set(MONSTER_CX-150,220,MONSTER_CZ+120);
 monsterKey.target.position.set(MONSTER_CX,18,MONSTER_CZ);
 monsterKey.castShadow=true;
@@ -5597,10 +5598,10 @@ monsterKey.shadow.radius=MOBILE?1:2.5;
 {const c=monsterKey.shadow.camera,S=MOBILE?110:150;
  c.left=-S;c.right=S;c.top=S;c.bottom=-S;c.near=40;c.far=760;c.updateProjectionMatrix();}
 MONSTER_ROOT.add(monsterKey,monsterKey.target);
-const monsterRim=new THREE.DirectionalLight(0x8fb6ff,1.05);
+const monsterRim=new THREE.DirectionalLight(0xffe6b0,.40);
 monsterRim.position.set(MONSTER_CX+260,120,MONSTER_CZ-240);
 monsterRim.target.position.set(MONSTER_CX,26,MONSTER_CZ);MONSTER_ROOT.add(monsterRim,monsterRim.target);
-const monsterBounce=new THREE.DirectionalLight(0x6f8f52,.30);
+const monsterBounce=new THREE.DirectionalLight(0x8fbf5a,.32);
 monsterBounce.position.set(MONSTER_CX,-90,MONSTER_CZ+40);
 monsterBounce.target.position.set(MONSTER_CX,24,MONSTER_CZ);MONSTER_ROOT.add(monsterBounce,monsterBounce.target);
 /* The shadow camera follows the player so the limited map resolution is always
@@ -5614,6 +5615,7 @@ function trackMonsterShadow(){
   monsterKey.target.updateMatrixWorld();
 }
 const MONSTER_ISLAND={walkers:[],harpies:[],staticAudit:[],harpyCooldown:0,snake:null,snakeStop:0,snakeWarned:false};
+window.ACR_MONSTER_ISLAND=MONSTER_ISLAND;
 /* The world lighting is deliberately flat and ambient-heavy so open trail reads as
    bright daylight. That is exactly wrong for giant creatures, so Monster Island
    pulls the global fill down while it is active and restores it on exit. Sky, fog
@@ -5806,19 +5808,13 @@ try{(function buildMonsterIsland(){
      faces, claws, fur, scales and secondary motion give each creature a clear
      identity from both the cockpit and the overhead camera. */
   function creatureMat(color,map,key,extra){
-    const opts=Object.assign({color,roughness:.82,metalness:.015},extra||{});if(map)opts.map=map;
-    const nrm=(typeof MONSTER_NRM!=='undefined'&&MONSTER_NRM)?MONSTER_NRM.forKey(key):null;
-    if(nrm){
-      /* Clone so each material can carry its own tiling without fighting others. */
-      const n=nrm.clone();n.needsUpdate=true;n.wrapS=n.wrapT=THREE.RepeatWrapping;
-      const rp=(map&&map.repeat)?map.repeat:{x:2,y:2};
-      n.repeat.set((rp.x||2)*1.6,(rp.y||2)*1.6);
-      opts.normalMap=n;
-      const s=MONSTER_NRM.scaleFor(key);
-      opts.normalScale=new THREE.Vector2(s,s);
-    }
-    const m=new THREE.MeshStandardMaterial(opts);m.userData.mat=key||'creature';
-    if(typeof addCreatureRim==='function')addCreatureRim(m,key);
+    /* Lambert so the later arcade toon pass can cel-shade them. Standard +
+       charcoal roughness is what made the previous walkers read as black
+       plastic blobs against the jungle. */
+    const opts={color:color};
+    if(extra&&extra.transparent){opts.transparent=true;opts.opacity=extra.opacity==null?.88:extra.opacity;}
+    const m=new THREE.MeshLambertMaterial(opts);
+    m.userData.mat=key||'creature';m.userData.monsterSurface=1;
     return m;
   }
   function part(parent,geo,mat,x,y,z,sx,sy,sz,rx,ry,rz){
@@ -5849,26 +5845,26 @@ try{(function buildMonsterIsland(){
       E.mesh.position.z=E.base.z+.025;
     }
   }
-  const boneMat=creatureMat(0xead9ab,null,'bone',{roughness:.62}),mouthMat=creatureMat(0x6f2429,null,'creature',{roughness:.58});
-  const eyeWhite=creatureMat(0xf4e7c8,null,'creature',{roughness:.2}),eyeDark=new THREE.MeshBasicMaterial({color:0x120b08});
-  const eyeGlint=new THREE.MeshBasicMaterial({color:0xffffff}),godEye=new THREE.MeshBasicMaterial({color:0xb98d55});
-  const godSkin=creatureMat(0x171a18,TEX.rep(TEX.rough,2,5),'hide',{roughness:.92});
-  const godBelly=creatureMat(0x292b27,TEX.rep(TEX.rough,2,3),'hide',{roughness:.95});
-  const godPlate=creatureMat(0x5a5951,TEX.rep(TEX.rock,2,3),'hide',{roughness:.82}),godGlow=new THREE.MeshBasicMaterial({color:0xd8d1bd});
-  const kongFur=creatureMat(0x271a15,TEX.rep(TEX.fur,3,4),'fur',{roughness:.96});
-  const kongFurLight=creatureMat(0x493128,TEX.rep(TEX.fur,2,3),'fur',{roughness:.93});
-  const kongSkin=creatureMat(0x684a3d,TEX.rep(TEX.rough,2,2),'hide',{roughness:.88});
-  const kongEye=creatureMat(0x40291b,null,'creature',{roughness:.14,metalness:.04});
-  const furBeastBlue=creatureMat(0x31b8b8,TEX.rep(TEX.fur,2,3),'fur',{roughness:.94});
-  const furBeastLight=creatureMat(0x76d4c5,TEX.rep(TEX.fur,2,3),'fur',{roughness:.92});
-  const furBeastSpot=creatureMat(0x7656a4,TEX.rep(TEX.fur,2,2),'fur',{roughness:.92});
-  const furBeastSkin=creatureMat(0x295c62,TEX.rep(TEX.rough,2,2),'hide',{roughness:.86});
-  const furBeastIris=new THREE.MeshBasicMaterial({color:0x2b5662});
-  const armorHide=creatureMat(0x252421,TEX.rep(TEX.rough,2,4),'hide',{roughness:.92});
-  const armorGold=creatureMat(0xb0782e,TEX.rep(TEX.rock,2,3),'armor',{roughness:.58,metalness:.18});
-  const armorGoldLight=creatureMat(0xd09a45,TEX.rep(TEX.rock,2,2),'armor',{roughness:.52,metalness:.22});
-  const armorRed=creatureMat(0x8f211f,TEX.rep(TEX.rough,2,2),'horn',{roughness:.52,metalness:.08});
-  const armorEye=new THREE.MeshBasicMaterial({color:0xff3b63}),armorCore=new THREE.MeshBasicMaterial({color:0xff4e98});
+  const boneMat=creatureMat(0xfff4d0,null,'bone'),mouthMat=creatureMat(0x8a1f28,null,'creature');
+  const eyeWhite=creatureMat(0xfff8ee,null,'creature'),eyeDark=new THREE.MeshBasicMaterial({color:0x120b08});
+  const eyeGlint=new THREE.MeshBasicMaterial({color:0xffffff}),godEye=new THREE.MeshBasicMaterial({color:0xfff04a});
+  const godSkin=creatureMat(0x3db43a,TEX.rep(TEX.rough,2,5),'hide');
+  const godBelly=creatureMat(0xf5d34a,TEX.rep(TEX.rough,2,3),'hide');
+  const godPlate=creatureMat(0x246b28,TEX.rep(TEX.rock,2,3),'hide'),godGlow=new THREE.MeshBasicMaterial({color:0xfff6b0});
+  const kongFur=creatureMat(0x6b3f24,TEX.rep(TEX.fur,3,4),'fur');
+  const kongFurLight=creatureMat(0x8a5a38,TEX.rep(TEX.fur,2,3),'fur');
+  const kongSkin=creatureMat(0xe6b48a,TEX.rep(TEX.rough,2,2),'hide');
+  const kongEye=creatureMat(0xfff8e8,null,'creature');
+  const furBeastBlue=creatureMat(0x7a5a38,TEX.rep(TEX.fur,2,3),'fur');
+  const furBeastLight=creatureMat(0xc4a06a,TEX.rep(TEX.fur,2,3),'fur');
+  const furBeastSpot=creatureMat(0x4a3724,TEX.rep(TEX.fur,2,2),'fur');
+  const furBeastSkin=creatureMat(0xe8c9a0,TEX.rep(TEX.rough,2,2),'hide');
+  const furBeastIris=new THREE.MeshBasicMaterial({color:0xffb040});
+  const armorHide=creatureMat(0x8d8874,TEX.rep(TEX.rough,2,4),'hide');
+  const armorGold=creatureMat(0xc4bda6,TEX.rep(TEX.rock,2,3),'armor');
+  const armorGoldLight=creatureMat(0xddd6c0,TEX.rep(TEX.rock,2,2),'armor');
+  const armorRed=creatureMat(0x6a6354,TEX.rep(TEX.rough,2,2),'horn');
+  const armorEye=new THREE.MeshBasicMaterial({color:0xffcc33}),armorCore=new THREE.MeshBasicMaterial({color:0xffe9b8});
   const scaleNoduleGeo=new THREE.OctahedronGeometry(.72,1),furTuftGeo=new THREE.ConeGeometry(.55,1.9,6);
 
   /* ================= ARTICULATED KAIJU RIG =================
@@ -6068,7 +6064,7 @@ try{(function buildMonsterIsland(){
       lastPos:g.position.clone(),travelDistance:0,prevYaw:g.rotation.y,turnRate:0});
   }
 
-  /* ---------------- CHARCOAL REPTILE ---------------- */
+  /* ---------------- LIZZIE (Rampage lizard) ---------------- */
   function makeGodzilla(t,phase){
     const g=new THREE.Group(),legs=[],feet=[],bodyRig=new THREE.Group(),arms=[],gazeEyes=[];g.add(bodyRig);
     for(const sd of[-1,1]){
@@ -6092,7 +6088,7 @@ try{(function buildMonsterIsland(){
     /* Dorsal plate ridge, larger and layered with a glowing inner core. */
     for(let i=0;i<10;i++){
       const y=18.4+i*2.45,s=3.15-Math.abs(i-4.2)*.30;
-      part(bodyRig,new THREE.ConeGeometry(Math.max(.85,s),4.7,4),godPlate,0,y,-5.3,1,1,1,-Math.PI/2,0,Math.PI/4);
+      part(bodyRig,new THREE.ConeGeometry(Math.max(.85,s),4.7,4),godBelly,0,y,-5.3,1,1,1,-Math.PI/2,0,Math.PI/4);
       part(bodyRig,new THREE.ConeGeometry(Math.max(.36,s*.38),2.0,4),godGlow,0,y,-6.55,1,1,1,-Math.PI/2,0,Math.PI/4);
       if(i>1&&i<8)for(const sd of[-1,1])
         part(bodyRig,new THREE.ConeGeometry(Math.max(.34,s*.44),2.2,5),godPlate,sd*1.75,y-.40,-5.0,1,1,1,-Math.PI/2,0,Math.PI/4+sd*.10);
@@ -6110,7 +6106,7 @@ try{(function buildMonsterIsland(){
       part(headRig,new THREE.SphereGeometry(.20,SEG(8,5),SEG(6,4)),eyeDark,sd*.78,.42,8.30,1,.48,.55);
       part(headRig,new THREE.SphereGeometry(1,SEG(10,7),SEG(8,5)),godPlate,sd*3.35,-.75,2.3,.80,1.05,1.20);
     }
-    const godLids=makeEyeSet(headRig,{x:1.95,y:1.05,z:3.55,r:.80,pupil:.20,pupilTall:2.1,
+    const godLids=makeEyeSet(headRig,{x:2.15,y:1.25,z:3.85,r:1.05,pupil:.22,pupilTall:2.2,
       scleraMat:godEye,lidMat:godPlate},gazeEyes);
     /* Hinged jaw with upper and lower tooth rows. */
     const jawPivot=new THREE.Group();jawPivot.position.set(0,-1.35,1.6);headRig.add(jawPivot);
@@ -6156,14 +6152,14 @@ try{(function buildMonsterIsland(){
         A.wrist.rotation.x=monsterEase(S2,'w',.30+impact*.14,.19);
         for(let k=0;k<A.fingers.length;k++)A.fingers[k].rotation.x=.22+Math.sin(now*1.3+k)*.06;
       }
-      godGlow.color.setHSL(.11,.30,.72+Math.sin(now*1.9)*.14);
+      godGlow.color.setHSL(.16,.90,.62+Math.sin(now*1.9)*.16);
       driveBlink(godLids,now,.13);
       animateAnimalGaze(headRig,trackedEyes,gait);
     };
-    registerKaiju('godzilla','GODZILLA',t,phase,g,legs,feet,bodyRig,animate);
+    registerKaiju('godzilla','LIZZIE',t,phase,g,legs,feet,bodyRig,animate);
   }
 
-  /* ---------------- GIANT GORILLA ---------------- */
+  /* ---------------- GEORGE (Rampage gorilla) ---------------- */
   function makeKong(t,phase){
     const g=new THREE.Group(),legs=[],feet=[],bodyRig=new THREE.Group(),arms=[],gazeEyes=[];g.add(bodyRig);
     for(const sd of[-1,1]){
@@ -6206,7 +6202,7 @@ try{(function buildMonsterIsland(){
       part(headRig,new THREE.SphereGeometry(.18,SEG(7,5),SEG(5,4)),eyeDark,sd*.72,1.10,6.35,1,.55,.60);
       for(let i=0;i<3;i++)part(headRig,furTuftGeo,kongFur,sd*(3.0+i*.6),3.9-i*.5,-1.6,.62,1.05,.62,-.4,0,sd*.3);
     }
-    const kongLids=makeEyeSet(headRig,{x:1.75,y:2.35,z:3.95,r:.62,pupil:.26,pupilTall:1.0,
+    const kongLids=makeEyeSet(headRig,{x:1.85,y:2.45,z:4.15,r:.95,pupil:.32,pupilTall:1.0,
       scleraMat:kongEye,lidMat:kongSkin},gazeEyes);
     const jawPivot=new THREE.Group();jawPivot.position.set(0,-.85,2.1);headRig.add(jawPivot);
     part(jawPivot,new THREE.SphereGeometry(1,SEG(13,9),SEG(10,7)),kongSkin,0,-.30,1.85,3.05,1.05,2.15);
@@ -6257,10 +6253,10 @@ try{(function buildMonsterIsland(){
       driveBlink(kongLids,now,.47);
       animateAnimalGaze(headRig,trackedEyes,gait);
     };
-    registerKaiju('kong','KING KONG',t,phase,g,legs,feet,bodyRig,animate);
+    registerKaiju('kong','GEORGE',t,phase,g,legs,feet,bodyRig,animate);
   }
 
-  /* ---------------- BLUE HORNED FUR BEAST ---------------- */
+  /* ---------------- RALPH (Rampage wolf) ---------------- */
   function makeFurBeast(t,phase){
     const g=new THREE.Group(),legs=[],feet=[],bodyRig=new THREE.Group(),arms=[],gazeEyes=[];g.add(bodyRig);
     for(const sd of[-1,1]){
@@ -6290,21 +6286,21 @@ try{(function buildMonsterIsland(){
       for(let i=0;i<4;i++)part(A.elbow,furTuftGeo,furBeastLight,sd*1.25,-1.4-i*1.8,-.8,.72,1.25,.72,0,0,sd*.28);
       bodyRig.add(A.arm);A.arm.rotation.x=-.14;A.arm.rotation.z=sd*.16;arms.push(A);
     }
-    /* Horned head. */
+    /* Wolf muzzle and pointed fur ears. */
     const neck=buildNeck(bodyRig,{y:31.0,z:.1,count:2,step:1.55,r0:3.35,r1:2.95,lean:.18,mat:furBeastBlue});
     const headRig=neck.headPivot;
     part(headRig,new THREE.SphereGeometry(1,SEG(20,13),SEG(15,10)),furBeastBlue,0,1.85,.55,5.25,5.05,4.65);
     part(headRig,new THREE.SphereGeometry(1,SEG(14,9),SEG(11,7)),furBeastLight,0,.55,4.20,3.35,2.45,2.15);
     const fbNose=part(headRig,new THREE.SphereGeometry(1,SEG(11,8),SEG(9,6)),furBeastSkin,0,1.05,6.15,.68,.52,.60);
     for(const sd of[-1,1]){
-      const horn=part(headRig,new THREE.ConeGeometry(.80,3.6,SEG(9,6)),boneMat,sd*3.25,5.15,-.2,1,1,1,-.18,0,sd*.44);
-      part(headRig,new THREE.TorusGeometry(.62,.16,SEG(7,5),SEG(12,8)),boneMat,sd*3.05,4.35,-.15,1,1,1,Math.PI/2,0,sd*.44);
+      part(headRig,new THREE.ConeGeometry(1.55,2.35,SEG(8,5)),furBeastBlue,sd*2.55,4.85,.35,1,.95,.52,-.28,0,sd*.62);
+      part(headRig,new THREE.ConeGeometry(.72,1.45,SEG(7,5)),furBeastSkin,sd*2.55,4.72,.58,.95,.95,.42,-.28,0,sd*.62);
       part(headRig,new THREE.SphereGeometry(1,SEG(10,7),SEG(8,5)),furBeastBlue,sd*1.35,2.85,3.95,1.35,.45,.62,0,0,sd*.10);
       part(headRig,new THREE.SphereGeometry(1,SEG(9,6),SEG(7,5)),furBeastSkin,sd*4.35,1.55,.1,.95,1.35,.62);
       for(let i=0;i<4;i++)part(headRig,furTuftGeo,i%2?furBeastBlue:furBeastLight,sd*(3.4+i*.5),3.6-i*.6,-2.0,.68,1.15,.68,-.42,0,sd*.32);
     }
-    const fbLids=makeEyeSet(headRig,{x:1.40,y:2.10,z:3.85,r:.72,pupil:.24,pupilTall:1.3,
-      scleraMat:furBeastIris,lidMat:furBeastBlue},gazeEyes);
+    const fbLids=makeEyeSet(headRig,{x:1.55,y:2.25,z:4.05,r:.88,pupil:.26,pupilTall:1.15,
+      scleraMat:eyeWhite,lidMat:furBeastBlue},gazeEyes);
     const jawPivot=new THREE.Group();jawPivot.position.set(0,-.35,2.3);headRig.add(jawPivot);
     part(jawPivot,new THREE.SphereGeometry(1,SEG(12,8),SEG(9,6)),furBeastLight,0,-.35,1.95,2.85,.95,2.05);
     part(jawPivot,new THREE.SphereGeometry(1,SEG(10,7),SEG(8,5)),mouthMat,0,.10,2.15,2.35,.38,1.65);
@@ -6341,10 +6337,10 @@ try{(function buildMonsterIsland(){
       driveBlink(fbLids,now,.71);
       animateAnimalGaze(headRig,trackedEyes,gait);
     };
-    registerKaiju('furbeast','BLUE HORNED FUR BEAST',t,phase,g,legs,feet,bodyRig,animate);
+    registerKaiju('furbeast','RALPH',t,phase,g,legs,feet,bodyRig,animate);
   }
 
-  /* ---------------- GOLD ARMORED SPIKE BEAST ---------------- */
+  /* ---------------- RHINO (Rampage-style city brute) ---------------- */
   function makeArmoredKaiju(t,phase){
     const g=new THREE.Group(),legs=[],feet=[],bodyRig=new THREE.Group(),arms=[],gazeEyes=[];g.add(bodyRig);
     for(const sd of[-1,1]){
@@ -6368,11 +6364,9 @@ try{(function buildMonsterIsland(){
     }
     part(bodyRig,new THREE.SphereGeometry(1,SEG(16,10),SEG(12,8)),armorHide,0,26.0,4.6,4.9,6.4,1.35);
     const core=part(bodyRig,new THREE.OctahedronGeometry(1.35,1),armorCore,0,29.4,5.45,1.45,1.95,.55);core.name='armoredChestCore';
-    for(let i=0;i<8;i++){
-      const s=3.1-Math.abs(i-3.5)*.26;
-      part(bodyRig,new THREE.ConeGeometry(Math.max(.7,s),4.4,SEG(6,4)),armorGold,0,19.6+i*2.5,-5.1,1,1,1,-Math.PI/2,0,Math.PI/4);
-      part(bodyRig,new THREE.ConeGeometry(Math.max(.3,s*.4),1.9,SEG(5,4)),armorRed,0,19.6+i*2.5,-6.3,1,1,1,-Math.PI/2,0,Math.PI/4);
-    }
+    part(bodyRig,new THREE.SphereGeometry(1,SEG(14,9),SEG(11,7)),armorHide,0,28.6,-4.4,5.4,3.6,4.0);
+    part(bodyRig,new THREE.SphereGeometry(1,SEG(12,8),SEG(9,6)),armorGold,0,24.0,-3.8,4.8,2.8,3.4);
+    part(bodyRig,new THREE.SphereGeometry(1,SEG(11,8),SEG(8,6)),armorHide,0,20.6,-3.2,4.2,2.2,2.9);
     for(const sd of[-1,1]){
       part(bodyRig,new THREE.SphereGeometry(1,SEG(13,9),SEG(10,7)),armorGold,sd*6.55,32.4,-.2,3.35,3.15,3.45);
       part(bodyRig,new THREE.ConeGeometry(1.50,5.6,SEG(9,6)),armorRed,sd*8.75,33.6,-.3,1,1,1,0,0,-sd*Math.PI/2);
@@ -6383,13 +6377,15 @@ try{(function buildMonsterIsland(){
       for(let k=0;k<2;k++)part(A.elbow,new THREE.ConeGeometry(.82,2.6,SEG(7,5)),armorRed,sd*1.65,-1.2-k*2.6,-.4,1,1,1,0,0,-sd*Math.PI/2);
       bodyRig.add(A.arm);A.arm.rotation.x=-.16;A.arm.rotation.z=sd*.20;arms.push(A);
     }
-    /* Crowned, visored head. */
+    /* Rhino snout, horn, and heavy brow. */
     const neck=buildNeck(bodyRig,{y:34.6,z:-.2,count:2,step:1.60,r0:3.05,r1:2.65,lean:.20,mat:armorHide,ring:armorGold});
     const headRig=neck.headPivot;
     part(headRig,new THREE.SphereGeometry(1,SEG(20,13),SEG(15,10)),armorHide,0,1.05,.5,4.35,3.85,4.30);
     part(headRig,new THREE.SphereGeometry(1,SEG(16,10),SEG(12,8)),armorGold,0,2.15,1.2,4.35,1.95,4.20);
     part(headRig,new THREE.SphereGeometry(1,SEG(14,9),SEG(11,7)),armorHide,0,.15,4.15,3.35,2.15,2.55);
-    const crown=new THREE.Mesh(new THREE.TorusGeometry(3.05,.68,SEG(9,6),SEG(24,14),Math.PI*1.34),armorRed);
+    part(headRig,new THREE.ConeGeometry(1.35,6.4,SEG(9,6)),boneMat,0,1.55,6.55,1,1,1,1.12,0,0);
+    part(headRig,new THREE.ConeGeometry(.55,2.4,SEG(7,5)),armorGoldLight,0,1.35,9.15,1,1,1,1.12,0,0);
+    const crown=new THREE.Mesh(new THREE.TorusGeometry(3.05,.68,SEG(9,6),SEG(24,14),Math.PI*1.34),armorGold);
     crown.position.set(0,4.15,.15);crown.rotation.set(Math.PI/2,0,Math.PI*.83);headRig.add(crown);
     for(const sd of[-1,1]){
       part(headRig,new THREE.ConeGeometry(.62,3.2,SEG(8,6)),armorGoldLight,sd*2.85,3.85,-.4,1,1,1,-.25,0,sd*.52);
@@ -6397,8 +6393,8 @@ try{(function buildMonsterIsland(){
       part(headRig,new THREE.SphereGeometry(1,SEG(10,7),SEG(8,5)),armorGold,sd*2.15,1.85,2.85,1.25,.55,1.45,0,0,sd*.12);
       part(headRig,new THREE.SphereGeometry(.20,SEG(7,5),SEG(5,4)),eyeDark,sd*.75,.35,5.85,1,.50,.55);
     }
-    const arLids=makeEyeSet(headRig,{x:1.85,y:1.15,z:3.35,r:.75,pupil:.22,pupilTall:1.8,
-      scleraMat:armorEye,lidMat:armorGold},gazeEyes);
+    const arLids=makeEyeSet(headRig,{x:1.95,y:1.35,z:3.55,r:.90,pupil:.28,pupilTall:1.4,
+      scleraMat:armorEye,lidMat:armorHide},gazeEyes);
     const jawPivot=new THREE.Group();jawPivot.position.set(0,-1.05,1.5);headRig.add(jawPivot);
     const jaw=part(jawPivot,new THREE.SphereGeometry(1,SEG(13,9),SEG(10,7)),mouthMat,0,-.25,2.55,3.35,.75,2.65);jaw.name='armoredJaw';
     for(const sd of[-1,1])for(let k=0;k<4;k++)
@@ -6427,8 +6423,8 @@ try{(function buildMonsterIsland(){
       driveTail(tail,now,(w&&w.turnRate||0),spd,.02);
       const pulse=.55+Math.abs(Math.sin(now*2.3))*.45;
       core.scale.set(1.45*(1+pulse*.10),1.95*(1+pulse*.10),.55);
-      armorCore.color.setHSL(.92,.85,.42+pulse*.26);
-      armorEye.color.setHSL(.97,.90,.42+pulse*.20);
+      armorCore.color.setHSL(.12,.45,.72+pulse*.12);
+      armorEye.color.setHSL(.13,.95,.52+pulse*.16);
       for(const A of arms){
         A.arm.rotation.x=-.16+Math.sin(p+(A.sd>0?Math.PI:0))*.24-support*.04;
         A.elbow.rotation.x=.36+Math.max(0,Math.sin(p+(A.sd>0?Math.PI:0)))*.30;
@@ -6439,7 +6435,7 @@ try{(function buildMonsterIsland(){
       driveBlink(arLids,now,.29);
       animateAnimalGaze(headRig,trackedEyes,gait);
     };
-    registerKaiju('armored','GOLD ARMORED SPIKE BEAST',t,phase,g,legs,feet,bodyRig,animate);
+    registerKaiju('armored','RHINO',t,phase,g,legs,feet,bodyRig,animate);
   }
 
   makeGodzilla(.135,.2);makeKong(.235,2.35);makeFurBeast(.335,4.4);makeArmoredKaiju(.435,5.7);
@@ -10063,6 +10059,7 @@ const cart={
   broomFlight:0,broomFlightMax:0,
   _circleLandingGuide:0,_cannonLoop:0,_cannonLoopDone:false,_cannonRampAir:0,_cannonLaunchV:0,
 };
+window.ACR_CART=cart;
 (function initCartPos(){
   const s=courseSampAt(0.003);
   cart.x=s.p.x;cart.z=s.p.z;
@@ -11763,6 +11760,12 @@ function tick(now){
   document.querySelector('#speed span').textContent=cart.v<-.25?'REVERSE':'MPH';
   if(cart.started)laptimeEl.textContent=fmtTime(clockT-cart.lapStart+(cart.lapPenalty||0));
   drawMap(cart.x,cart.z);
+  if(window.ACR_CAM_LOCK){
+    const L=window.ACR_CAM_LOCK;
+    camera.up.set(0,1,0);
+    camera.position.set(L.x,L.y,L.z);
+    camera.lookAt(L.lx,L.ly,L.lz);
+  }
   arcadeRender(scene,camera);
   requestAnimationFrame(tick);
 }
@@ -11977,7 +11980,7 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
       if(!m||m.__kart)return m;
       if(conv.has(m))return conv.get(m);
       let out=m;
-      if(m.isMeshLambertMaterial){
+      if(m.isMeshLambertMaterial && !m.userData.monsterSurface){
         out=new THREE.MeshToonMaterial({
           color:m.color?m.color.clone():new THREE.Color(0xffffff),
           map:m.map||null, gradientMap:RAMP,
