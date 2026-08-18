@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- STARTUP FIX 2026-08-18: show the sign-in gate immediately, keep a failed 3D boot from swallowing ENTER, and isolate Monster Island construction so the derby can still start. -->
 <!-- MONSTER ISLAND COURSE 2026-08-18: third selectable derby course — volcanic jungle loop west of Apple Canyon Lake. -->
 <!-- MONSTER ISLAND VISUALS 2026-08-18: rebuilt every wildlife and monster sprite, swapped in the illustrated musky, and lifted lighting/UI polish. -->
 <!-- GITHUB-OPTIMIZED BUILD: embedded artwork and radio audio compressed; no game content removed. -->
@@ -57,7 +58,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-18-MONSTER-ISLAND-COURSE">
+<meta name="acr-build" content="2026-08-18-STARTUP-FIX">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -2852,6 +2853,11 @@ window.ACR_CONFIG = {
        ------------------------------------------------------------------ */
     var enterTimer=null, enterTries=0;
     function enterGame(){
+      var bootErr=document.getElementById('loadstatus');
+      if(bootErr&&bootErr.classList.contains('error')&&!window.ACR_GAME_READY){
+        location.reload();
+        return;
+      }
       window.ACR_PENDING_ENTRY=true;
       if(enterTimer){clearInterval(enterTimer);enterTimer=null;}
       enterTries=0;
@@ -2870,9 +2876,13 @@ window.ACR_CONFIG = {
         if(typeof window.ACR_ENTER_GAME==='function'&&window.ACR_ENTER_GAME())
           { if(enterTimer){clearInterval(enterTimer);enterTimer=null;} return; }
         var ls=document.getElementById('loadstatus');
-        if(ls&&!ls.classList.contains('error'))
+        if(ls&&ls.classList.contains('error')){
+          if(enterTimer){clearInterval(enterTimer);enterTimer=null;}
+          return;
+        }
+        if(ls)
           ls.textContent = enterTries>60 ? 'STILL LOADING THE 3D ENGINE\u2026' : 'LOADING 3D ENGINE\u2026';
-        if(enterTries===150&&ls){                 // ~30s: something is wrong
+        if(enterTries===300&&ls){                 // ~60s: huge single-file parse can outlast 30s
           ls.classList.add('error');
           ls.textContent='3D ENGINE DID NOT LOAD \u2014 CHECK YOUR CONNECTION AND RELOAD';
           if(enterTimer){clearInterval(enterTimer);enterTimer=null;}
@@ -3023,7 +3033,12 @@ window.ACR_CONFIG = {
       return; // never let a saved/late session close the recovery form
     }
     BACKEND.restore().then(function(u){
-      if(u&&!CURRENT){ setUser(u); closeGate(); syncStoredScores(); }
+      if(u&&!CURRENT){
+        setUser(u); closeGate(); syncStoredScores();
+        /* Returning drivers used to land on a disabled title card because
+           restore closed the gate and never handed off into the picker. */
+        enterGame();
+      }
     },function(){ /* login/guest gate is already usable */ });
   }
 
@@ -3039,8 +3054,10 @@ window.ACR_CONFIG = {
     fmt:fmt
   };
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
-  else init();
+  /* The sign-in markup is already in the document above this script. Waiting
+     for DOMContentLoaded delayed the gate until the entire 18MB Three.js +
+     world file finished parsing, which is why ENTER DERBY looked dead. */
+  init();
 })();
 </script>
 
@@ -3148,7 +3165,12 @@ const DERBY_COURSES={
 let SELECTED_COURSE_KEY='cannon';
 function activeCourse(){return DERBY_COURSES[SELECTED_COURSE_KEY]||DERBY_COURSES.cannon;}
 function isMonsterCourse(){return SELECTED_COURSE_KEY==='island';}
-function monsterPreferT(){return isMonsterCourse()?cart.lastNearT:undefined;}
+function monsterPreferT(){
+  if(!isMonsterCourse())return undefined;
+  /* `const cart` is declared later in this function. Reading it in the TDZ
+     throws even through `typeof cart`, which is enough to abort boot. */
+  try{return cart.lastNearT;}catch(_){return undefined;}
+}
 function cartTopSpeed(onTrail){
   const trail=20+ACTIVE_CART.speed*1.8; // 29..38 m/s across the given 1-10 speed range
   return onTrail?trail:Math.max(14,trail*.56);
@@ -3791,6 +3813,11 @@ function drawCoursePickerMaps(){
 
   function prep(canvas,top,bottom){
     const x=canvas.getContext('2d');
+    if(!x)throw new Error('course map canvas context unavailable');
+    if(typeof x.roundRect!=='function')x.roundRect=function(x0,y0,w,h){x.rect(x0,y0,w,h);};
+    if(typeof x.ellipse!=='function')x.ellipse=function(cx,cy,rx,ry,rot,a0,a1){
+      x.save();x.translate(cx,cy);x.rotate(rot||0);x.scale(rx||1,ry||1);x.arc(0,0,1,a0||0,a1==null?Math.PI*2:a1);x.restore();
+    };
     x.setTransform(S,0,0,S,0,0);x.clearRect(0,0,W,H);
     const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,top);g.addColorStop(1,bottom);
     x.fillStyle=g;x.fillRect(0,0,W,H);
@@ -3970,7 +3997,7 @@ function drawCoursePickerMaps(){
     finishSign(x,monsterPt(MONSTER_FINISH_FRAME.p),'START / FINISH');northArrow(x);
   }
 }
-drawCoursePickerMaps();
+try{drawCoursePickerMaps();}catch(e){console.warn('course picker maps skipped:',e);}
 
 /* road proximity grid (terrain flattens beneath the trail) */
 const GRID_N=150,GRID_W=1250;
@@ -4094,7 +4121,7 @@ function terrainH(x,z){
 }
 
 /* ---------------- renderer & scene ---------------- */
-const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:false});
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:false,powerPreference:'high-performance',failIfMajorPerformanceCaveat:false});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,MOBILE?1.3:2));
 /* Grass is the fail-safe behind the full-bleed renderer. If a mobile browser
    changes its landscape viewport mid-frame, no white/black page gutter can flash. */
@@ -4103,9 +4130,11 @@ renderer.setClearColor(0x3f8632,1);
    the file was dead code and the kaiju had no self-shadowing at all - the single
    biggest reason they read as flat plastic. Only the Monster Island key light
    casts, and only creature meshes are casters, so no other course pays for it. */
-renderer.shadowMap.enabled=true;
-renderer.shadowMap.type=MOBILE?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
-renderer.shadowMap.autoUpdate=true;
+try{
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=MOBILE?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate=true;
+}catch(_){try{renderer.shadowMap.enabled=false;}catch(__){}}
 const scene=new THREE.Scene();
 const SKY=0x54c4f7; // fixed gameplay sky blue
 scene.background=new THREE.Color(SKY);
@@ -5578,8 +5607,8 @@ monsterBounce.target.position.set(MONSTER_CX,24,MONSTER_CZ);MONSTER_ROOT.add(mon
    spent where the kaiju are actually being looked at. */
 function trackMonsterShadow(){
   if(!monsterKey.castShadow)return;
-  const tx=(typeof cart!=='undefined'&&isFinite(cart.x))?cart.x:MONSTER_CX;
-  const tz=(typeof cart!=='undefined'&&isFinite(cart.z))?cart.z:MONSTER_CZ;
+  let tx=MONSTER_CX,tz=MONSTER_CZ;
+  try{if(isFinite(cart.x))tx=cart.x;if(isFinite(cart.z))tz=cart.z;}catch(_){}
   monsterKey.target.position.set(tx,14,tz);
   monsterKey.position.set(tx-150,220,tz+120);
   monsterKey.target.updateMatrixWorld();
@@ -5617,7 +5646,7 @@ function keepMonsterStaticClear(obj,label,x,z,r,buffer=2.2){
   if(obj){obj.userData.monsterStatic=label;obj.userData.laneClearance=clearance;if(!safe)obj.visible=false;}
   return safe;
 }
-(function buildMonsterIsland(){
+try{(function buildMonsterIsland(){
   const jungleDark=new THREE.MeshLambertMaterial({color:0x123d24,map:TEX.rep(TEX.leaf,2,2)});jungleDark.userData.mat='foliage';
   const jungleMid=new THREE.MeshLambertMaterial({color:0x2b7837,map:TEX.rep(TEX.leaf,2,2)});jungleMid.userData.mat='foliage';
   const trunkMat=new THREE.MeshLambertMaterial({color:0x6b4527,map:TEX.rep(TEX.bark,2,2)});trunkMat.userData.mat='wood';
@@ -6498,7 +6527,7 @@ function keepMonsterStaticClear(obj,label,x,z,r,buffer=2.2){
     MONSTER_ISLAND.harpies.push({t,phase,frame,g,wings,neck,headRig,gazeEyes:trackedEyes,heading:g.rotation.y,bank:0,pitch:0,flapPhase:phase,rejoin:0});
   }
   makeHarpy(.565,.5);makeHarpy(.645,2.5);makeHarpy(.715,4.7);
-})();
+})();}catch(e){console.error('Monster Island scenery failed:',e);try{if(MONSTER_ROOT)MONSTER_ROOT.visible=false;}catch(_){}}
 
 /* Runtime harpy/carry tracking happens outside the creature-construction
    closure. Keep this helper in shared Monster Island scope so the first race
@@ -6529,9 +6558,7 @@ function resetMonsterIslandHazards(){
     for(let li=0;li<w.legs.length;li++)applyMonsterLeg(w,li,monsterGaitPose(w.motion,0,li),0);
   }
   for(const h of MONSTER_ISLAND.harpies){h.g.visible=true;h.heading=h.g.rotation.y;h.bank=0;h.pitch=0;h.flapPhase=h.phase;h.rejoin=0;}
-  if(typeof cart!=='undefined'){
-    cart._harpyCarry=null;cart._snakeEatT=0;cart._snakeEatStart=null;
-  }
+  try{cart._harpyCarry=null;cart._snakeEatT=0;cart._snakeEatStart=null;}catch(_){}
 }
 function startHarpyCarry(h){
   const rn=roadExact(cart.x,cart.z),landing=monsterSampAt(courseWrapT((rn&&rn.t||h.t)+.035));
@@ -8787,6 +8814,7 @@ addEventListener('keydown',e=>{if(acrTypingTarget(e))return;const k=keymap[e.cod
 addEventListener('keyup',e=>{if(acrTypingTarget(e))return;const k=keymap[e.code];if(k)input[k]=0;});
 function bindHold(id,key){
   const el=document.getElementById(id);
+  if(!el)return;
   const on=e=>{e.preventDefault();input[key]=1;
     try{if(el.setPointerCapture&&e.pointerId!==undefined)el.setPointerCapture(e.pointerId);}catch(_){}};
   const off=e=>{e.preventDefault();input[key]=0;};
@@ -12224,7 +12252,7 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
 
 
 document.getElementById('go').addEventListener('click',()=>{
-  openCoursePickerForNewRace();
+  try{openCoursePickerForNewRace();}catch(e){console.error('ENTER DERBY failed:',e);}
 });
 document.getElementById('derbyBack').addEventListener('click',()=>{
   document.body.classList.add('menuMode');
@@ -12262,11 +12290,14 @@ function openCartPickerForNewRace(){
   cartSelectEl.classList.add('show');cartSelectEl.setAttribute('aria-hidden','false');
 }
 function openCoursePickerForNewRace(){
-  if(window.ACR){ACR.closeResults();ACR.closeBoard();}
-  RUNNING=false;stopRunAudio();resetRun();arcadeRender(scene,camera);
+  if(window.ACR){try{ACR.closeResults();ACR.closeBoard();}catch(_){}}
+  RUNNING=false;try{stopRunAudio();}catch(_){}
+  try{resetRun();}catch(e){console.warn('resetRun during course picker:',e);}
+  try{arcadeRender(scene,camera);}catch(e){console.warn('preview render skipped:',e);}
   document.getElementById('title').style.display='none';
   cartSelectEl.classList.remove('show');cartSelectEl.setAttribute('aria-hidden','true');
-  document.body.classList.add('menuMode');syncCourseSelection(SELECTED_COURSE_KEY);
+  document.body.classList.add('menuMode');
+  try{syncCourseSelection(SELECTED_COURSE_KEY);}catch(e){console.warn('course sync skipped:',e);}
   courseSelectEl.style.display='block';courseSelectEl.setAttribute('aria-hidden','false');
 }
 window.ACR_START_RACE_NOW=startRaceNow;
@@ -12283,7 +12314,7 @@ derbyStartEl.addEventListener('click',startRaceNow);
       return true;
     }
     window.ACR_PENDING_ENTRY=true;
-    if(loadStatus){loadStatus.classList.remove('error');loadStatus.textContent='LOADING 3D ENGINE…';}
+    if(loadStatus&&!loadStatus.classList.contains('error'))loadStatus.textContent='LOADING 3D ENGINE…';
     return false;
   };
 
