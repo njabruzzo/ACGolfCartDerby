@@ -6357,10 +6357,9 @@ try{(function buildMonsterIsland(){
     part(bodyRig,new THREE.SphereGeometry(1,SEG(20,12),SEG(15,10)),armorHide,0,19.4,-.7,6.5,5.2,5.6);
     part(bodyRig,new THREE.SphereGeometry(1,SEG(22,14),SEG(17,11)),armorHide,0,27.2,-.5,7.4,8.8,5.9);
     for(let i=0;i<6;i++){
-      const plate=part(bodyRig,new THREE.SphereGeometry(1,SEG(16,10),SEG(11,8)),i%2?armorGold:armorGoldLight,
+      const plate=part(bodyRig,new THREE.SphereGeometry(1,SEG(16,10),SEG(11,8)),i%2?armorHide:armorGold,
         0,20.6+i*2.55,-.6,7.0-Math.abs(i-2.5)*.30,1.35,6.1-Math.abs(i-2.5)*.26);
       plate.name='armoredGoldCarapace';
-      for(const sd of[-1,1])part(bodyRig,new THREE.ConeGeometry(.72,2.4,SEG(7,5)),armorRed,sd*(5.4-Math.abs(i-2.5)*.2),20.9+i*2.55,-3.9,1,1,1,-Math.PI/2,0,Math.PI/4);
     }
     part(bodyRig,new THREE.SphereGeometry(1,SEG(16,10),SEG(12,8)),armorHide,0,26.0,4.6,4.9,6.4,1.35);
     const core=part(bodyRig,new THREE.OctahedronGeometry(1.35,1),armorCore,0,29.4,5.45,1.45,1.95,.55);core.name='armoredChestCore';
@@ -6368,9 +6367,7 @@ try{(function buildMonsterIsland(){
     part(bodyRig,new THREE.SphereGeometry(1,SEG(12,8),SEG(9,6)),armorGold,0,24.0,-3.8,4.8,2.8,3.4);
     part(bodyRig,new THREE.SphereGeometry(1,SEG(11,8),SEG(8,6)),armorHide,0,20.6,-3.2,4.2,2.2,2.9);
     for(const sd of[-1,1]){
-      part(bodyRig,new THREE.SphereGeometry(1,SEG(13,9),SEG(10,7)),armorGold,sd*6.55,32.4,-.2,3.35,3.15,3.45);
-      part(bodyRig,new THREE.ConeGeometry(1.50,5.6,SEG(9,6)),armorRed,sd*8.75,33.6,-.3,1,1,1,0,0,-sd*Math.PI/2);
-      part(bodyRig,new THREE.ConeGeometry(1.05,3.8,SEG(8,6)),armorGoldLight,sd*7.85,35.4,-1.2,1,1,1,-.5,0,-sd*.8);
+      part(bodyRig,new THREE.SphereGeometry(1,SEG(13,9),SEG(10,7)),armorHide,sd*6.55,32.4,-.2,3.55,3.35,3.65);
       const A=buildArm({kind:'armored',sd,shX:6.75,shY:31.8,shZ:.5,upperLen:8.2,foreLen:7.4,upperR:1.85,foreR:1.50,
         matA:armorHide,matB:armorGold,matC:armorRed,fingers:3,claw:true,thumb:true,palmZ:.5});
       for(let k=0;k<3;k++)part(A.arm,new THREE.CylinderGeometry(1.95,2.05,1.05,SEG(10,7)),k%2?armorGold:armorGoldLight,0,-1.6-k*2.4,0);
@@ -6385,12 +6382,9 @@ try{(function buildMonsterIsland(){
     part(headRig,new THREE.SphereGeometry(1,SEG(14,9),SEG(11,7)),armorHide,0,.15,4.15,3.35,2.15,2.55);
     part(headRig,new THREE.ConeGeometry(1.35,6.4,SEG(9,6)),boneMat,0,1.55,6.55,1,1,1,1.12,0,0);
     part(headRig,new THREE.ConeGeometry(.55,2.4,SEG(7,5)),armorGoldLight,0,1.35,9.15,1,1,1,1.12,0,0);
-    const crown=new THREE.Mesh(new THREE.TorusGeometry(3.05,.68,SEG(9,6),SEG(24,14),Math.PI*1.34),armorGold);
-    crown.position.set(0,4.15,.15);crown.rotation.set(Math.PI/2,0,Math.PI*.83);headRig.add(crown);
     for(const sd of[-1,1]){
-      part(headRig,new THREE.ConeGeometry(.62,3.2,SEG(8,6)),armorGoldLight,sd*2.85,3.85,-.4,1,1,1,-.25,0,sd*.52);
-      part(headRig,new THREE.ConeGeometry(.44,2.3,SEG(7,5)),armorRed,sd*3.55,1.05,2.4,1,1,1,0,0,-sd*.70);
-      part(headRig,new THREE.SphereGeometry(1,SEG(10,7),SEG(8,5)),armorGold,sd*2.15,1.85,2.85,1.25,.55,1.45,0,0,sd*.12);
+      part(headRig,new THREE.SphereGeometry(1,SEG(8,6),SEG(7,5)),armorHide,sd*3.25,3.05,-.15,1.05,1.35,.52);
+      part(headRig,new THREE.SphereGeometry(1,SEG(10,7),SEG(8,5)),armorHide,sd*2.15,1.85,2.85,1.25,.55,1.45,0,0,sd*.12);
       part(headRig,new THREE.SphereGeometry(.20,SEG(7,5),SEG(5,4)),eyeDark,sd*.75,.35,5.85,1,.50,.55);
     }
     const arLids=makeEyeSet(headRig,{x:1.95,y:1.35,z:3.55,r:.90,pupil:.28,pupilTall:1.4,
