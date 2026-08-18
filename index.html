@@ -11763,6 +11763,12 @@ function tick(now){
   document.querySelector('#speed span').textContent=cart.v<-.25?'REVERSE':'MPH';
   if(cart.started)laptimeEl.textContent=fmtTime(clockT-cart.lapStart+(cart.lapPenalty||0));
   drawMap(cart.x,cart.z);
+  if(window.ACR_CAM_LOCK){
+    const L=window.ACR_CAM_LOCK;
+    camera.up.set(0,1,0);
+    camera.position.set(L.x,L.y,L.z);
+    camera.lookAt(L.lx,L.ly,L.lz);
+  }
   arcadeRender(scene,camera);
   requestAnimationFrame(tick);
 }
