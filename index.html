@@ -5587,8 +5587,8 @@ MONSTER_ROOT.name='MonsterIsland';MONSTER_ROOT.visible=false;scene.add(MONSTER_R
    almost equally from every direction and had no form. Fill is now low, the key is
    strong and casts a tight shadow map, and a cool back rim separates the silhouette
    from the jungle. */
-const monsterHemi=new THREE.HemisphereLight(0xfff3d6,0x3d6b32,.92);MONSTER_ROOT.add(monsterHemi);
-const monsterKey=new THREE.DirectionalLight(0xfff4d8,1.55);
+const monsterHemi=new THREE.HemisphereLight(0xfff3d6,0x3d6b32,.48);MONSTER_ROOT.add(monsterHemi);
+const monsterKey=new THREE.DirectionalLight(0xfff4d8,1.05);
 monsterKey.position.set(MONSTER_CX-150,220,MONSTER_CZ+120);
 monsterKey.target.position.set(MONSTER_CX,18,MONSTER_CZ);
 monsterKey.castShadow=true;
@@ -5598,10 +5598,10 @@ monsterKey.shadow.radius=MOBILE?1:2.5;
 {const c=monsterKey.shadow.camera,S=MOBILE?110:150;
  c.left=-S;c.right=S;c.top=S;c.bottom=-S;c.near=40;c.far=760;c.updateProjectionMatrix();}
 MONSTER_ROOT.add(monsterKey,monsterKey.target);
-const monsterRim=new THREE.DirectionalLight(0xffe6b0,.85);
+const monsterRim=new THREE.DirectionalLight(0xffe6b0,.40);
 monsterRim.position.set(MONSTER_CX+260,120,MONSTER_CZ-240);
 monsterRim.target.position.set(MONSTER_CX,26,MONSTER_CZ);MONSTER_ROOT.add(monsterRim,monsterRim.target);
-const monsterBounce=new THREE.DirectionalLight(0x8fbf5a,.50);
+const monsterBounce=new THREE.DirectionalLight(0x8fbf5a,.32);
 monsterBounce.position.set(MONSTER_CX,-90,MONSTER_CZ+40);
 monsterBounce.target.position.set(MONSTER_CX,24,MONSTER_CZ);MONSTER_ROOT.add(monsterBounce,monsterBounce.target);
 /* The shadow camera follows the player so the limited map resolution is always
@@ -5815,7 +5815,6 @@ try{(function buildMonsterIsland(){
     if(extra&&extra.transparent){opts.transparent=true;opts.opacity=extra.opacity==null?.88:extra.opacity;}
     const m=new THREE.MeshLambertMaterial(opts);
     m.userData.mat=key||'creature';m.userData.monsterSurface=1;
-    if(typeof addCreatureRim==='function')addCreatureRim(m,key);
     return m;
   }
   function part(parent,geo,mat,x,y,z,sx,sy,sz,rx,ry,rz){
@@ -11983,7 +11982,7 @@ const KART={boosts:[],banner:null,ready:false,boostCd:0};
       if(!m||m.__kart)return m;
       if(conv.has(m))return conv.get(m);
       let out=m;
-      if(m.isMeshLambertMaterial){
+      if(m.isMeshLambertMaterial && !m.userData.monsterSurface){
         out=new THREE.MeshToonMaterial({
           color:m.color?m.color.clone():new THREE.Color(0xffffff),
           map:m.map||null, gradientMap:RAMP,
