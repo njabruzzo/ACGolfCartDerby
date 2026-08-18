@@ -5601,7 +5601,7 @@ MONSTER_ROOT.add(monsterKey,monsterKey.target);
 const monsterRim=new THREE.DirectionalLight(0xffe6b0,.40);
 monsterRim.position.set(MONSTER_CX+260,120,MONSTER_CZ-240);
 monsterRim.target.position.set(MONSTER_CX,26,MONSTER_CZ);MONSTER_ROOT.add(monsterRim,monsterRim.target);
-const monsterBounce=new THREE.DirectionalLight(0x8fbf5a,.32);
+const monsterBounce=new THREE.DirectionalLight(0xd2c4a0,.22);
 monsterBounce.position.set(MONSTER_CX,-90,MONSTER_CZ+40);
 monsterBounce.target.position.set(MONSTER_CX,24,MONSTER_CZ);MONSTER_ROOT.add(monsterBounce,monsterBounce.target);
 /* The shadow camera follows the player so the limited map resolution is always
@@ -5860,7 +5860,7 @@ try{(function buildMonsterIsland(){
   const furBeastSpot=creatureMat(0x4a3724,TEX.rep(TEX.fur,2,2),'fur');
   const furBeastSkin=creatureMat(0xe8c9a0,TEX.rep(TEX.rough,2,2),'hide');
   const furBeastIris=new THREE.MeshBasicMaterial({color:0xffb040});
-  const armorHide=creatureMat(0x8d8874,TEX.rep(TEX.rough,2,4),'hide');
+  const armorHide=creatureMat(0xb7ae9a,TEX.rep(TEX.rough,2,4),'hide');
   const armorGold=creatureMat(0xc4bda6,TEX.rep(TEX.rock,2,3),'armor');
   const armorGoldLight=creatureMat(0xddd6c0,TEX.rep(TEX.rock,2,2),'armor');
   const armorRed=creatureMat(0x6a6354,TEX.rep(TEX.rough,2,2),'horn');
@@ -6395,7 +6395,7 @@ try{(function buildMonsterIsland(){
       part(jawPivot,new THREE.ConeGeometry(.24,1.10,SEG(6,4)),boneMat,sd*(1.05+k*.66),.35,4.35-k*1.05,1,1,1,0,0,0);
     for(const sd of[-1,1])for(let k=0;k<4;k++)
       part(headRig,new THREE.ConeGeometry(.26,1.20,SEG(6,4)),boneMat,sd*(1.05+k*.66),-.85,4.55-k*1.08,1,1,1,Math.PI,0,0);
-    const tail=buildTail(bodyRig,{y:19.6,z:-5.0,count:9,step:2.95,droop:.55,r0:2.95,r1:.55,mat:armorHide,fin:armorGold,spike:armorRed});
+    const tail=buildTail(bodyRig,{y:19.6,z:-5.0,count:3,step:1.85,droop:.28,r0:2.55,r1:1.45,mat:armorHide});
     const trackedEyes=gazeEyes.map(E=>({mesh:E.mesh,side:E.side,base:E.mesh.position.clone()}));
     const ST={};
     const animate=(now,w,gait)=>{
