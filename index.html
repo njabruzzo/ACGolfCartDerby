@@ -6889,13 +6889,16 @@ const KAIJU_GRAZE_MPS=7.4;
 const KAIJU_NOTICE_M=96;
 const KAIJU_STARE_M=62;
 const KAIJU_CROSS_OFF=ROAD_W+22;
-const _kaijuNdc=new THREE.Vector3();
+const _kaijuNdc=new THREE.Vector3(),_kaijuDir=new THREE.Vector3();
 function kaijuView(w){
   const h=(w.moveSprite&&w.moveSprite.baseH)||48;
   _kaijuNdc.set(w.g.position.x,w.g.position.y+h*.42,w.g.position.z).project(camera);
-  const onScreen=_kaijuNdc.z<1&&_kaijuNdc.x>-1.18&&_kaijuNdc.x<1.18&&_kaijuNdc.y>-1.32&&_kaijuNdc.y<1.32;
+  camera.getWorldDirection(_kaijuDir);
+  const ahead=_kaijuDir.x*(w.g.position.x-camera.position.x)+_kaijuDir.z*(w.g.position.z-camera.position.z);
+  const onScreen=ahead>4&&_kaijuNdc.z>-1&&_kaijuNdc.z<1&&Math.abs(_kaijuNdc.x)<1.02&&Math.abs(_kaijuNdc.y)<1.12;
+  const leaving=!onScreen||(Math.abs(_kaijuNdc.x)>0.90&&Math.abs(w.crossPos||0)>ROAD_W+20);
   const dist=Math.hypot(cart.x-w.g.position.x,cart.z-w.g.position.z)||1;
-  return {onScreen,dist,ndcX:_kaijuNdc.x,ndcY:_kaijuNdc.y};
+  return {onScreen,leaving,dist,ndcX:_kaijuNdc.x,ndcY:_kaijuNdc.y,ahead};
 }
 function kaijuIsFollowed(w,view){
   /* Player is steering toward a kaiju that just left the frame. Driving
@@ -6967,7 +6970,7 @@ function kaijuPlantStare(w){
 function kaijuNoticeCart(w){
   if(w.mode==='hunt'||w.noticed)return;
   w.mode='hunt';w.noticed=true;w.crazyFace=true;w.closeLook=true;
-  w.huntStage='turn';w.turnT=.55;w.lookDownT=0;w.roarT=.4;w.roar=0;w.spawnYell=0;
+  w.huntStage='turn';w.turnT=.4;w.lookDownT=0;w.roarT=.35;w.roar=0;w.spawnYell=0;
   w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
   toast((w.label||'KAIJU')+' LOOKS DOWN AT YOUR CART!',2200);
 }
@@ -6976,6 +6979,7 @@ function parkKaiju(w){
   w.crossedRoad=false;w.onScreenT=0;w.offScreenT=0;w.turnT=0;w.seenOnce=false;w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
   if(w.stompFoot)w.stompFoot.visible=false;
 }
+MONSTER_ISLAND.spawnGrazer=spawnKaijuGrazer;MONSTER_ISLAND.park=parkKaiju;MONSTER_ISLAND.view=kaijuView;
 function driveKaijuBody(w,dt,moved,hop,impact,support,moving){
   const M=w.motion,travelSpeed=Math.min(1.45,moved/Math.max(.001,dt)/14),phase=w.travelDistance/M.stride*Math.PI*2;
   const lean=w.kind==='kong'?-.045:w.kind==='furbeast'?-.022:w.kind==='armored'?-.030:-.025;
@@ -7040,13 +7044,13 @@ function updateMonsterIslandHazards(dt){
     const support=M.gait==='hop'?1-hop:Math.abs(Math.cos(w.travelDistance/M.stride*Math.PI*2));
     if(w.mode==='graze'){
       const view=kaijuView(w);
-      if(view.onScreen){w.seenOnce=true;w.onScreenT=(w.onScreenT||0)+dt;w.offScreenT=0;}
-      else{w.offScreenT=(w.offScreenT||0)+dt;w.onScreenT=0;}
+      if(view.onScreen&&!view.leaving){w.seenOnce=true;w.onScreenT=(w.onScreenT||0)+dt;w.offScreenT=0;}
+      else{w.offScreenT=(w.offScreenT||0)+dt;w.onScreenT=Math.max(0,(w.onScreenT||0)-dt*2);}
       const dist=view.dist;
       const canAct=cart.boom<=0&&!cart.finished;
       if(canAct&&dist<32)kaijuNoticeCart(w);
-      else if(canAct&&view.onScreen&&(w.onScreenT||0)>.7&&dist<KAIJU_NOTICE_M)kaijuNoticeCart(w);
-      else if(canAct&&w.seenOnce&&(w.offScreenT||0)>.22){
+      else if(canAct&&view.onScreen&&!view.leaving&&dist<KAIJU_NOTICE_M)kaijuNoticeCart(w);
+      else if(canAct&&w.seenOnce&&view.leaving){
         if(kaijuIsFollowed(w,view))kaijuNoticeCart(w);
         else parkKaiju(w);
       }else if(Math.abs(w.crossPos||0)>96)parkKaiju(w);
@@ -7077,7 +7081,7 @@ function updateMonsterIslandHazards(dt){
         w.g.rotation.x=0;w.g.rotation.z=0;
         w.g.visible=true;w.lastPos.copy(w.g.position);
         driveKaijuBody(w,dt,0,0,0,1,false);
-        if((w.turnT||0)<=0||Math.abs(turn)<.18){w.huntStage='stare';w.lookDownT=2.4;kaijuPlantStare(w);}
+        if((w.turnT||0)<=0||Math.abs(turn)<.18){w.huntStage='stare';w.lookDownT=1.35;kaijuPlantStare(w);}
       }else if(staring){
         if(w.stareX==null)kaijuPlantStare(w);
         w.g.position.set(w.stareX,w.stareY,w.stareZ);
