@@ -5803,12 +5803,13 @@ function kaijuCropFrame(img,keyBlack){
   return {cv,w:cw,h:ch,footX:n?sm/n:cw/2};
 }
 function kaijuBakeSpriteSheet(frames,urls,done){
-  const imgs=urls.map(function(u){const i=new Image();i.decoding='async';i.src=u;return i;});
+  const imgs=urls.map(function(){return new Image();});
   let left=imgs.length;
   function finish(){
+    try{
     const crops=imgs.map(function(img,i){
       if(!(img.naturalWidth||img.width))return {cv:null,w:2,h:2,footX:1};
-      return kaijuCropFrame(img,i===10);
+      try{return kaijuCropFrame(img,i===10);}catch(_){return {cv:null,w:2,h:2,footX:1};}
     });
     let maxW=2,maxH=2;
     for(let i=0;i<Math.min(10,crops.length);i++){
@@ -5830,12 +5831,16 @@ function kaijuBakeSpriteSheet(frames,urls,done){
       tex.minFilter=look?THREE.LinearFilter:THREE.NearestFilter;
       tex.needsUpdate=true;
     }
+    }catch(e){console.warn('kaiju bake',e);}
     if(typeof done==='function')done();
   }
   function tick(){if(--left<=0)finish();}
-  imgs.forEach(function(img){
-    if(img.complete)tick();
-    else{img.onload=tick;img.onerror=tick;}
+  imgs.forEach(function(img,i){
+    let fired=false;
+    const once=function(){if(fired)return;fired=true;tick();};
+    img.onload=once;img.onerror=once;
+    img.src=urls[i];
+    if(img.complete)once();
   });
 }
 function paintKongFurTint(tex){
