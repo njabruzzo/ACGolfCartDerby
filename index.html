@@ -6150,7 +6150,9 @@ function aiCanPerceive(w,view){
   return true;
 }
 function aiOnScreen(view){return !!(view&&view.onScreen);}
-function aiCartSafe(){return cart&&cart.boom<=0&&!cart.finished&&!(cart.hitCD>0)&&!cart._kongThrow&&!cart._harpyCarry&&!(cart._snakeEatT>0);}
+function aiCartPlaying(){return cart&&cart.boom<=0&&!cart.finished&&!cart._kongThrow&&!cart._harpyCarry&&!(cart._snakeEatT>0);}
+function aiCartCanBeHit(){return aiCartPlaying()&&!(cart.hitCD>0);}
+function aiCartSafe(){return aiCartPlaying();}
 function aiRecordHit(srcId){
   const now=AI_WORLD.now;
   AI_WORLD.hits.push({id:srcId,t:now});
@@ -6245,7 +6247,7 @@ function aiSteerToward(w,tx,tz,dtSec,speed){
   let fx=tx-w.g.position.x,fz=tz-w.g.position.z;
   const dist=aiHyp(fx,fz);fx/=dist;fz/=dist;
   let wx=fx*AI_TUNING.ARRIVAL_WEIGHT,wz=fz*AI_TUNING.ARRIVAL_WEIGHT;
-  if(a.preferredRange>0){
+  if(a.preferredRange>0&&w.aiState==='REPOSITION'){
     const err=dist-a.preferredRange;
     const hold=aiClamp(err/12,-1.1,1.1);
     wx=fx*hold;wz=fz*hold;
@@ -6410,7 +6412,7 @@ const AI_STATES={
         w._strikeDone=true;
         const dist=w._view?w._view.dist:aiHyp(cart.x-w.g.position.x,cart.z-w.g.position.z);
         const inRange=dist<=a.attackRange*1.15;
-        if(inRange&&aiCartSafe()&&aiOnScreen(w._view)&&!w.trampled){
+        if(inRange&&aiCartCanBeHit()&&aiOnScreen(w._view)&&!w.trampled){
           const id=w.kind+'#'+(w.t||0);
           AI_WORLD.dmgBuf.push({id:id,seq:++AI_WORLD.seq,w:w,a:a});
         }
