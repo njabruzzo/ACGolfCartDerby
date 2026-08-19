@@ -60,7 +60,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-DIST-1">
+<meta name="acr-build" content="2026-08-19-KAIJU-NOTICE">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -6617,13 +6617,13 @@ function resetMonsterIslandHazards(){
     if(s.tongue)s.tongue.visible=false;
     if(s.segments)for(const seg of s.segments){seg.body.position.copy(seg.base);seg.body.scale.y=seg.baseScaleY;}
   }
-  MONSTER_ISLAND.kaijuNextSpawn=0.45+Math.random()*.55;
+  MONSTER_ISLAND.kaijuNextSpawn=7.5+Math.random()*4.5;
   for(const w of MONSTER_ISLAND.walkers){
     w.hitCD=0;w.bumpCount=0;w.bumpWindow=0;w.stompT=0;w.stompHit=false;w.stompFoot.visible=false;w.g.visible=false;w.lastLift[0]=w.lastLift[1]=0;
     w.lastCross=-w.motion.range;w.g.position.copy(w.frame.p).addScaledVector(w.frame.right,w.lastCross);w.g.position.y=surfaceH(w.g.position.x,w.g.position.z);
     w.lastPos.copy(w.g.position);w.travelDistance=0;w.prevYaw=w.g.rotation.y;w.turnRate=0;
     w.motion.offset=w.motion.baseOffset;w.motion.playerTriggered=false;
-    w.mode='wait';w.crazyFace=true;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.roarT=0;w.roar=0;w.spawnYell=0;w.huntSide=null;
+    w.mode='wait';w.crazyFace=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.roarT=0;w.roar=0;w.spawnYell=0;w.huntSide=null;w.noticed=false;
     for(let li=0;li<w.legs.length;li++)applyMonsterLeg(w,li,monsterGaitPose(w.motion,0,li),0);
   }
   for(const h of MONSTER_ISLAND.harpies){h.g.visible=true;h.heading=h.g.rotation.y;h.bank=0;h.pitch=0;h.flapPhase=h.phase;h.rejoin=0;}
@@ -6775,19 +6775,21 @@ function monsterLookPose(w){
   const near=horizontal<64;
   return {lookYaw:clamp(relative,near?-1.2:-.82,near?1.2:.82),lookPitch:clamp(Math.atan2(headY+w.g.position.y-cart.y,horizontal),.10,.92),attention:cart.started?(near?1:.85):.62};
 }
+const KAIJU_CHASE_MPS=40/2.237; /* 40 mph, same units as cart.v / the HUD */
+const KAIJU_GRAZE_MPS=5.8;
+const KAIJU_NOTICE_M=98;
 function kaijuSpawnBesideCart(w){
-  /* Down the ribbon, far enough that a 50-metre-tall walker reads as a
-     silhouette instead of spawning on the hood. */
-  const aheadM=170+Math.random()*90;
+  /* Always down the ribbon — never on the start line, never on the hood. */
+  const aheadM=180+Math.random()*80;
   const t=courseWrapT((cart.lastNearT||0)+aheadM/Math.max(140,MONSTER_TRACKLEN||900));
   const s=monsterSampAt(t);
   let side=Math.random()<.5?1:-1;
-  const hunting=MONSTER_ISLAND.walkers.filter(o=>o!==w&&o.mode==='hunt');
+  const hunting=MONSTER_ISLAND.walkers.filter(o=>o!==w&&(o.mode==='hunt'||o.mode==='graze'));
   if(hunting.length===1&&hunting[0].huntSide)side=-hunting[0].huntSide;
   w.huntSide=side;w.huntT=t;
-  const off=ROAD_W+7.4+Math.random()*4.2;
+  const off=ROAD_W+7.8+Math.random()*4.6;
   const p=s.p.clone().addScaledVector(s.right,side*off).addScaledVector(s.tan,(Math.random()-.5)*4);
-  p.y=surfaceH(p.x,p.z);return p;
+  p.y=surfaceH(p.x,p.z);return {p,s};
 }
 function kaijuLeaveDir(w){
   const s=monsterSampAt(cart.lastNearT||w.huntT||w.t||0);
@@ -6797,34 +6799,45 @@ function kaijuLeaveDir(w){
   away.y=0;if(away.lengthSq()<.01)away.set(s.right.x,0,s.right.z);
   return away.normalize();
 }
+function kaijuGrazeAim(w,dt){
+  const len=Math.max(140,MONSTER_TRACKLEN||900),side=w.huntSide||1;
+  if(w.huntT==null||!isFinite(w.huntT))w.huntT=cart.lastNearT||0;
+  w.huntT=courseWrapT(w.huntT+KAIJU_GRAZE_MPS*Math.max(.016,dt||.016)/len);
+  const s=monsterSampAt(w.huntT);
+  const off=ROAD_W+7.6;
+  return {x:s.p.x+s.right.x*side*off,z:s.p.z+s.right.z*side*off,yaw:Math.atan2(s.tan.x,s.tan.z)};
+}
 function kaijuHuntAim(w,dt){
   const px=w.g.position.x,pz=w.g.position.z;
   const dist=Math.hypot(cart.x-px,cart.z-pz)||1;
   const side=w.huntSide||1;
   if(dist<34)return {x:cart.x,z:cart.z,dist,lunge:true};
-  /* Walk down the ribbon toward the cart so they stay in view in the distance
-     instead of cutting the jungle or popping up beside the hood. */
   const len=Math.max(140,MONSTER_TRACKLEN||900),cartT=cart.lastNearT||0;
   if(w.huntT==null||!isFinite(w.huntT))w.huntT=cartT;
   let d=cartT-w.huntT;
   if(d>0.5)d-=1;if(d<-0.5)d+=1;
-  const along=Math.min(Math.abs(d)*len,(dist>90?22:30)*Math.max(.016,dt||.016));
+  const along=Math.min(Math.abs(d)*len,KAIJU_CHASE_MPS*Math.max(.016,dt||.016));
   if(d!==0)w.huntT=courseWrapT(w.huntT+Math.sign(d)*along/len);
   const s=monsterSampAt(w.huntT);
   const off=dist<55?ROAD_W+2.4:ROAD_W+6.8;
   return {x:s.p.x+s.right.x*side*off,z:s.p.z+s.right.z*side*off,dist,lunge:false};
 }
-function spawnKaijuHunter(w){
-  const p=kaijuSpawnBesideCart(w);
+function spawnKaijuGrazer(w){
+  const spawned=kaijuSpawnBesideCart(w),p=spawned.p,s=spawned.s;
   w.g.position.copy(p);w.lastPos.copy(p);w.g.position.y=p.y;
-  w.mode='hunt';w.g.visible=true;w.trampled=false;w.leaveT=0;w.leaveDir=null;
-  w.crazyFace=true;w.roarT=.22;w.roar=1;w.spawnYell=.22;w.hitCD=.18;
+  w.mode='graze';w.g.visible=true;w.trampled=false;w.leaveT=0;w.leaveDir=null;
+  w.crazyFace=false;w.noticed=false;w.roarT=0;w.roar=0;w.spawnYell=0;w.hitCD=.18;
   w.travelDistance=0;w.g.rotation.x=0;w.g.rotation.z=0;
-  const dx=cart.x-p.x,dz=cart.z-p.z;if(Math.hypot(dx,dz)>.2)w.g.rotation.y=Math.atan2(dx,dz);
-  toast((w.label||'KAIJU')+' IS AFTER YOU!',1300);
+  w.g.rotation.y=Math.atan2(s.tan.x,s.tan.z);
+}
+function kaijuNoticeCart(w){
+  if(w.mode==='hunt'||w.noticed)return;
+  w.mode='hunt';w.noticed=true;w.crazyFace=true;
+  w.roarT=.32;w.roar=1;w.spawnYell=.32;
+  toast((w.label||'KAIJU')+' SPOTTED YOU!',1400);
 }
 function parkKaiju(w){
-  w.mode='wait';w.g.visible=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.stompT=0;w.roarT=0;w.roar=0;w.spawnYell=0;
+  w.mode='wait';w.g.visible=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.stompT=0;w.roarT=0;w.roar=0;w.spawnYell=0;w.noticed=false;
   if(w.stompFoot)w.stompFoot.visible=false;
 }
 function driveKaijuBody(w,dt,moved,hop,impact,support,moving){
@@ -6860,16 +6873,16 @@ function updateMonsterIslandHazards(dt){
   if(!isMonsterCourse())return;
   if(typeof trackMonsterShadow==='function')trackMonsterShadow();
   MONSTER_ISLAND.harpyCooldown=Math.max(0,MONSTER_ISLAND.harpyCooldown-dt);
-  if(MONSTER_ISLAND.kaijuNextSpawn===undefined)MONSTER_ISLAND.kaijuNextSpawn=2;
-  if(RUNNING&&cart.boom<=0&&!cart.finished){
+  if(MONSTER_ISLAND.kaijuNextSpawn===undefined)MONSTER_ISLAND.kaijuNextSpawn=8;
+  if(RUNNING&&cart.boom<=0&&!cart.finished&&cart.started&&(cart.lastNearT||0)>0.055){
     MONSTER_ISLAND.kaijuNextSpawn-=dt;
-    let hunting=0;for(const w of MONSTER_ISLAND.walkers)if(w.mode==='hunt')hunting++;
-    if(MONSTER_ISLAND.kaijuNextSpawn<=0&&hunting<2){
+    let busy=0;for(const w of MONSTER_ISLAND.walkers)if(w.mode==='hunt'||w.mode==='graze')busy++;
+    if(MONSTER_ISLAND.kaijuNextSpawn<=0&&busy<2){
       const pool=MONSTER_ISLAND.walkers.filter(w=>w.mode==='wait');
       if(pool.length){
-        spawnKaijuHunter(pool[Math.floor(Math.random()*pool.length)]);
-        MONSTER_ISLAND.kaijuNextSpawn=3.4+Math.random()*4.8;
-      }else MONSTER_ISLAND.kaijuNextSpawn=2.2;
+        spawnKaijuGrazer(pool[Math.floor(Math.random()*pool.length)]);
+        MONSTER_ISLAND.kaijuNextSpawn=8.5+Math.random()*6;
+      }else MONSTER_ISLAND.kaijuNextSpawn=3.5;
     }
   }else if(!RUNNING){
     for(const w of MONSTER_ISLAND.walkers)if(w.mode!=='wait')parkKaiju(w);
@@ -6882,23 +6895,38 @@ function updateMonsterIslandHazards(dt){
     if(w.spawnYell>0)w.spawnYell=Math.max(0,w.spawnYell-dt);
     if(w.roarT>0)w.roarT=Math.max(0,w.roarT-dt);
     w.roar=w.roarT>0?Math.pow(Math.sin((1-Math.min(1,w.roarT/.42))*Math.PI),.7):(w.mode==='hunt'?.12:0);
-    if(w.mode==='hunt')w.crazyFace=true;
     if(w.mode==='wait'){w.g.visible=false;continue;}
     const M=w.motion;
     const cycle=((w.travelDistance/M.stride)%1+1)%1;
     const hop=M.gait==='hop'?(cycle<.16?0:cycle<.78?Math.pow(Math.sin((cycle-.16)/.62*Math.PI),.72):0):0;
     const impact=M.gait==='hop'?Math.max(0,1-Math.abs(cycle-.82)/.10):Math.pow(Math.max(0,Math.cos(w.travelDistance/M.stride*Math.PI*2*2)),8);
     const support=M.gait==='hop'?1-hop:Math.abs(Math.cos(w.travelDistance/M.stride*Math.PI*2));
+    if(w.mode==='graze'){
+      const dist=Math.hypot(cart.x-w.g.position.x,cart.z-w.g.position.z)||1;
+      if(dist<KAIJU_NOTICE_M&&cart.boom<=0&&!cart.finished)kaijuNoticeCart(w);
+      else{
+        const aim=kaijuGrazeAim(w,dt);
+        const adx=aim.x-w.g.position.x,adz=aim.z-w.g.position.z;
+        const lookYaw=adx*adx+adz*adz>0.04?Math.atan2(adx,adz):aim.yaw;
+        const turn=Math.atan2(Math.sin(lookYaw-w.g.rotation.y),Math.cos(lookYaw-w.g.rotation.y));
+        w.g.rotation.y+=turn*Math.min(1,dt*2.2);
+        const nx=w.g.position.x+Math.sin(w.g.rotation.y)*KAIJU_GRAZE_MPS*dt;
+        const nz=w.g.position.z+Math.cos(w.g.rotation.y)*KAIJU_GRAZE_MPS*dt;
+        const ny=surfaceH(nx,nz);
+        const moved=Math.hypot(nx-w.g.position.x,nz-w.g.position.z);
+        w.travelDistance+=moved;w.lastPos.set(nx,ny,nz);
+        w.g.visible=true;w.g.position.set(nx,ny,nz);
+        driveKaijuBody(w,dt,moved,hop,impact,support,true);
+      }
+    }
     if(w.mode==='hunt'){
+      w.crazyFace=true;
       const aim=kaijuHuntAim(w,dt),dist=aim.dist;
       const adx=aim.x-w.g.position.x,adz=aim.z-w.g.position.z;
       const lookYaw=Math.atan2(adx,adz);
       const turn=Math.atan2(Math.sin(lookYaw-w.g.rotation.y),Math.cos(lookYaw-w.g.rotation.y));
       w.g.rotation.y+=turn*Math.min(1,dt*(aim.lunge?7.4:4.6));
-      const cartSpd=Math.abs(cart.v||0);
-      let spd=dist>90?Math.max(14,cartSpd*.6+8):dist>40?Math.max(20,cartSpd*1.12+8):Math.max(24,cartSpd+8);
-      if(aim.lunge)spd=Math.max(spd,cartSpd+6);
-      spd=Math.min(38,spd);
+      const spd=KAIJU_CHASE_MPS;
       const nx=w.g.position.x+Math.sin(w.g.rotation.y)*spd*dt;
       const nz=w.g.position.z+Math.cos(w.g.rotation.y)*spd*dt;
       const ny=surfaceH(nx,nz);
