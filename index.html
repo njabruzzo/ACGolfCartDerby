@@ -60,7 +60,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-WALK-SPRITES">
+<meta name="acr-build" content="2026-08-19-PAINTED-KAIJU">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -5673,7 +5673,7 @@ function attachKaijuMoveSprite(w){
   const pack=KAIJU_MOVE_SPRITES[w.kind];
   if(!pack)return;
   const frames=pack.map(kaijuMoveTex);
-  const h=w.kind==='kong'?46:w.kind==='furbeast'?44:w.kind==='armored'?46:50;
+  const h=w.kind==='kong'?58:w.kind==='furbeast'?54:w.kind==='armored'?56:62;
   const mat=new THREE.SpriteMaterial({map:frames[0],transparent:true,alphaTest:.08,depthWrite:true,sizeAttenuation:true});
   const spr=new THREE.Sprite(mat);
   spr.center.set(.5,0);spr.position.set(0,0,0);spr.scale.set(h,h,1);spr.name='kaijuMoveSprite';spr.renderOrder=3;
@@ -5681,6 +5681,12 @@ function attachKaijuMoveSprite(w){
   w.moveSprite={spr,frames,frame:-1,face:1,baseH:h,appliedFace:0};
   if(w.bodyRig)w.bodyRig.visible=false;
   if(w.legs)for(const leg of w.legs)leg.visible=false;
+  if(w.stompFoot)w.stompFoot.visible=false;
+  w.g.traverse(function(o){
+    if(o===spr||o.name==='kaijuMoveSprite')return;
+    if(w.shadow&&o===w.shadow)return;
+    if(o.isMesh||o.isSkinnedMesh||o.isLine||o.isPoints||o.isSprite)o.visible=false;
+  });
 }
 function updateKaijuMoveSprite(w,moving){
   const S=w&&w.moveSprite;if(!S)return;
@@ -6810,7 +6816,7 @@ function updateMonsterIslandHazards(dt){
           cart.x+=dx/L*2.2;cart.z+=dz/L*2.2;cart.v*=-.18;thunk();damage(3,null,true);
           if(w.bumpCount>=3&&!w.stompT){
             w.bumpCount=0;w.stompT=1.18;w.stompHit=false;w.stompTarget.set(cart.x,groundYAt(cart.x,cart.z).y,cart.z);
-            w.stompFoot.visible=true;toast('YOU ANGERED '+(w.label||'THE KAIJU')+' — STOMP!',1500);
+            if(!w.moveSprite)w.stompFoot.visible=true;toast('YOU ANGERED '+(w.label||'THE KAIJU')+' — STOMP!',1500);
           }else toast((w.label||'KAIJU')+' — BACK OFF!',750);
         }
         w.lastLift[li]=lift;
