@@ -7112,8 +7112,9 @@ function parkKaiju(w){
 }
 function startKongThrow(w){
   cart._kongThrow={phase:'grab',t:0,kaiju:w,ox:cart.x,oy:cart.y,oz:cart.z};
-  cart._kongThrowLand=false;cart.v=0;cart.vy=0;cart.airT=0;
-  w.huntStage='throw';w.lookDownT=0;w.stompT=1.25;w.trampled=true;w.hitCD=4;
+  cart._kongThrowLand=false;cart.v=0;cart.vy=0;cart.airT=0;cart.crash=0;
+  w.huntStage='throw';w.lookDownT=0;w.stompT=0;w.trampled=true;w.hitCD=4;
+  if(w.stompTarget)w.stompTarget.set(cart.x,groundYAt(cart.x,cart.z).y,cart.z);
   toast('GEORGE PICKS UP YOUR CART!',1800);
 }
 MONSTER_ISLAND.spawnGrazer=spawnKaijuGrazer;MONSTER_ISLAND.park=parkKaiju;MONSTER_ISLAND.view=kaijuView;MONSTER_ISLAND.throwCart=startKongThrow;
@@ -7378,10 +7379,10 @@ function updateMonsterIslandCinematic(dt){
       camera.lookAt(cart.x,cart.y+2,cart.z);
       if(k.t>=.40){
         const yaw=w.g.rotation.y;
-        cart.heading=yaw;cart.v=34;cart.vy=42;cart.airT=.05;
-        cart.x=gx+Math.sin(yaw)*6;cart.z=gz+Math.cos(yaw)*6;cart.y=gy+36;
+        cart.heading=yaw;cart.v=26;cart.vy=28;cart.airT=.05;cart.crash=0;
+        cart.x=gx+Math.sin(yaw)*8;cart.z=gz+Math.cos(yaw)*8;cart.y=gy+32;
         cart._kongThrowLand=true;cart._kongThrow=null;
-        w.mode='leave';w.leaveT=0;w.leaveDir=kaijuLeaveDir(w);w.huntStage=null;w.stompT=.8;
+        w.mode='leave';w.leaveT=0;w.leaveDir=kaijuLeaveDir(w);w.huntStage=null;w.stompT=0;
         toast('GEORGE THROWS YOUR CART!',1600);
         return false;
       }
@@ -11733,9 +11734,9 @@ function tick(now){
     if(cart.y<=g2.y){
       const impact=-cart.vy;
       const kongLand=!!cart._kongThrowLand;
-      if(cart.airT>.5)toast('AIR TIME! '+cart.airT.toFixed(1)+'s',1400);
+      if(cart.airT>.5&&!kongLand)toast('AIR TIME! '+cart.airT.toFixed(1)+'s',1400);
       if(kongLand){
-        cart._kongThrowLand=false;thunk();
+        cart._kongThrowLand=false;cart.crash=0;thunk();
         damage(Math.ceil(cartMaxHP()*.5),'GEORGE THROWS YOUR CART — HALF HP!',true);
       }else if(impact>9.5&&cart.airT>.18&&!cart._circleRampAir){thunk();damage(Math.min(12,Math.round((impact-8)*1.4)),null);}
       cart.y=g2.y;
