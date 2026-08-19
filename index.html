@@ -60,7 +60,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-WALK">
+<meta name="acr-build" content="2026-08-19-KAIJU-WALK-2">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -6772,16 +6772,17 @@ function monsterLookPose(w){
   return {lookYaw:clamp(relative,near?-1.2:-.82,near?1.2:.82),lookPitch:clamp(Math.atan2(headY+w.g.position.y-cart.y,horizontal),.10,.92),attention:cart.started?(near?1:.85):.62};
 }
 function kaijuSpawnBesideCart(w){
-  /* Shoulder of the ribbon, a little ahead of the cart — close enough to see,
-     far enough that they have to walk onto the lane before they trample. */
-  const t=courseWrapT((cart.lastNearT||0)+.016+Math.random()*.028);
+  /* A few metres up the shoulder — look-ahead is in metres, not a fraction of
+     the figure-eight, or they appear a football field away on a long ribbon. */
+  const aheadM=12+Math.random()*8;
+  const t=courseWrapT((cart.lastNearT||0)+aheadM/Math.max(140,MONSTER_TRACKLEN||900));
   const s=monsterSampAt(t);
   let side=Math.random()<.5?1:-1;
   const hunting=MONSTER_ISLAND.walkers.filter(o=>o!==w&&o.mode==='hunt');
   if(hunting.length===1&&hunting[0].huntSide)side=-hunting[0].huntSide;
   w.huntSide=side;w.huntT=t;
-  const off=ROAD_W+7.6+Math.random()*4.2;
-  const p=s.p.clone().addScaledVector(s.right,side*off).addScaledVector(s.tan,(Math.random()-.5)*4);
+  const off=ROAD_W+6.8+Math.random()*3.2;
+  const p=s.p.clone().addScaledVector(s.right,side*off).addScaledVector(s.tan,(Math.random()-.5)*3);
   p.y=surfaceH(p.x,p.z);return p;
 }
 function kaijuLeaveDir(w){
@@ -6794,19 +6795,17 @@ function kaijuLeaveDir(w){
 }
 function kaijuHuntAim(w){
   const px=w.g.position.x,pz=w.g.position.z;
-  const dx=cart.x-px,dz=cart.z-pz,dist=Math.hypot(dx,dz)||1;
-  if(dist<26)return {x:cart.x,z:cart.z,dist,lunge:true};
-  const lookM=clamp(Math.abs(cart.v||0)*1.05+16,16,52);
-  const lookT=lookM/Math.max(140,MONSTER_TRACKLEN||900);
-  const s=monsterSampAt(courseWrapT((cart.lastNearT||0)+lookT));
+  const dist=Math.hypot(cart.x-px,cart.z-pz)||1;
   const side=w.huntSide||1;
-  let x=s.p.x+s.right.x*side*(ROAD_W+3.4),z=s.p.z+s.right.z*side*(ROAD_W+3.4);
-  if(monsterRoadDistance(px,pz)>ROAD_W+15){
-    const near=monsterSampAt(courseWrapT((cart.lastNearT||0)+.006));
-    x=near.p.x+near.right.x*side*(ROAD_W+6.2);
-    z=near.p.z+near.right.z*side*(ROAD_W+6.2);
+  /* Always chase the cart. Leading the ribbon made hunters already ahead of the
+     player sprint farther away instead of turning around and coming at you. */
+  let x=cart.x,z=cart.z;
+  if(dist>24&&monsterRoadDistance(px,pz)>ROAD_W+14){
+    const near=monsterSampAt(courseWrapT((cart.lastNearT||0)+.004));
+    x=near.p.x+near.right.x*side*(ROAD_W+5.4);
+    z=near.p.z+near.right.z*side*(ROAD_W+5.4);
   }
-  return {x,z,dist,lunge:false};
+  return {x,z,dist,lunge:dist<30};
 }
 function spawnKaijuHunter(w){
   const p=kaijuSpawnBesideCart(w);
