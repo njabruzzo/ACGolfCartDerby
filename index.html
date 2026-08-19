@@ -60,7 +60,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-WALK-4">
+<meta name="acr-build" content="2026-08-19-KAIJU-DIST-1">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -6776,17 +6776,17 @@ function monsterLookPose(w){
   return {lookYaw:clamp(relative,near?-1.2:-.82,near?1.2:.82),lookPitch:clamp(Math.atan2(headY+w.g.position.y-cart.y,horizontal),.10,.92),attention:cart.started?(near?1:.85):.62};
 }
 function kaijuSpawnBesideCart(w){
-  /* A few metres up the shoulder — look-ahead is in metres, not a fraction of
-     the figure-eight, or they appear a football field away on a long ribbon. */
-  const aheadM=22+Math.random()*12;
+  /* Down the ribbon, far enough that a 50-metre-tall walker reads as a
+     silhouette instead of spawning on the hood. */
+  const aheadM=170+Math.random()*90;
   const t=courseWrapT((cart.lastNearT||0)+aheadM/Math.max(140,MONSTER_TRACKLEN||900));
   const s=monsterSampAt(t);
   let side=Math.random()<.5?1:-1;
   const hunting=MONSTER_ISLAND.walkers.filter(o=>o!==w&&o.mode==='hunt');
   if(hunting.length===1&&hunting[0].huntSide)side=-hunting[0].huntSide;
   w.huntSide=side;w.huntT=t;
-  const off=ROAD_W+6.8+Math.random()*3.2;
-  const p=s.p.clone().addScaledVector(s.right,side*off).addScaledVector(s.tan,(Math.random()-.5)*3);
+  const off=ROAD_W+7.4+Math.random()*4.2;
+  const p=s.p.clone().addScaledVector(s.right,side*off).addScaledVector(s.tan,(Math.random()-.5)*4);
   p.y=surfaceH(p.x,p.z);return p;
 }
 function kaijuLeaveDir(w){
@@ -6797,19 +6797,22 @@ function kaijuLeaveDir(w){
   away.y=0;if(away.lengthSq()<.01)away.set(s.right.x,0,s.right.z);
   return away.normalize();
 }
-function kaijuHuntAim(w){
+function kaijuHuntAim(w,dt){
   const px=w.g.position.x,pz=w.g.position.z;
   const dist=Math.hypot(cart.x-px,cart.z-pz)||1;
   const side=w.huntSide||1;
-  /* Always chase the cart. Leading the ribbon made hunters already ahead of the
-     player sprint farther away instead of turning around and coming at you. */
-  let x=cart.x,z=cart.z;
-  if(dist>24&&monsterRoadDistance(px,pz)>ROAD_W+14){
-    const near=monsterSampAt(courseWrapT((cart.lastNearT||0)+.004));
-    x=near.p.x+near.right.x*side*(ROAD_W+5.4);
-    z=near.p.z+near.right.z*side*(ROAD_W+5.4);
-  }
-  return {x,z,dist,lunge:dist<30};
+  if(dist<34)return {x:cart.x,z:cart.z,dist,lunge:true};
+  /* Walk down the ribbon toward the cart so they stay in view in the distance
+     instead of cutting the jungle or popping up beside the hood. */
+  const len=Math.max(140,MONSTER_TRACKLEN||900),cartT=cart.lastNearT||0;
+  if(w.huntT==null||!isFinite(w.huntT))w.huntT=cartT;
+  let d=cartT-w.huntT;
+  if(d>0.5)d-=1;if(d<-0.5)d+=1;
+  const along=Math.min(Math.abs(d)*len,(dist>90?22:30)*Math.max(.016,dt||.016));
+  if(d!==0)w.huntT=courseWrapT(w.huntT+Math.sign(d)*along/len);
+  const s=monsterSampAt(w.huntT);
+  const off=dist<55?ROAD_W+2.4:ROAD_W+6.8;
+  return {x:s.p.x+s.right.x*side*off,z:s.p.z+s.right.z*side*off,dist,lunge:false};
 }
 function spawnKaijuHunter(w){
   const p=kaijuSpawnBesideCart(w);
@@ -6887,16 +6890,15 @@ function updateMonsterIslandHazards(dt){
     const impact=M.gait==='hop'?Math.max(0,1-Math.abs(cycle-.82)/.10):Math.pow(Math.max(0,Math.cos(w.travelDistance/M.stride*Math.PI*2*2)),8);
     const support=M.gait==='hop'?1-hop:Math.abs(Math.cos(w.travelDistance/M.stride*Math.PI*2));
     if(w.mode==='hunt'){
-      const aim=kaijuHuntAim(w),dist=aim.dist;
+      const aim=kaijuHuntAim(w,dt),dist=aim.dist;
       const adx=aim.x-w.g.position.x,adz=aim.z-w.g.position.z;
       const lookYaw=Math.atan2(adx,adz);
       const turn=Math.atan2(Math.sin(lookYaw-w.g.rotation.y),Math.cos(lookYaw-w.g.rotation.y));
       w.g.rotation.y+=turn*Math.min(1,dt*(aim.lunge?7.4:4.6));
       const cartSpd=Math.abs(cart.v||0);
-      let spd=Math.max(22,cartSpd*1.32+10);
-      if(dist>34)spd+=9;
-      if(aim.lunge)spd=Math.max(spd,cartSpd+8);
-      spd=Math.min(44,spd);
+      let spd=dist>90?Math.max(14,cartSpd*.6+8):dist>40?Math.max(20,cartSpd*1.12+8):Math.max(24,cartSpd+8);
+      if(aim.lunge)spd=Math.max(spd,cartSpd+6);
+      spd=Math.min(38,spd);
       const nx=w.g.position.x+Math.sin(w.g.rotation.y)*spd*dt;
       const nz=w.g.position.z+Math.cos(w.g.rotation.y)*spd*dt;
       const ny=surfaceH(nx,nz);
