@@ -9695,6 +9695,9 @@ function paintSolidAnimal(key,pose){
     blob(78,80,38,18);blob(118,64,16,14);leg(56,94);leg(70,94+step/3);leg(88,94);leg(102,94-step/3);
     if(key==='fox'||key==='coyote'){x.fillStyle=fill;x.beginPath();x.moveTo(128,58);x.lineTo(154,44);x.lineTo(124,70);x.closePath();x.fill();x.strokeStyle=ink;x.stroke();}
   }
+  const id=x.getImageData(0,0,W,H),d=id.data;
+  for(let i=3;i<d.length;i+=4)d[i]=d[i]>90?255:0;
+  x.putImageData(id,0,0);
   const tex=new THREE.CanvasTexture(cv);
   tex.magFilter=THREE.NearestFilter;tex.minFilter=THREE.NearestFilter;
   tex.needsUpdate=true;return tex;
