@@ -60,7 +60,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-WALK-3">
+<meta name="acr-build" content="2026-08-19-KAIJU-WALK-4">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -6904,7 +6904,7 @@ function updateMonsterIslandHazards(dt){
       w.travelDistance+=moved;w.lastPos.set(nx,ny,nz);
       w.g.visible=true;w.g.position.set(nx,ny,nz);
       driveKaijuBody(w,dt,moved,hop,impact,support,true);
-      if(dist<15.6&&cart.boom<=0&&!cart.finished&&!w.trampled){
+      if(dist<22&&cart.boom<=0&&!cart.finished&&!w.trampled){
         w.trampled=true;w.hitCD=2.2;thunk();cart.v*=.10;
         damage(Math.ceil(cartMaxHP()*.5),(w.label||'KAIJU')+' WALKS ON YOUR CART!',true);
         toast((w.label||'KAIJU')+' STOMPS THROUGH — AND LEAVES THE COURSE!',1600);
