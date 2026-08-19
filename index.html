@@ -6149,7 +6149,7 @@ function aiCanPerceive(w,view){
   if(!nearLane&&d>AI_TUNING.CLOSE_NOTICE_M)return false;
   return true;
 }
-function aiOnScreen(view){return !!(view&&view.onScreen);}
+function aiOnScreen(view){if(view&&view.onScreen)return true;return !!(view&&view.dist!=null&&view.dist<AI_TUNING.STARE_M);}
 function aiCartPlaying(){return cart&&cart.boom<=0&&!cart.finished&&!cart._kongThrow&&!cart._harpyCarry&&!(cart._snakeEatT>0);}
 function aiCartCanBeHit(){return aiCartPlaying()&&!(cart.hitCD>0);}
 function aiCartSafe(){return aiCartPlaying();}
