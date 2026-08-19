@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- KAIJU FOLLOW GATE 2026-08-19: show driver sign-in on first paint so the title card cannot cover the login overlay. -->
 <!-- KAIJU FOLLOW 2026-08-19: distant trail-crossing walk, stop-and-look, 40mph chase, off-screen despawn unless followed. -->
 <!-- KAIJU MOVE SPRITES 2026-08-19: painted Rampage walk/stomp/roar frames for Lizzie, George, Ralph and the rhino so strides read as real character animation. -->
 <!-- RAMPAGE MONSTERS 2026-08-18: island walkers restyled as arcade city-kaiju — George, Lizzie, Ralph and a rhino — bright cel color, readable faces, no more dark blobs. -->
@@ -61,7 +62,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-FOLLOW">
+<meta name="acr-build" content="2026-08-19-KAIJU-FOLLOW-GATE">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1526,6 +1527,18 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
   -webkit-user-select:text;user-select:text;
 }
 </style>
+<style id="acr-gate-first-paint">
+/* Gate CSS used to live after the 18MB game script, so the title card covered
+   sign-in until that file finished parsing. Keep the overlay on top from the
+   first paint. */
+#acrGate,#acrBoard,#acrResults{
+  position:fixed;inset:0;z-index:6000;display:none;
+  align-items:center;justify-content:center;padding:18px;
+}
+#acrGate.show,#acrBoard.show,#acrResults.show{display:flex}
+#acrGate{background:#1273b4}
+#title{z-index:10}
+</style>
 <style id="acr-gate-board-btn">
 /* Sign-in is the first thing anyone sees, so the board has to be reachable
    from it — including for a driver who has not signed in yet. */
@@ -1583,7 +1596,7 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
 <div id="wrongway" aria-hidden="true">&#8634; TURN AROUND &mdash; YOU&#8217;RE GOING THE WRONG WAY!</div>
 
 <!-- ============ DRIVER LOGIN + LEADERBOARD (added 2026-08-08) ============ -->
-<div id="acrGate" aria-hidden="false">
+<div id="acrGate" class="show" aria-hidden="false">
   <div class="acr-gate-inner">
     <div class="acr-logo">
       <div class="acr-logo-badge">APPLE CANYON</div>
@@ -2858,7 +2871,7 @@ window.ACR_CONFIG = {
     function enterGame(){
       var bootErr=document.getElementById('loadstatus');
       if(bootErr&&bootErr.classList.contains('error')&&!window.ACR_GAME_READY){
-        location.reload();
+        openGate();
         return;
       }
       window.ACR_PENDING_ENTRY=true;
