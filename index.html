@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- KAIJU FEEL 2026-08-19: solid-color wildlife, world-space kaiju crossing, painted look-down portraits, smoother chase. -->
 <!-- KONG THROW 2026-08-19: first-in-head login, look-down stare, King Kong George, cart throw (half HP on land), stomps 1/3 HP. -->
 <!-- KAIJU FOLLOW GATE 2026-08-19: show driver sign-in on first paint so the title card cannot cover the login overlay. -->
 <!-- KAIJU FOLLOW 2026-08-19: distant trail-crossing walk, stop-and-look, 40mph chase, off-screen despawn unless followed. -->
@@ -79,7 +80,7 @@ html body.acr-gated #acrGate, #acrGate.show{
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KONG-THROW">
+<meta name="acr-build" content="2026-08-19-KAIJU-FEEL">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -3874,7 +3875,7 @@ window.ACR_COURSE_FEATURES={
       suppliedReferenceDesigns:true,gorillaKnuckleWalk:true,persistentWorldPresence:true,wanderWhenNotCrossing:true,naturalPathTurning:true,headTracking:true,eyeTracking:true,
       stepDamage:'halfMaxHP',provokedStomp:true},
     jungleGround:{dedicatedTerrain:false,globalJungleTerrain:true,grassTrack:true,mossAndFernUndergrowth:true,lateColorOverrideProtected:true},
-    wildlife:{stableFrames:true,noBlinking:true},
+    wildlife:{stableFrames:true,noBlinking:true,solidColor:true,noAlphaFlash:true},
     staticTrackClearance:{continuousLane:true,minimumBufferMeters:2.2,randomSceneryFiltered:true,
       serpentSpinesOutsideLane:true,headOutsideLane:true},
     harpyPass:{startT:.52,endT:.74,harpies:3,referenceMatched:true,earthTonePlumage:true,articulatedWings:true,swoopingPatrol:true,carryDropDamage:'halfMaxHP'},
@@ -5846,29 +5847,63 @@ function kaijuBakeSpriteSheet(frames,urls,done){
 function paintKongFurTint(tex){
   const cv=tex&&tex.image;if(!cv||!cv.getContext)return;
   const x=cv.getContext('2d');
-  x.save();x.globalCompositeOperation='multiply';
-  x.fillStyle='rgba(28,18,12,.62)';x.fillRect(0,0,cv.width,cv.height);
+  x.save();x.globalCompositeOperation='source-atop';
+  x.fillStyle='#1a120c';x.globalAlpha=.35;x.fillRect(0,0,cv.width,cv.height);
   x.restore();tex.needsUpdate=true;
 }
-function paintKingKongLook(tex){
-  const W=340,H=520,cv=tex.image;cv.width=W;cv.height=H;
+function paintKaijuLookDown(kind,tex){
+  const W=360,H=540,cv=tex.image;cv.width=W;cv.height=H;
   const x=cv.getContext('2d');x.clearRect(0,0,W,H);
-  const fur='#1a120c',fur2='#2b1c14',fur3='#0d0907',skin='#c4a07a',skin2='#a97d58';
   function oval(cx,cy,rx,ry,fill){x.beginPath();x.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);x.fillStyle=fill;x.fill();}
-  oval(170,318,118,168,fur3);oval(170,300,108,150,fur);
-  oval(92,360,42,78,fur2);oval(248,360,42,78,fur2);
-  oval(170,168,92,108,fur);oval(170,128,70,62,fur3);
-  oval(170,188,78,70,skin);oval(170,210,62,48,skin2);
-  x.fillStyle=fur3;x.beginPath();x.ellipse(170,128,78,28,0,Math.PI,Math.PI*2);x.fill();
-  x.fillStyle='#0a0705';x.fillRect(102,142,136,22);
-  oval(138,168,16,11,'#1a140c');oval(202,168,16,11,'#1a140c');
-  oval(138,170,6,7,'#f2e6c4');oval(202,170,6,7,'#f2e6c4');
-  oval(138,172,3.2,3.6,'#140c08');oval(202,172,3.2,3.6,'#140c08');
-  oval(170,214,28,22,skin);oval(156,220,7,6,'#3a2418');oval(184,220,7,6,'#3a2418');
-  x.strokeStyle='#5a3a28';x.lineWidth=3;x.beginPath();x.moveTo(148,248);x.quadraticCurveTo(170,268,192,248);x.stroke();
-  x.fillStyle='#2a1810';x.beginPath();x.moveTo(150,250);x.quadraticCurveTo(170,262,190,250);x.quadraticCurveTo(170,278,150,250);x.fill();
-  oval(170,470,46,22,'#6a1c16');x.fillStyle='#f0d24a';x.fillRect(148,458,44,16);
-  x.fillStyle='#2a2a2a';x.fillRect(152,472,12,12);x.fillRect(176,472,12,12);
+  function cart(){
+    oval(180,508,42,16,'#5a1612');x.fillStyle='#efc14a';x.fillRect(158,494,44,14);
+    x.fillStyle='#222';x.fillRect(162,508,12,12);x.fillRect(186,508,12,12);
+  }
+  if(kind==='kong'){
+    const fur='#1c140e',fur2='#2e2016',skin='#d2ae86';
+    oval(180,330,124,176,fur);oval(88,370,46,82,fur2);oval(272,370,46,82,fur2);
+    oval(180,168,98,112,fur);oval(180,118,74,58,fur);
+    oval(180,196,82,72,skin);oval(180,228,66,48,'#c49870');
+    x.fillStyle='#0c0806';x.fillRect(108,148,144,26);
+    oval(146,178,15,10,'#1a140c');oval(214,178,15,10,'#1a140c');
+    oval(146,181,5.5,6.5,'#f4ead2');oval(214,181,5.5,6.5,'#f4ead2');
+    oval(146,183,3,3.4,'#140c08');oval(214,183,3,3.4,'#140c08');
+    oval(180,232,30,22,skin);oval(166,238,7,6,'#3a2418');oval(194,238,7,6,'#3a2418');
+    x.fillStyle='#2a1810';x.beginPath();x.moveTo(158,268);x.quadraticCurveTo(180,292,202,268);x.quadraticCurveTo(180,304,158,268);x.fill();
+  }else if(kind==='godzilla'){
+    const g='#2f9a32',g2='#237428',belly='#f0d24a';
+    oval(180,340,110,170,g);oval(180,360,70,130,belly);
+    oval(180,150,88,96,g);oval(180,188,58,50,belly);
+    for(const p of[[180,78],[150,92],[210,92],[132,118],[228,118]]){
+      x.fillStyle=g2;x.beginPath();x.moveTo(p[0],p[1]-28);x.lineTo(p[0]-12,p[1]+4);x.lineTo(p[0]+12,p[1]+4);x.closePath();x.fill();
+    }
+    oval(154,168,14,12,'#1a1408');oval(206,168,14,12,'#1a1408');
+    oval(154,170,6,7,'#ffe95a');oval(206,170,6,7,'#ffe95a');
+    oval(154,172,3,3.4,'#120800');oval(206,172,3,3.4,'#120800');
+    x.fillStyle='#1a3a18';x.fillRect(158,210,44,10);
+    x.strokeStyle='#173c16';x.lineWidth=4;x.beginPath();x.moveTo(150,238);x.quadraticCurveTo(180,258,210,238);x.stroke();
+  }else if(kind==='furbeast'){
+    const f='#7a4a28',f2='#5c3418',snout='#e8c9a0';
+    oval(180,335,118,168,f);oval(92,355,44,80,f2);oval(268,355,44,80,f2);
+    oval(180,160,96,108,f);oval(180,198,70,56,snout);
+    for(const sd of[-1,1]){x.fillStyle=f2;x.beginPath();x.moveTo(180+sd*34,78);x.lineTo(180+sd*58,28);x.lineTo(180+sd*18,92);x.closePath();x.fill();}
+    oval(148,158,13,11,'#1a120c');oval(212,158,13,11,'#1a120c');
+    oval(148,160,5,6,'#ffb040');oval(212,160,5,6,'#ffb040');
+    oval(148,162,2.8,3.2,'#120800');oval(212,162,2.8,3.2,'#120800');
+    oval(180,214,22,16,snout);oval(172,220,5,5,'#3a2418');oval(188,220,5,5,'#3a2418');
+    x.fillStyle='#4a2814';x.beginPath();x.moveTo(156,248);x.quadraticCurveTo(180,270,204,248);x.quadraticCurveTo(180,282,156,248);x.fill();
+  }else{
+    const a='#b7b09a',a2='#8d8774',horn='#f2e6c4';
+    oval(180,338,120,172,a);oval(90,360,48,78,a2);oval(270,360,48,78,a2);
+    oval(180,168,92,100,a);oval(180,200,64,48,'#d8d0bc');
+    x.fillStyle=horn;x.beginPath();x.moveTo(180,118);x.lineTo(168,28);x.lineTo(192,28);x.closePath();x.fill();
+    x.strokeStyle='#5a5040';x.lineWidth=3;x.stroke();
+    oval(150,172,13,10,'#1a140c');oval(210,172,13,10,'#1a140c');
+    oval(150,174,5.2,6,'#ffcc33');oval(210,174,5.2,6,'#ffcc33');
+    oval(150,176,2.8,3.2,'#120800');oval(210,176,2.8,3.2,'#120800');
+    x.fillStyle='#3a3428';x.fillRect(158,228,44,12);
+  }
+  cart();
   tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearFilter;tex.needsUpdate=true;
 }
 function attachKaijuMoveSprite(w){
@@ -5884,11 +5919,9 @@ function attachKaijuMoveSprite(w){
   w.g.add(spr);
   w.moveSprite={spr,frames,frame:-1,face:1,baseH:h,appliedFace:0,faceLock:0};
   kaijuBakeSpriteSheet(frames,pack,function(){
-    if(w.kind==='kong'){
-      for(let i=0;i<Math.min(10,frames.length);i++)paintKongFurTint(frames[i]);
-      if(frames[10])paintKingKongLook(frames[10]);
-    }
-    if(w.moveSprite)w.moveSprite.frame=-1;
+    if(w.kind==='kong')for(let i=0;i<Math.min(10,frames.length);i++)paintKongFurTint(frames[i]);
+    if(frames[10])paintKaijuLookDown(w.kind,frames[10]);
+    if(w.moveSprite){w.moveSprite.frame=-1;w.moveSprite.baked=1;}
   });
   if(w.bodyRig)w.bodyRig.visible=false;
   if(w.legs)for(const leg of w.legs)leg.visible=false;
@@ -5958,7 +5991,7 @@ function updateKaijuMoveSprite(w,moving,dt){
   if(iw&&ih){
     const H=S.baseH,tw=H*(iw/ih),th=H;
     if(staring){
-      S.curW=tw;S.curH=th;
+      S.curW=tw*1.18;S.curH=th*1.18;
     }else{
       if(S.curW==null){S.curW=tw;S.curH=th;}
       else{const k=Math.min(1,dt*12);S.curW+=(tw-S.curW)*k;S.curH+=(th-S.curH)*k;}
@@ -7021,10 +7054,10 @@ function monsterLookPose(w){
   return {lookYaw:clamp(relative,near?-1.2:-.82,near?1.2:.82),lookPitch:clamp(Math.atan2(headY+w.g.position.y-cart.y,horizontal),.10,.92),attention:cart.started?(near?1:.85):.62};
 }
 const KAIJU_CHASE_MPS=40/2.237; /* 40 mph, same units as cart.v / the HUD */
-const KAIJU_GRAZE_MPS=7.4;
-const KAIJU_NOTICE_M=96;
-const KAIJU_STARE_M=62;
-const KAIJU_CROSS_OFF=ROAD_W+22;
+const KAIJU_GRAZE_MPS=6.1;
+const KAIJU_NOTICE_M=72;
+const KAIJU_STARE_M=58;
+const KAIJU_CROSS_OFF=ROAD_W+26;
 const _kaijuNdc=new THREE.Vector3(),_kaijuDir=new THREE.Vector3();
 function kaijuView(w){
   const h=(w.moveSprite&&w.moveSprite.baseH)||48;
@@ -7059,9 +7092,13 @@ function kaijuSpawnBesideCart(w){
   if(hunting.length===1&&hunting[0].huntSide)side=-hunting[0].huntSide;
   w.huntSide=side;w.huntT=t;w.crossDir=-side;
   w.crossPos=side*KAIJU_CROSS_OFF;
-  w.crossTarget=-side*(KAIJU_CROSS_OFF+36);
+  w.crossTarget=-side*(KAIJU_CROSS_OFF+40);
   const p=s.p.clone().addScaledVector(s.right,w.crossPos);
-  p.y=surfaceH(p.x,p.z);return {p,s};
+  p.y=surfaceH(p.x,p.z);
+  const dest=s.p.clone().addScaledVector(s.right,w.crossTarget);
+  dest.y=surfaceH(dest.x,dest.z);
+  w.pathFrom=p.clone();w.pathTo=dest;w.pathU=0;
+  return {p,s};
 }
 function kaijuLeaveDir(w){
   const s=monsterSampAt(cart.lastNearT||w.huntT||w.t||0);
@@ -7072,14 +7109,22 @@ function kaijuLeaveDir(w){
   return away.normalize();
 }
 function kaijuGrazeAim(w,dt){
-  const s=monsterSampAt(w.huntT||cart.lastNearT||0);
-  if(w.crossPos==null)w.crossPos=(w.huntSide||1)*KAIJU_CROSS_OFF;
-  const dir=w.crossDir||-(w.huntSide||1);
-  w.crossDir=dir;
-  w.crossPos+=dir*KAIJU_GRAZE_MPS*Math.max(0,dt||0);
-  if(Math.abs(w.crossPos)<ROAD_W+3)w.crossedRoad=true;
-  return {x:s.p.x+s.right.x*w.crossPos,z:s.p.z+s.right.z*w.crossPos,
-    yaw:Math.atan2(s.right.x*dir,s.right.z*dir),moving:true};
+  if(!w.pathFrom||!w.pathTo){
+    const s=monsterSampAt(w.huntT||cart.lastNearT||0);
+    if(w.crossPos==null)w.crossPos=(w.huntSide||1)*KAIJU_CROSS_OFF;
+    const dir=w.crossDir||-(w.huntSide||1);
+    w.pathFrom=new THREE.Vector3(s.p.x+s.right.x*w.crossPos,0,s.p.z+s.right.z*w.crossPos);
+    w.pathTo=new THREE.Vector3(s.p.x+s.right.x*(w.crossTarget!=null?w.crossTarget:-w.crossPos),0,s.p.z+s.right.z*(w.crossTarget!=null?w.crossTarget:-w.crossPos));
+    w.pathU=0;w.crossDir=dir;
+  }
+  const dx=w.pathTo.x-w.pathFrom.x,dz=w.pathTo.z-w.pathFrom.z;
+  const span=Math.hypot(dx,dz)||1;
+  w.pathU=Math.min(1.15,(w.pathU||0)+KAIJU_GRAZE_MPS*Math.max(0,dt||0)/span);
+  const u=Math.min(1,w.pathU);
+  const x=w.pathFrom.x+dx*u,z=w.pathFrom.z+dz*u;
+  w.crossPos=(w.huntSide||1)*KAIJU_CROSS_OFF*(1-u)+((w.crossTarget!=null)?w.crossTarget:-(w.huntSide||1)*KAIJU_CROSS_OFF)*u;
+  if(Math.abs(w.crossPos)<ROAD_W+4)w.crossedRoad=true;
+  return {x,z,yaw:Math.atan2(dx,dz),moving:w.pathU<1};
 }
 function kaijuHuntAim(w,dt){
   const px=w.g.position.x,pz=w.g.position.z;
@@ -7106,7 +7151,7 @@ function kaijuPlantStare(w){
 function kaijuNoticeCart(w){
   if(w.mode==='hunt'||w.noticed)return;
   w.mode='hunt';w.noticed=true;w.crazyFace=true;w.closeLook=true;
-  w.huntStage='stare';w.turnT=0;w.lookDownT=2.8;w.roarT=.15;w.roar=0;w.spawnYell=0;
+  w.huntStage='stare';w.turnT=0;w.lookDownT=3.4;w.roarT=.12;w.roar=0;w.spawnYell=0;
   kaijuPlantStare(w);
   toast((w.label||'KAIJU')+' LOOKS DOWN AT YOUR CART!',2200);
 }
@@ -7191,22 +7236,24 @@ function updateMonsterIslandHazards(dt){
       else{w.offScreenT=(w.offScreenT||0)+dt;w.onScreenT=Math.max(0,(w.onScreenT||0)-dt*2);}
       const dist=view.dist;
       const canAct=cart.boom<=0&&!cart.finished;
-      if(canAct&&dist<32)kaijuNoticeCart(w);
-      else if(canAct&&view.onScreen&&!view.leaving&&dist<KAIJU_NOTICE_M)kaijuNoticeCart(w);
-      else if(canAct&&w.seenOnce&&view.leaving){
+      const nearLane=Math.abs(w.crossPos||0)<ROAD_W+18||!!w.crossedRoad;
+      if(canAct&&dist<26)kaijuNoticeCart(w);
+      else if(canAct&&view.onScreen&&nearLane&&dist<KAIJU_STARE_M)kaijuNoticeCart(w);
+      else if(canAct&&view.onScreen&&!view.leaving&&dist<KAIJU_NOTICE_M&&nearLane)kaijuNoticeCart(w);
+      else if(canAct&&w.seenOnce&&view.leaving&&(w.offScreenT||0)>1.2){
         if(kaijuIsFollowed(w,view))kaijuNoticeCart(w);
         else parkKaiju(w);
-      }else if(Math.abs(w.crossPos||0)>96)parkKaiju(w);
+      }else if((w.pathU||0)>1.08)parkKaiju(w);
       if(w.mode==='graze'){
         const aim=kaijuGrazeAim(w,dt);
         const turn=Math.atan2(Math.sin(aim.yaw-w.g.rotation.y),Math.cos(aim.yaw-w.g.rotation.y));
         w.g.rotation.y+=turn*Math.min(1,dt*2.4);
         const ny=surfaceH(aim.x,aim.z);
         const moved=Math.hypot(aim.x-w.g.position.x,aim.z-w.g.position.z);
-        w.g.position.y+=(ny-w.g.position.y)*Math.min(1,dt*6);
-        w.travelDistance+=moved;w.lastPos.set(aim.x,w.g.position.y,aim.z);
+        w.g.position.y=ny;
+        w.travelDistance+=moved;w.lastPos.set(aim.x,ny,aim.z);
         w.g.visible=true;w.g.position.x=aim.x;w.g.position.z=aim.z;
-        driveKaijuBody(w,dt,moved,hop,impact,support,true);
+        driveKaijuBody(w,dt,moved,hop,impact,support,!!aim.moving);
       }
     }
     if(w.mode==='hunt'){
@@ -7230,7 +7277,7 @@ function updateMonsterIslandHazards(dt){
         w.g.rotation.x=0;w.g.rotation.z=0;
         w.g.visible=true;w.lastPos.copy(w.g.position);
         driveKaijuBody(w,dt,0,0,0,1,false);
-        if((w.turnT||0)<=0){w.huntStage='stare';if((w.lookDownT||0)<=0)w.lookDownT=2.8;kaijuPlantStare(w);}
+        if((w.turnT||0)<=0){w.huntStage='stare';if((w.lookDownT||0)<=0)w.lookDownT=3.4;kaijuPlantStare(w);}
       }else if(staring){
         if(w.stareX==null)kaijuPlantStare(w);
         w.g.position.set(w.stareX,w.stareY,w.stareZ);
@@ -7240,16 +7287,18 @@ function updateMonsterIslandHazards(dt){
         w.g.visible=true;
         driveKaijuBody(w,dt,0,0,0,1,false);
       }else{
-      const lookYaw=Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
+      const lead=Math.min(22,Math.abs(cart.v)*.45);
+      const tx=cart.x+Math.sin(cart.heading)*lead,tz=cart.z+Math.cos(cart.heading)*lead;
+      const lookYaw=Math.atan2(tx-w.g.position.x,tz-w.g.position.z);
       const turn=Math.atan2(Math.sin(lookYaw-w.g.rotation.y),Math.cos(lookYaw-w.g.rotation.y));
-      w.g.rotation.y+=turn*Math.min(1,dt*2.0);
+      w.g.rotation.y+=turn*Math.min(1,dt*1.35);
       w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
       const spd=KAIJU_CHASE_MPS;
       const nx=w.g.position.x+Math.sin(w.g.rotation.y)*spd*dt;
       const nz=w.g.position.z+Math.cos(w.g.rotation.y)*spd*dt;
       const ny=surfaceH(nx,nz);
       const moved=Math.hypot(nx-w.g.position.x,nz-w.g.position.z);
-      w.g.position.y+=(ny-w.g.position.y)*Math.min(1,dt*6);
+      w.g.position.y=ny;
       w.travelDistance+=moved;w.lastPos.set(nx,w.g.position.y,nz);
       w.g.visible=true;w.g.position.x=nx;w.g.position.z=nz;
       driveKaijuBody(w,dt,moved,hop,impact,support,moved>.04);
@@ -7268,7 +7317,7 @@ function updateMonsterIslandHazards(dt){
     }else if(w.mode==='leave'){
       if(!w.leaveDir)w.leaveDir=kaijuLeaveDir(w);
       w.leaveT+=dt;
-      const spd=26;
+      const spd=22;
       const nx=w.g.position.x+w.leaveDir.x*spd*dt;
       const nz=w.g.position.z+w.leaveDir.z*spd*dt;
       const ny=surfaceH(nx,nz);
@@ -9612,6 +9661,52 @@ function spriteTex(url,key,frame){
    disable outlining and the compensation falls out to a no-op. */
 const SPRITE_INK=0.010;
 function spriteFrames(name){ return CREATURE_SPRITES[name].map((url,i)=>spriteTex(url,name,i)); }
+const _solidAnimalCache={};
+function paintSolidAnimal(key,pose){
+  const W=168,H=128,cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const x=cv.getContext('2d');x.imageSmoothingEnabled=false;x.clearRect(0,0,W,H);
+  const C={deer:'#c47a32',turkey:'#9a4e18',beaver:'#6b4020',fox:'#e07018',coyote:'#c9a056',
+    bobcat:'#d4a24a',mouse:'#c0b8ac',frog:'#3d9e3a',snake:'#5ea03a',mountainlion:'#d4923a',
+    bigfoot:'#5a3a22',bear:'#4a301c',goblin:'#3d8a32'};
+  const fill=C[key]||'#8a6238',ink='#1a120c',step=(pose%2)?7:-7;
+  function blob(cx,cy,rx,ry,col){x.beginPath();x.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);x.fillStyle=col||fill;x.fill();x.strokeStyle=ink;x.lineWidth=3;x.stroke();}
+  function leg(lx,ly){x.fillStyle=fill;x.strokeStyle=ink;x.lineWidth=3;x.beginPath();x.rect(lx,ly,8,24);x.fill();x.stroke();}
+  if(key==='snake'){
+    x.strokeStyle=fill;x.lineWidth=16;x.lineCap='round';
+    x.beginPath();x.moveTo(28,88);x.quadraticCurveTo(70,48+step,110,86);x.quadraticCurveTo(140,108,152,78);x.stroke();
+    x.strokeStyle=ink;x.lineWidth=3;x.stroke();blob(150,74,14,12);
+  }else if(key==='frog'){
+    blob(84,78,34,22);blob(108,62,16,14);leg(58,88+step/2);leg(96,88-step/2);
+  }else if(key==='turkey'){
+    blob(86,78,32,20);blob(118,64,14,12);
+    x.fillStyle=fill;x.beginPath();x.moveTo(70,70);x.lineTo(36,36);x.lineTo(54,78);x.closePath();x.fill();x.strokeStyle=ink;x.stroke();
+    leg(74,92);leg(96,92+step/3);
+  }else if(key==='goblin'||key==='bigfoot'){
+    blob(84,70,22,28);blob(84,38,16,16);leg(72,94+step/2);leg(90,94-step/2);
+    blob(70,58,8,10);blob(98,58,8,10);
+  }else if(key==='mouse'){
+    blob(90,86,22,12);blob(118,78,10,8);leg(78,94);leg(98,94+step/2);
+    x.strokeStyle=fill;x.lineWidth=4;x.beginPath();x.moveTo(70,88);x.quadraticCurveTo(40,70,28,92);x.stroke();
+  }else if(key==='deer'){
+    blob(78,78,36,18);blob(118,58,16,14);
+    x.strokeStyle=ink;x.lineWidth=4;x.beginPath();x.moveTo(112,46);x.lineTo(104,22);x.moveTo(122,46);x.lineTo(132,20);x.stroke();
+    leg(58,92);leg(72,92+step/3);leg(90,92);leg(104,92-step/3);
+  }else{
+    blob(78,80,38,18);blob(118,64,16,14);leg(56,94);leg(70,94+step/3);leg(88,94);leg(102,94-step/3);
+    if(key==='fox'||key==='coyote'){x.fillStyle=fill;x.beginPath();x.moveTo(128,58);x.lineTo(154,44);x.lineTo(124,70);x.closePath();x.fill();x.strokeStyle=ink;x.stroke();}
+  }
+  const id=x.getImageData(0,0,W,H),d=id.data;
+  for(let i=3;i<d.length;i+=4)d[i]=d[i]>90?255:0;
+  x.putImageData(id,0,0);
+  const tex=new THREE.CanvasTexture(cv);
+  tex.magFilter=THREE.NearestFilter;tex.minFilter=THREE.NearestFilter;
+  tex.needsUpdate=true;return tex;
+}
+function solidAnimalFrames(key){
+  if(_solidAnimalCache[key])return _solidAnimalCache[key];
+  const frames=[0,1,2].map(function(i){return paintSolidAnimal(key,i);});
+  _solidAnimalCache[key]=frames;return frames;
+}
 const CREATURES={
   goblin:       {sheet:'goblin',       scale:1.62, shadow:.42, frameCycle:[0,1,2,1], attackFrames:[0,1,2,1], dashScale:.36, big:false},
   beaver:       {sheet:'beaver',       scale:1.22, shadow:.52, frameCycle:[0,1,2,1], dashScale:.30, big:false},
@@ -9647,10 +9742,11 @@ function mirroredTex(tex){
   return m;
 }
 function makeSpriteCritter(key,mode='world'){
-  const def=CREATURES[key], frames=spriteFrames(def.sheet);
-  const t0=frames[(def.frameCycle||[0])[0]];
-  const img=t0.image||{width:64,height:64};
-  const aspect=(img.width||64)/(img.height||64);
+  const def=CREATURES[key]||CREATURES.fox;
+  const frames=solidAnimalFrames(key);
+  const t0=frames[0];
+  const img=t0.image||{width:168,height:128};
+  const aspect=(img.width||168)/(img.height||128);
   // Grow the plane by exactly the padding the ink outline added, so the
   // creature keeps the size it had before stage 6.
   const inkGrow=1+2*SPRITE_INK;
@@ -9665,13 +9761,13 @@ function makeSpriteCritter(key,mode='world'){
     shadow.rotation.x=-Math.PI/2; shadow.position.y=.04; shadow.scale.set(1.18,1,.58); g.add(shadow);
     g.userData.shadow=shadow;
   }
-  const sm=new THREE.SpriteMaterial({map:t0,transparent:true,alphaTest:.08,depthWrite:false});
+  const sm=new THREE.SpriteMaterial({map:t0,transparent:true,alphaTest:.5,depthWrite:true,color:0xffffff});
   const spr=new THREE.Sprite(sm);
   // Bottom-anchored, so sink by the lower ink band to put the feet back on
   // the ground rather than on top of the transparent padding.
   spr.center.set(.5,0); spr.position.y=-h*(SPRITE_INK/(1+2*SPRITE_INK)); spr.scale.set(w,h,1);
   g.add(spr);
-  g.userData.sprite=spr; g.userData.frames=frames; g.userData.key=key;
+  g.userData.sprite=spr; g.userData.frames=frames; g.userData.key=key; g.userData.face=1;
   g.userData.baseH=h; g.userData.baseW=w; g.userData.aspect=aspect;
   g.userData.frameList=def.frameCycle||[0];
   g.userData.frame=0;
@@ -9689,15 +9785,20 @@ function critterFrame(g,idx,sx=1,sy=1){
     _pB.set(g.position.x+u.dirX*0.6,g.position.y,g.position.z+u.dirZ*0.6).project(camera);
     if(_pA.z>-1&&_pA.z<1&&_pB.z>-1&&_pB.z<1){
       const dx=_pB.x-_pA.x;
-      if(Math.abs(dx)>0.0008)u.face=dx>0?1:-1;   // sheets are drawn facing right
+      if(Math.abs(dx)>0.05){
+        const want=dx>0?1:-1;
+        if(want===u.face)u.flipVotes=0;
+        else{u.flipVotes=(u.flipVotes||0)+1;if(u.flipVotes>12){u.face=want;u.flipVotes=0;}}
+      }
     }
   }
 
   if(u.frame!==idx||u.appliedFace!==u.face){
     u.sprite.material.map=(u.face===-1)?mirroredTex(tex):tex;
     u.sprite.material.transparent=true;
-    u.sprite.material.alphaTest=.08;
-    u.sprite.material.depthWrite=false;
+    u.sprite.material.alphaTest=.5;
+    u.sprite.material.depthWrite=true;
+    u.sprite.material.color.setHex(0xffffff);
     u.sprite.material.needsUpdate=true;
     u.frame=idx;
     u.appliedFace=u.face;
@@ -9722,7 +9823,11 @@ function critterFrame(g,idx,sx=1,sy=1){
     _pB.set(g.position.x+u.dirX*0.6,g.position.y,g.position.z+u.dirZ*0.6).project(camera);
     if(_pA.z>-1&&_pA.z<1&&_pB.z>-1&&_pB.z<1){
       const dx=_pB.x-_pA.x;
-      if(Math.abs(dx)>0.0008)u.face=dx>0?1:-1;   // art is drawn facing right
+      if(Math.abs(dx)>0.05){
+        const want=dx>0?1:-1;
+        if(want===u.face)u.flipVotes=0;
+        else{u.flipVotes=(u.flipVotes||0)+1;if(u.flipVotes>12){u.face=want;u.flipVotes=0;}}
+      }
     }
   }
   u.sprite.scale.set(u.baseH*u.aspect*sx,u.baseH*sy,1);   // sign is carried by the texture, not the scale
@@ -10236,6 +10341,7 @@ function spawnAnimal(nearT){
   scene.add(grp);
   ANIMALS.push({grp,typ,dir,dist:0,total:34,phase:Math.random()*6,fled:false});
 }
+window.ACR_ANIMALS=ANIMALS;window.ACR_SPAWN_ANIMAL=spawnAnimal;
 function animalHitFx(pos){
   for(let i=0;i<7;i++){
     const puff=new THREE.Mesh(new THREE.SphereGeometry(.16,5,4),
@@ -10286,8 +10392,8 @@ function updateAnimals(dt,cartPos){
     g.position.y=groundYAt(g.position.x,g.position.z).y+lift;   // ...then settle on the ground
     A.dist+=sp*dt;
     const seq=[0,1,2,1];
-    const sx=1+Math.abs(Math.sin(A.phase))*0.04;
-    const sy=1+(A.typ.gait==='hop'?Math.max(0,Math.sin(A.phase))*.08:Math.abs(Math.sin(A.phase*0.5))*.03);
+    const sx=1;
+    const sy=A.typ.gait==='hop'?1+Math.max(0,Math.sin(A.phase))*.04:1;
     if(A.typ.gait==='upright'&&g.userData.bear){
       /* Two-legged run: legs swing out of phase, the pot rocks up to the
          snout, and the whole body bobs with the stride. */
