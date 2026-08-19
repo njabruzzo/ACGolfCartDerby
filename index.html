@@ -80,7 +80,7 @@ html body.acr-gated #acrGate, #acrGate.show{
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-LOOK-ART">
+<meta name="acr-build" content="2026-08-19-AI-SPEC">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -5967,14 +5967,16 @@ function updateKaijuMoveSprite(w,moving,dt){
   const S=w&&w.moveSprite;if(!S)return;
   dt=Math.max(0,dt||0);
   const nWalk=8,stompIdx=8,roarIdx=9,lookIdx=Math.min(10,S.frames.length-1);
-  const staring=w.huntStage==='stare'||(w.lookDownT||0)>.08;
+  const ai=w.aiState;
+  const staring=ai==='ALERT'||w.huntStage==='stare'||(w.lookDownT||0)>.08;
   const turning=w.huntStage==='turn';
-  const throwing=w.huntStage==='throw';
-  const walking=!!moving||w.mode==='graze'||w.mode==='leave'||(w.mode==='hunt'&&w.huntStage==='chase');
+  const throwing=(ai==='STRIKE'&&w.a&&w.a.strikeKind==='throw')||w.huntStage==='throw';
+  const telegraphing=ai==='TELEGRAPH';
+  const walking=!!moving||w.mode==='graze'||w.mode==='leave'||ai==='DORMANT'||ai==='APPROACH'||ai==='REPOSITION'||ai==='INVESTIGATE'||ai==='FLEE'||(w.mode==='hunt'&&w.huntStage==='chase');
   let idx=0;
-  if(throwing||(w.stompT||0)>.62)idx=stompIdx;
+  if(throwing||ai==='STRIKE'||(w.stompT||0)>.62)idx=stompIdx;
   else if(staring)idx=lookIdx;
-  else if(turning||(w.roarT||0)>.18)idx=((w.roarT||0)>.18)?roarIdx:((w.walkFrame==null)?0:w.walkFrame);
+  else if(telegraphing||turning||(w.roarT||0)>.18)idx=((w.roarT||0)>.18||telegraphing)?roarIdx:((w.walkFrame==null)?0:w.walkFrame);
   else if(walking){
     if(w.walkFrame==null)w.walkFrame=0;
     w.walkHold=(w.walkHold||0)+dt;
@@ -6031,6 +6033,600 @@ function updateKaijuMoveSprite(w,moving,dt){
   }
 }
 
+let AI_RNG_STATE=0xC0FFEE^0;
+function seedAiRng(seed){AI_RNG_STATE=((seed>>>0)||0xC0FFEE);}
+function rng(){
+  AI_RNG_STATE|=0;AI_RNG_STATE=(AI_RNG_STATE+0x6D2B79F5)|0;
+  let t=Math.imul(AI_RNG_STATE^(AI_RNG_STATE>>>15),1|AI_RNG_STATE);
+  t=(t+Math.imul(t^(t>>>7),61|t))^t;
+  return ((t^(t>>>14))>>>0)/4294967296;
+}
+const AI_TUNING={
+  FIXED_STEP_MS:16.667,MAX_DT_MS:100,MAX_CATCHUP_STEPS:4,
+  MORALE_BREAK:.25,MORALE_RALLY:.55,MORALE_REGEN:.06,MORALE_MIN_FLEE_MS:1500,
+  PRESSURE_WINDOW_MS:2000,PRESSURE_CAP_FRAC:.40,PRESSURE_STRETCH_MAX:2.2,
+  POISE_WINDOW_MS:1200,REAR_ARC_DAMAGE_MULT:1.25,
+  RETARGET_INTERVAL_MS:500,LOS_CACHE_MS:150,MAX_LOS_RAYS_PER_FRAME:12,
+  SHOUT_DELAY_MS:250,NOISE_THRESHOLD:.35,POST_STAGGER_GRACE_MS:400,
+  DOGPILE_SOURCES:3,DOGPILE_WINDOW_MS:1500,DOGPILE_SUPPRESS_MS:600,
+  NEAR_M:400,MID_M:900,FAR_M:1400,HASH_CELL:128,MAX_PATHS_PER_FRAME:2,
+  CHASE_LEAD_M:22,CHASE_LEAD_V:.45,LANE_LOS_M:18,
+  SEPARATION_WEIGHT:1.4,ARRIVAL_WEIGHT:1.0,OBSTACLE_WEIGHT:1.2,
+  DEFAULT_CHASE_MPS:40/2.237,DEFAULT_GRAZE_MPS:6.1,
+  NOTICE_M:72,STARE_M:58,CLOSE_NOTICE_M:26,CROSS_PAD:26,
+  OFFSCREEN_PARK_S:1.2,GRAZE_END_U:1.08,LEAVE_SPEED:22,LEAVE_MAX_S:2.6,LEAVE_OFF_M:42,
+  TELEGRAPH_MIN:{trash:220,elite:450,heavy:700},
+  STATE_MAX_MS:{DORMANT:22000,ALERT:5000,INVESTIGATE:8000,APPROACH:28000,REPOSITION:6000,TELEGRAPH:1400,STRIKE:900,RECOVER:1200,STAGGERED:800,FLEE:4500,DYING:1200,DEAD:1e12}
+};
+const MONSTER_ARCHETYPES={
+  godzilla:{
+    id:'godzilla',displayName:'LIZZIE',
+    sightRange:72,sightArc:220,hearingRange:48,alertShoutRange:40,memoryDuration:4000,
+    moveSpeed:6.1,approachSpeed:40/2.237,turnRate:90,separationRadius:22,preferredRange:0,strafeBias:0,
+    attackRange:22,alertMs:3400,telegraphMs:720,strikeMs:180,recoverMs:380,attackCooldownMs:1100,
+    damageFrac:1/3,damageType:'blunt',poise:20,strikeKind:'stomp',leaveAfterHit:true,
+    damageMultipliers:{slash:1,pierce:1,blunt:1,fire:1,holy:1},immunities:[],
+    moraleBase:1,moraleFloor:1,moraleTriggers:{},
+    policy:'mindless',cadenceJitter:.35,threatTier:'heavy',rearArcBias:0,cohesionBias:0,packSize:1,packCohesionRadius:40,
+    telegraphCue:{color:'#7adf4a',decal:'stomp'}
+  },
+  kong:{
+    id:'kong',displayName:'GEORGE',
+    sightRange:72,sightArc:200,hearingRange:52,alertShoutRange:48,memoryDuration:4200,
+    moveSpeed:6.1,approachSpeed:40/2.237,turnRate:70,separationRadius:24,preferredRange:0,strafeBias:0,
+    attackRange:22,alertMs:3400,telegraphMs:800,strikeMs:220,recoverMs:420,attackCooldownMs:1400,
+    damageFrac:.5,damageType:'blunt',poise:28,strikeKind:'throw',leaveAfterHit:true,
+    damageMultipliers:{slash:1,pierce:1,blunt:1,fire:1,holy:1},immunities:['fear'],
+    moraleBase:1,moraleFloor:.85,moraleTriggers:{bigHit:-.15,allyDied:-.08},
+    policy:'mindless',cadenceJitter:.30,threatTier:'heavy',rearArcBias:0,cohesionBias:0,packSize:1,packCohesionRadius:40,
+    telegraphCue:{color:'#c47a3a',decal:'grab'}
+  },
+  furbeast:{
+    id:'furbeast',displayName:'RALPH',
+    sightRange:78,sightArc:260,hearingRange:64,alertShoutRange:56,memoryDuration:3600,
+    moveSpeed:6.4,approachSpeed:38/2.237,turnRate:140,separationRadius:20,preferredRange:28,strafeBias:.7,
+    attackRange:22,alertMs:2400,telegraphMs:720,strikeMs:160,recoverMs:340,attackCooldownMs:1000,
+    damageFrac:1/3,damageType:'slash',poise:16,strikeKind:'stomp',leaveAfterHit:true,
+    damageMultipliers:{slash:1,pierce:1,blunt:1,fire:1.25,holy:1},immunities:[],
+    moraleBase:1,moraleFloor:.15,moraleTriggers:{bigHit:-.30,lowHp:-.25,allyDied:-.10,alphaDied:-.45,fireDamage:-.20,outnumbered:-.15,playerFled:.20},
+    policy:'pack',cadenceJitter:.35,threatTier:'heavy',rearArcBias:.8,cohesionBias:.2,packSize:1,packCohesionRadius:48,panicRange:14,
+    telegraphCue:{color:'#e08a2a',decal:'stomp'}
+  },
+  armored:{
+    id:'armored',displayName:'RHINO',
+    sightRange:64,sightArc:180,hearingRange:40,alertShoutRange:36,memoryDuration:4500,
+    moveSpeed:5.4,approachSpeed:32/2.237,turnRate:55,separationRadius:26,preferredRange:6,strafeBias:.15,
+    attackRange:26,alertMs:3800,telegraphMs:850,strikeMs:240,recoverMs:480,attackCooldownMs:1500,
+    damageFrac:1/3,damageType:'blunt',poise:32,strikeKind:'stomp',leaveAfterHit:true,
+    damageMultipliers:{slash:.7,pierce:.7,blunt:1.1,fire:1,holy:1},immunities:['hold'],
+    moraleBase:1,moraleFloor:.55,moraleTriggers:{commanderDied:-.50,allyDied:-.08,bigHit:-.12},
+    policy:'soldier',cadenceJitter:.25,threatTier:'heavy',rearArcBias:0,cohesionBias:.7,packSize:1,packCohesionRadius:40,
+    telegraphCue:{color:'#b7b09a',decal:'stomp'}
+  }
+};
+const AI_WORLD={now:0,acc:0,hidden:false,skipCatchup:false,seq:0,dmgBuf:[],hits:[],suppressUntil:0,losRays:0,simSteps:0,aiMs:0,pressure:0,debug:false};
+try{
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){AI_WORLD.hidden=true;AI_WORLD.acc=0;}
+    else{AI_WORLD.hidden=false;AI_WORLD.skipCatchup=true;AI_WORLD.acc=0;}
+  });
+}catch(_){}
+function aiClamp(v,lo,hi){return v<lo?lo:v>hi?hi:v;}
+function aiAngDiff(a,b){return Math.atan2(Math.sin(b-a),Math.cos(b-a));}
+function aiHyp(dx,dz){return Math.hypot(dx,dz)||1;}
+function aiCartNoise(){return Math.min(1,Math.abs(cart&&cart.v||0)/28);}
+function aiThreatMinMs(tier){return AI_TUNING.TELEGRAPH_MIN[tier]||AI_TUNING.TELEGRAPH_MIN.heavy;}
+function aiArchetype(w){return w.a||MONSTER_ARCHETYPES[w.kind]||MONSTER_ARCHETYPES.godzilla;}
+function aiSyncHunt(w){
+  const s=w.aiState;
+  if(s==='DORMANT'||s==='INVESTIGATE'){w.mode='graze';w.huntStage=null;}
+  else if(s==='ALERT'){w.mode='hunt';w.huntStage='stare';w.noticed=true;w.crazyFace=true;}
+  else if(s==='APPROACH'||s==='REPOSITION'){w.mode='hunt';w.huntStage='chase';w.noticed=true;w.crazyFace=true;}
+  else if(s==='TELEGRAPH'){w.mode='hunt';w.huntStage='chase';w.noticed=true;w.crazyFace=true;}
+  else if(s==='STRIKE'){w.mode='hunt';w.huntStage=aiArchetype(w).strikeKind==='throw'?'throw':'chase';}
+  else if(s==='RECOVER'||s==='STAGGERED'){w.mode='hunt';w.huntStage='chase';}
+  else if(s==='FLEE'){w.mode='leave';w.huntStage=null;}
+  else if(s==='DEAD'||s==='DYING'){w.mode='wait';w.huntStage=null;}
+}
+function aiSetState(w,name){
+  if(!w||w.aiState===name)return;
+  const prev=w.aiState,st=AI_STATES[prev];
+  if(st&&typeof st.exit==='function')st.exit(w,AI_WORLD);
+  w.aiState=name;w.stateTime=0;w._stateChanges=(w._stateChanges||0)+1;
+  const nx=AI_STATES[name];
+  if(nx&&typeof nx.enter==='function')nx.enter(w,AI_WORLD);
+  aiSyncHunt(w);
+}
+function aiCanPerceive(w,view){
+  const a=aiArchetype(w);
+  const d=(view&&view.dist!=null)?view.dist:aiHyp(cart.x-w.g.position.x,cart.z-w.g.position.z);
+  if(d>a.sightRange&&d>a.hearingRange)return false;
+  if(d<=a.hearingRange&&aiCartNoise()>AI_TUNING.NOISE_THRESHOLD)return true;
+  if(d>a.sightRange)return false;
+  const facing=w.g.rotation.y,to=Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
+  if(Math.abs(aiAngDiff(facing,to))*180/Math.PI>a.sightArc/2)return false;
+  const nearLane=Math.abs(w.crossPos||0)<ROAD_W+AI_TUNING.LANE_LOS_M||!!w.crossedRoad;
+  if(!nearLane&&d>AI_TUNING.CLOSE_NOTICE_M)return false;
+  return true;
+}
+function aiOnScreen(view){if(view&&view.onScreen)return true;return !!(view&&view.dist!=null&&view.dist<AI_TUNING.STARE_M);}
+function aiCartPlaying(){return cart&&cart.boom<=0&&!cart.finished&&!cart._kongThrow&&!cart._harpyCarry&&!(cart._snakeEatT>0);}
+function aiCartCanBeHit(){return aiCartPlaying()&&!(cart.hitCD>0);}
+function aiCartSafe(){return aiCartPlaying();}
+function aiRecordHit(srcId){
+  const now=AI_WORLD.now;
+  AI_WORLD.hits.push({id:srcId,t:now});
+  AI_WORLD.hits=AI_WORLD.hits.filter(h=>now-h.t<AI_TUNING.DOGPILE_WINDOW_MS);
+  const n=new Set(AI_WORLD.hits.map(h=>h.id)).size;
+  if(n>=AI_TUNING.DOGPILE_SOURCES)AI_WORLD.suppressUntil=now+AI_TUNING.DOGPILE_SUPPRESS_MS;
+}
+function aiPressureDps(){
+  let dps=0;
+  const list=(typeof MONSTER_ISLAND!=='undefined'&&MONSTER_ISLAND.walkers)||[];
+  for(let i=0;i<list.length;i++){
+    const w=list[i];if(!w||w.mode==='wait')continue;
+    const a=aiArchetype(w);
+    dps+=(a.damageFrac*(typeof cartMaxHP==='function'?cartMaxHP():100))/(a.attackCooldownMs/1000);
+  }
+  AI_WORLD.pressure=dps;
+  return dps;
+}
+function aiStretchCooldown(w){
+  const a=aiArchetype(w);
+  const cap=(typeof cartMaxHP==='function'?cartMaxHP():100)*AI_TUNING.PRESSURE_CAP_FRAC;
+  const dps=aiPressureDps();
+  let extra=1;
+  if(dps>cap)extra=aiClamp(dps/Math.max(.001,cap),1,AI_TUNING.PRESSURE_STRETCH_MAX);
+  const jitter=1+(rng()-.5)*a.cadenceJitter;
+  w.cooldownUntil=AI_WORLD.now+a.attackCooldownMs*jitter*extra;
+}
+function aiPackCount(w){
+  const a=aiArchetype(w),list=MONSTER_ISLAND.walkers,r=a.packCohesionRadius;
+  let n=1;
+  for(let i=0;i<list.length;i++){
+    const o=list[i];if(o===w||o.mode==='wait')continue;
+    if(aiHyp(o.g.position.x-w.g.position.x,o.g.position.z-w.g.position.z)<=r)n++;
+  }
+  return n;
+}
+function aiCommander(w){
+  const list=MONSTER_ISLAND.walkers;
+  for(let i=0;i<list.length;i++){
+    const o=list[i];if(o!==w&&o.kind==='kong'&&o.mode!=='wait')return o;
+  }
+  return null;
+}
+const ACTION_POLICIES={
+  mindless:function(m,world){
+    const a=aiArchetype(m),view=m._view;
+    if(m.aiState==='DORMANT'&&aiCanPerceive(m,view)&&aiCartSafe())return 'ALERT';
+    if(m.aiState==='APPROACH'||m.aiState==='REPOSITION'){
+      const d=view?view.dist:999,ready=world.now>=(m.cooldownUntil||0);
+      if(d<=a.attackRange&&ready&&aiOnScreen(view)&&aiCartSafe()&&world.now>=(world.suppressUntil||0))return 'TELEGRAPH';
+    }
+    return null;
+  },
+  pack:function(m,world){
+    const a=aiArchetype(m),view=m._view,d=view?view.dist:999;
+    if(m.aiState==='DORMANT'&&aiCanPerceive(m,view)&&aiCartSafe())return 'ALERT';
+    if(m.aiState==='APPROACH'||m.aiState==='REPOSITION'){
+      if(aiPackCount(m)<(a.packSize||1)&&d>a.preferredRange*.7)return 'REPOSITION';
+      const ready=world.now>=(m.cooldownUntil||0);
+      if(d<=a.attackRange&&ready&&aiOnScreen(view)&&aiCartSafe()&&world.now>=(world.suppressUntil||0))return 'TELEGRAPH';
+    }
+    return null;
+  },
+  soldier:function(m,world){
+    const a=aiArchetype(m),view=m._view,d=view?view.dist:999;
+    if(m.aiState==='DORMANT'&&aiCanPerceive(m,view)&&aiCartSafe())return 'ALERT';
+    const cmd=aiCommander(m);
+    if(cmd&&(cmd.aiState==='TELEGRAPH'||cmd.aiState==='STRIKE')&&m.aiState==='REPOSITION')return 'APPROACH';
+    if(m.aiState==='APPROACH'||m.aiState==='REPOSITION'){
+      const ready=world.now>=(m.cooldownUntil||0);
+      if(d<=a.attackRange&&ready&&aiOnScreen(view)&&aiCartSafe()&&world.now>=(world.suppressUntil||0))return 'TELEGRAPH';
+    }
+    return null;
+  },
+  skirmisher:function(m,world){return ACTION_POLICIES.pack(m,world);},
+  adept:function(m,world){return ACTION_POLICIES.mindless(m,world);},
+  ambusher:function(m,world){return ACTION_POLICIES.mindless(m,world);}
+};
+function aiWantedState(w){
+  const a=aiArchetype(w),fn=ACTION_POLICIES[a.policy]||ACTION_POLICIES.mindless;
+  return fn(w,AI_WORLD);
+}
+function aiApplyWanted(w){
+  const want=aiWantedState(w);
+  if(want&&want!==w.aiState){
+    const committed=w.aiState==='TELEGRAPH'||w.aiState==='STRIKE';
+    if(!committed)aiSetState(w,want);
+  }
+}
+function aiSteerToward(w,tx,tz,dtSec,speed){
+  const a=aiArchetype(w);
+  let fx=tx-w.g.position.x,fz=tz-w.g.position.z;
+  const dist=aiHyp(fx,fz);fx/=dist;fz/=dist;
+  let wx=fx*AI_TUNING.ARRIVAL_WEIGHT,wz=fz*AI_TUNING.ARRIVAL_WEIGHT;
+  if(a.preferredRange>0&&w.aiState==='REPOSITION'){
+    const err=dist-a.preferredRange;
+    const hold=aiClamp(err/12,-1.1,1.1);
+    wx=fx*hold;wz=fz*hold;
+  }
+  if(a.strafeBias>0){
+    const sign=w.strafeSign||1;
+    wx+=-fz*a.strafeBias*sign;wz+=fx*a.strafeBias*sign;
+  }
+  if(a.rearArcBias>0){
+    const bx=cart.x-Math.sin(cart.heading)*10,bz=cart.z-Math.cos(cart.heading)*10;
+    const rx=bx-w.g.position.x,rz=bz-w.g.position.z,rd=aiHyp(rx,rz);
+    wx+=(rx/rd)*a.rearArcBias;wz+=(rz/rd)*a.rearArcBias;
+  }
+  if(a.cohesionBias>0){
+    const cmd=aiCommander(w);
+    if(cmd){
+      const mx=(cart.x+cmd.g.position.x)*.5,mz=(cart.z+cmd.g.position.z)*.5;
+      const cx=mx-w.g.position.x,cz=mz-w.g.position.z,cd=aiHyp(cx,cz);
+      wx+=(cx/cd)*a.cohesionBias;wz+=(cz/cd)*a.cohesionBias;
+    }
+  }
+  const list=MONSTER_ISLAND.walkers,sep=a.separationRadius;
+  for(let i=0;i<list.length;i++){
+    const o=list[i];if(o===w||o.mode==='wait')continue;
+    const dx=w.g.position.x-o.g.position.x,dz=w.g.position.z-o.g.position.z,dd=Math.hypot(dx,dz);
+    if(dd>0&&dd<sep){const k=AI_TUNING.SEPARATION_WEIGHT*(1-dd/sep);wx+=(dx/dd)*k;wz+=(dz/dd)*k;}
+  }
+  const mag=Math.hypot(wx,wz)||1;wx/=mag;wz/=mag;
+  const yaw=Math.atan2(wx,wz);
+  const turn=aiAngDiff(w.g.rotation.y,yaw);
+  const maxTurn=(a.turnRate*Math.PI/180)*dtSec;
+  w.g.rotation.y+=aiClamp(turn,-maxTurn,maxTurn);
+  const nx=w.g.position.x+Math.sin(w.g.rotation.y)*speed*dtSec;
+  const nz=w.g.position.z+Math.cos(w.g.rotation.y)*speed*dtSec;
+  const ny=surfaceH(nx,nz);
+  const moved=Math.hypot(nx-w.g.position.x,nz-w.g.position.z);
+  w.g.position.y=ny;w.g.position.x=nx;w.g.position.z=nz;
+  w.travelDistance+=moved;w.lastPos.set(nx,ny,nz);w.g.visible=true;
+  w._moved=moved;w._moving=moved>.04;
+}
+function aiHoldPose(w){
+  w.g.rotation.x=0;w.g.rotation.z=0;w.lastPos.copy(w.g.position);w.g.visible=true;w._moved=0;w._moving=false;
+}
+function aiPlantLook(w){
+  const lookYaw=Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
+  w.stareX=w.g.position.x;w.stareY=w.g.position.y;w.stareZ=w.g.position.z;w.stareYaw=lookYaw;
+  w.g.rotation.y=lookYaw;
+}
+const AI_STATES={
+  DORMANT:{
+    enter:function(w){w.noticed=false;w.lookDownT=0;w.stareX=w.stareY=w.stareZ=w.stareYaw=null;},
+    tick:function(w,world,dtSec){
+      const view=w._view;
+      if(aiCartSafe()&&view.dist<AI_TUNING.CLOSE_NOTICE_M)aiSetState(w,'ALERT');
+      else if(aiCartSafe()&&view.onScreen&&aiCanPerceive(w,view)&&view.dist<AI_TUNING.STARE_M)aiSetState(w,'ALERT');
+      else if(aiCartSafe()&&view.onScreen&&!view.leaving&&aiCanPerceive(w,view)&&view.dist<AI_TUNING.NOTICE_M)aiSetState(w,'ALERT');
+      else if(aiCartSafe()&&w.seenOnce&&view.leaving&&(w.offScreenT||0)>AI_TUNING.OFFSCREEN_PARK_S){
+        if(typeof kaijuIsFollowed==='function'&&kaijuIsFollowed(w,view))aiSetState(w,'ALERT');
+        else aiSetState(w,'DEAD');
+      }else if((w.pathU||0)>AI_TUNING.GRAZE_END_U)aiSetState(w,'DEAD');
+      if(w.aiState!=='DORMANT')return;
+      const aim=kaijuGrazeAim(w,dtSec);
+      const turn=aiAngDiff(w.g.rotation.y,aim.yaw);
+      w.g.rotation.y+=turn*Math.min(1,dtSec*2.4);
+      const ny=surfaceH(aim.x,aim.z);
+      const moved=Math.hypot(aim.x-w.g.position.x,aim.z-w.g.position.z);
+      w.g.position.y=ny;w.travelDistance+=moved;w.lastPos.set(aim.x,ny,aim.z);
+      w.g.visible=true;w.g.position.x=aim.x;w.g.position.z=aim.z;
+      w._moved=moved;w._moving=!!aim.moving;
+    },
+    exit:function(){}
+  },
+  ALERT:{
+    enter:function(w){
+      w.noticed=true;w.crazyFace=true;w.closeLook=true;w.turnT=0;
+      w.lookDownT=aiArchetype(w).alertMs/1000;w.roarT=.12;w.roar=0;w.spawnYell=0;
+      aiPlantLook(w);
+      try{toast((w.label||'KAIJU')+' LOOKS DOWN AT YOUR CART!',2200);}catch(_){}
+    },
+    tick:function(w,world,dtSec){
+      const a=aiArchetype(w);
+      w.lookDownT=Math.max(0,(a.alertMs-w.stateTime)/1000);
+      if(w.stareX==null)aiPlantLook(w);
+      w.g.position.set(w.stareX,w.stareY,w.stareZ);w.g.rotation.y=w.stareYaw;
+      aiHoldPose(w);
+      if(w.stateTime>=a.alertMs)aiSetState(w,'APPROACH');
+    },
+    exit:function(w){w.lookDownT=0;}
+  },
+  INVESTIGATE:{
+    enter:function(w){if(!w.lastKnownPos)w.lastKnownPos={x:cart.x,z:cart.z};},
+    tick:function(w,world,dtSec){
+      const a=aiArchetype(w),p=w.lastKnownPos;
+      aiSteerToward(w,p.x,p.z,dtSec,a.moveSpeed);
+      if(aiCanPerceive(w,w._view)&&aiCartSafe())aiSetState(w,'ALERT');
+      else if(aiHyp(p.x-w.g.position.x,p.z-w.g.position.z)<6||w.stateTime>=a.memoryDuration)aiSetState(w,'DORMANT');
+    },
+    exit:function(){}
+  },
+  APPROACH:{
+    enter:function(w){w.stareX=w.stareY=w.stareZ=w.stareYaw=null;w.lookDownT=0;},
+    tick:function(w,world,dtSec){
+      const a=aiArchetype(w);
+      if(!aiCartSafe()){w.lastKnownPos={x:cart.x,z:cart.z};aiSetState(w,'INVESTIGATE');return;}
+      if(w._view&&w._view.leaving&&(w.offScreenT||0)>1.6&&!(typeof kaijuIsFollowed==='function'&&kaijuIsFollowed(w,w._view))){
+        aiSetState(w,'FLEE');return;
+      }
+      const lead=Math.min(AI_TUNING.CHASE_LEAD_M,Math.abs(cart.v)*AI_TUNING.CHASE_LEAD_V);
+      const tx=cart.x+Math.sin(cart.heading)*lead,tz=cart.z+Math.cos(cart.heading)*lead;
+      aiSteerToward(w,tx,tz,dtSec,a.approachSpeed);
+      if(world.now-(w._decideAt||0)>=AI_TUNING.RETARGET_INTERVAL_MS){w._decideAt=world.now;aiApplyWanted(w);}
+      else aiApplyWanted(w);
+    },
+    exit:function(){}
+  },
+  REPOSITION:{
+    enter:function(w){w.strafeSign=(w.strafeSign||(rng()<.5?1:-1));},
+    tick:function(w,world,dtSec){
+      const a=aiArchetype(w);
+      const lead=Math.min(AI_TUNING.CHASE_LEAD_M,Math.abs(cart.v)*AI_TUNING.CHASE_LEAD_V);
+      const tx=cart.x+Math.sin(cart.heading)*lead,tz=cart.z+Math.cos(cart.heading)*lead;
+      aiSteerToward(w,tx,tz,dtSec,a.moveSpeed);
+      if(w.stateTime>a.attackCooldownMs*.6)aiSetState(w,'APPROACH');
+      else aiApplyWanted(w);
+    },
+    exit:function(){}
+  },
+  TELEGRAPH:{
+    enter:function(w){
+      const a=aiArchetype(w);
+      w._teleYaw=Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
+      w._teleCommit=a.threatTier!=='trash';
+      w.g.rotation.y=w._teleYaw;w.roarT=Math.max(w.roarT||0,a.telegraphMs/1000);
+      w.stareX=w.g.position.x;w.stareY=w.g.position.y;w.stareZ=w.g.position.z;w.stareYaw=w._teleYaw;
+      if(a.threatTier!=='trash'&&w.stompTarget)w.stompTarget.set(cart.x,groundYAt(cart.x,cart.z).y,cart.z);
+    },
+    tick:function(w,world,dtSec){
+      const a=aiArchetype(w);
+      if(!aiOnScreen(w._view)){aiSetState(w,'APPROACH');return;}
+      if(w._teleCommit)w.g.rotation.y=w._teleYaw;
+      else w.g.rotation.y=Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
+      if(w.stareX!=null)w.g.position.set(w.stareX,w.stareY,w.stareZ);
+      aiHoldPose(w);
+      const need=Math.max(a.telegraphMs,aiThreatMinMs(a.threatTier));
+      if(w.stateTime>=need)aiSetState(w,'STRIKE');
+    },
+    exit:function(){}
+  },
+  STRIKE:{
+    enter:function(w){
+      const a=aiArchetype(w);
+      w._strikeDone=false;
+      w._strikeYaw=w._teleCommit?w._teleYaw:Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
+      w.g.rotation.y=w._strikeYaw;
+    },
+    tick:function(w,world,dtSec){
+      const a=aiArchetype(w);
+      w.g.rotation.y=w._strikeYaw||w.g.rotation.y;
+      aiHoldPose(w);
+      if(a.strikeKind==='throw'&&cart&&cart._kongThrow)return;
+      if(!w._strikeDone){
+        w._strikeDone=true;
+        const dist=w._view?w._view.dist:aiHyp(cart.x-w.g.position.x,cart.z-w.g.position.z);
+        const inRange=dist<=a.attackRange*1.15;
+        if(inRange&&aiCartCanBeHit()&&aiOnScreen(w._view)&&!w.trampled){
+          const id=w.kind+'#'+(w.t||0);
+          AI_WORLD.dmgBuf.push({id:id,seq:++AI_WORLD.seq,w:w,a:a});
+        }
+      }
+      if(a.strikeKind==='throw'&&w._didHit)return;
+      if(w.stateTime>=a.strikeMs)aiSetState(w,'RECOVER');
+    },
+    exit:function(){}
+  },
+  RECOVER:{
+    enter:function(w){aiStretchCooldown(w);},
+    tick:function(w,world,dtSec){
+      const a=aiArchetype(w);
+      aiHoldPose(w);
+      if(w.stateTime>=a.recoverMs){
+        if(a.leaveAfterHit&&w.trampled)aiSetState(w,'FLEE');
+        else if(a.leaveAfterHit&&w._didHit)aiSetState(w,'FLEE');
+        else aiSetState(w,'REPOSITION');
+      }
+    },
+    exit:function(){}
+  },
+  STAGGERED:{
+    enter:function(w){w.stateBeforeStagger=w.stateBeforeStagger||'APPROACH';},
+    tick:function(w,world,dtSec){
+      aiHoldPose(w);
+      if(w.stateTime>=420){
+        const back=w.stateBeforeStagger==='TELEGRAPH'?'APPROACH':(w.stateBeforeStagger||'APPROACH');
+        w.stateBeforeStagger=null;aiSetState(w,back);
+      }
+    },
+    exit:function(){}
+  },
+  FLEE:{
+    enter:function(w){
+      w.leaveT=0;w.leaveDir=(typeof kaijuLeaveDir==='function')?kaijuLeaveDir(w):null;
+      w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
+    },
+    tick:function(w,world,dtSec){
+      const a=aiArchetype(w);
+      if(!w.leaveDir&&typeof kaijuLeaveDir==='function')w.leaveDir=kaijuLeaveDir(w);
+      w.leaveT=(w.leaveT||0)+dtSec;
+      const spd=AI_TUNING.LEAVE_SPEED;
+      if(w.leaveDir){
+        const nx=w.g.position.x+w.leaveDir.x*spd*dtSec;
+        const nz=w.g.position.z+w.leaveDir.z*spd*dtSec;
+        const ny=surfaceH(nx,nz);
+        const moved=Math.hypot(nx-w.g.position.x,nz-w.g.position.z);
+        const desiredYaw=Math.atan2(w.leaveDir.x,w.leaveDir.z);
+        const turn=aiAngDiff(w.g.rotation.y,desiredYaw);
+        w.g.rotation.y+=turn*Math.min(1,dtSec*4.2);
+        w.travelDistance+=moved;w.lastPos.set(nx,ny,nz);
+        w.g.visible=true;w.g.position.set(nx,ny,nz);
+        w._moved=moved;w._moving=true;
+        const off=(typeof monsterRoadDistance==='function')?monsterRoadDistance(nx,nz):99;
+        if(w.leaveT>AI_TUNING.LEAVE_MAX_S||off>AI_TUNING.LEAVE_OFF_M)aiSetState(w,'DEAD');
+      }else if(w.leaveT>AI_TUNING.LEAVE_MAX_S)aiSetState(w,'DEAD');
+      const floor=a.moraleFloor;
+      if(w.morale>AI_TUNING.MORALE_RALLY&&w.stateTime>=AI_TUNING.MORALE_MIN_FLEE_MS&&floor<1&&!w._didHit)
+        aiSetState(w,'APPROACH');
+    },
+    exit:function(){}
+  },
+  DYING:{
+    enter:function(){},
+    tick:function(w){if(w.stateTime>=400)aiSetState(w,'DEAD');aiHoldPose(w);},
+    exit:function(){}
+  },
+  DEAD:{
+    enter:function(w){
+      w.g.visible=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.stompT=0;w.roarT=0;w.roar=0;w.spawnYell=0;w.lookDownT=0;w.noticed=false;w.huntStage=null;
+      w.crossedRoad=false;w.onScreenT=0;w.offScreenT=0;w.turnT=0;w.seenOnce=false;w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
+      w.mode='wait';w._didHit=false;
+      if(w.stompFoot)w.stompFoot.visible=false;
+    },
+    tick:function(w){w.g.visible=false;w._moved=0;w._moving=false;},
+    exit:function(){}
+  }
+};
+function aiResolveDamage(){
+  const buf=AI_WORLD.dmgBuf;
+  if(!buf.length)return;
+  buf.sort(function(a,b){return a.id<b.id?-1:a.id>b.id?1:a.seq-b.seq;});
+  for(let i=0;i<buf.length;i++){
+    const e=buf[i],w=e.w,a=e.a;if(!w||!aiCartSafe())continue;
+    w.trampled=true;w.hitCD=2.2;w._didHit=true;
+    try{thunk();}catch(_){}
+    cart.v*=.10;
+    aiRecordHit(e.id);
+    if(a.strikeKind==='throw'&&typeof startKongThrow==='function'){
+      startKongThrow(w);
+    }else{
+      const hp=typeof cartMaxHP==='function'?cartMaxHP():100;
+      damage(Math.ceil(hp*a.damageFrac),(w.label||'KAIJU')+' WALKS ON YOUR CART!',true);
+      try{toast((w.label||'KAIJU')+' STOMPS THROUGH — AND LEAVES THE COURSE!',1600);}catch(_){}
+      w.stompT=1.05;w.stompHit=false;
+      if(w.stompTarget)w.stompTarget.set(cart.x,groundYAt(cart.x,cart.z).y,cart.z);
+    }
+  }
+  buf.length=0;
+}
+function aiFlushMorale(w,key){
+  const a=aiArchetype(w);if(!a.moraleTriggers||a.moraleTriggers[key]==null)return;
+  w.morale=aiClamp((w.morale==null?a.moraleBase:w.morale)+a.moraleTriggers[key],a.moraleFloor,1);
+}
+function tickKaijuWalker(w,dtSec){
+  if(!w.a)w.a=MONSTER_ARCHETYPES[w.kind]||MONSTER_ARCHETYPES.godzilla;
+  if(!w.aiState)w.aiState='DEAD';
+  if(w.morale==null)w.morale=w.a.moraleBase;
+  w._view=typeof kaijuView==='function'?kaijuView(w):{onScreen:true,leaving:false,dist:aiHyp(cart.x-w.g.position.x,cart.z-w.g.position.z)};
+  if(w._view.onScreen&&!w._view.leaving){w.seenOnce=true;w.onScreenT=(w.onScreenT||0)+dtSec;w.offScreenT=0;}
+  else{w.offScreenT=(w.offScreenT||0)+dtSec;w.onScreenT=Math.max(0,(w.onScreenT||0)-dtSec*2);}
+  const max=AI_TUNING.STATE_MAX_MS[w.aiState];
+  if(max&&w.stateTime>max&&w.aiState!=='DEAD'){
+    if(w.aiState==='APPROACH'||w.aiState==='DORMANT')aiSetState(w,'FLEE');
+    else if(w.aiState!=='FLEE')aiSetState(w,'APPROACH');
+  }
+  if(w.morale<AI_TUNING.MORALE_BREAK&&w.a.moraleFloor<1&&w.aiState!=='FLEE'&&w.aiState!=='STRIKE'&&w.aiState!=='TELEGRAPH'&&w.aiState!=='DEAD')
+    aiSetState(w,'FLEE');
+  const st=AI_STATES[w.aiState];
+  if(st&&typeof st.tick==='function')st.tick(w,AI_WORLD,dtSec);
+  w.stateTime=(w.stateTime||0)+dtSec*1000;
+  if(w.aiState!=='ALERT'&&w.aiState!=='TELEGRAPH'&&w.aiState!=='STRIKE'&&(w.morale||0)<1)
+    w.morale=aiClamp(w.morale+AI_TUNING.MORALE_REGEN*dtSec,w.a.moraleFloor,1);
+}
+function advanceKaijuAI(dtSec){
+  if(AI_WORLD.hidden)return;
+  const t0=(typeof performance!=='undefined'&&performance.now)?performance.now():0;
+  let dtMs=aiClamp(dtSec*1000,0,AI_TUNING.MAX_DT_MS);
+  if(AI_WORLD.skipCatchup){AI_WORLD.acc=0;AI_WORLD.skipCatchup=false;dtMs=Math.min(dtMs,AI_TUNING.FIXED_STEP_MS);}
+  AI_WORLD.acc+=dtMs;AI_WORLD.simSteps=0;AI_WORLD.losRays=0;
+  const step=AI_TUNING.FIXED_STEP_MS,dt=step/1000;
+  let n=0;
+  while(AI_WORLD.acc>=step&&n<AI_TUNING.MAX_CATCHUP_STEPS){
+    AI_WORLD.acc-=step;AI_WORLD.now+=step;n++;AI_WORLD.simSteps++;
+    const list=MONSTER_ISLAND.walkers;
+    for(let i=0;i<list.length;i++){
+      const w=list[i];
+      w.hitCD=Math.max(0,(w.hitCD||0)-dt);w.bumpWindow=Math.max(0,(w.bumpWindow||0)-dt);
+      if(w.bumpWindow===0)w.bumpCount=0;
+      if(w.roarT>0)w.roarT=Math.max(0,w.roarT-dt);
+      if(w.spawnYell>0)w.spawnYell=Math.max(0,w.spawnYell-dt);
+      w.roar=w.roarT>0?Math.pow(Math.sin((1-Math.min(1,w.roarT/.42))*Math.PI),.7):(w.aiState==='APPROACH'||w.aiState==='TELEGRAPH'?.12:0);
+      if(w.mode==='wait'&&(w.aiState==='DEAD'||!w.aiState)){w.g.visible=false;continue;}
+      tickKaijuWalker(w,dt);
+    }
+    aiResolveDamage();
+  }
+  if(n===0){
+    /* Motion still needs a render-step blend for Mid-tier smoothness when
+       the accumulator has not crossed a sim tick this frame. */
+    const list=MONSTER_ISLAND.walkers;
+    for(let i=0;i<list.length;i++){
+      const w=list[i];if(w.mode==='wait'||w.aiState==='DEAD')continue;
+      if(w._moved==null)w._moved=0;
+    }
+  }
+  const t1=(typeof performance!=='undefined'&&performance.now)?performance.now():t0;
+  AI_WORLD.aiMs=t1-t0;
+}
+function kaijuNoticeCart(w){
+  if(!w||w.aiState==='ALERT'||w.aiState==='APPROACH'||w.aiState==='TELEGRAPH'||w.aiState==='STRIKE')return;
+  if(w.mode==='hunt'&&w.noticed&&w.aiState&&w.aiState!=='DORMANT'&&w.aiState!=='INVESTIGATE')return;
+  aiSetState(w,'ALERT');
+}
+function initKaijuAI(w){
+  w.a=MONSTER_ARCHETYPES[w.kind]||MONSTER_ARCHETYPES.godzilla;
+  w.aiState='DEAD';w.stateTime=0;w.morale=w.a.moraleBase;w.target=null;w.lastKnownPos=null;
+  w.steerAccum={x:0,z:0};w.cooldownUntil=0;w.poiseAccum=0;w.poiseResetAt=0;w.strafeSign=rng()<.5?1:-1;
+  w._stateChanges=0;w._didHit=false;w._moved=0;w._moving=false;
+}
+function aiDebugToggle(){
+  AI_WORLD.debug=!AI_WORLD.debug;
+  try{window.DEBUG_AI=AI_WORLD.debug;}catch(_){}
+  let el=document.getElementById('acrAiDebug');
+  if(!el){
+    el=document.createElement('div');el.id='acrAiDebug';
+    el.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;font:11px/1.35 monospace;color:#d8f5c8;background:rgba(0,0,0,.62);padding:8px 10px;max-width:46vw;pointer-events:none;white-space:pre;';
+    document.body.appendChild(el);
+  }
+  el.style.display=AI_WORLD.debug?'block':'none';
+}
+function aiDebugDraw(){
+  if(!AI_WORLD.debug)return;
+  const el=document.getElementById('acrAiDebug');if(!el)return;
+  const list=(MONSTER_ISLAND&&MONSTER_ISLAND.walkers)||[];
+  const cap=(typeof cartMaxHP==='function'?cartMaxHP():100)*AI_TUNING.PRESSURE_CAP_FRAC;
+  let lines='AI '+AI_WORLD.now.toFixed(0)+'ms  steps '+AI_WORLD.simSteps+'  '+AI_WORLD.aiMs.toFixed(2)+'ms  dps '+AI_WORLD.pressure.toFixed(1)+'/'+cap.toFixed(1);
+  for(let i=0;i<list.length;i++){
+    const w=list[i];if(!w)continue;
+    const bar=w.morale<AI_TUNING.MORALE_BREAK?'!':' ';
+    lines+='\n'+bar+(w.label||w.kind)+' '+(w.aiState||'?')+' t='+Math.round(w.stateTime||0)+' m='+(w.morale==null?'-':w.morale.toFixed(2))+' d='+(w._view&&w._view.dist!=null?w._view.dist.toFixed(0):'-');
+  }
+  el.textContent=lines;
+}
+(function(){
+  let taps=0,tapT=0;
+  document.addEventListener('pointerdown',function(ev){
+    const x=ev.clientX,y=ev.clientY,w=window.innerWidth,h=window.innerHeight;
+    if(x<w-72||y>72) {taps=0;return;}
+    const now=performance.now();
+    taps=now-tapT<420?taps+1:1;tapT=now;
+    if(taps>=3){taps=0;aiDebugToggle();}
+  },{passive:true});
+})();
+try{
+  window.DEBUG_AI=!!AI_WORLD.debug;
+  window.ACR_AI={tuning:AI_TUNING,archetypes:MONSTER_ARCHETYPES,world:AI_WORLD,states:AI_STATES,setState:aiSetState,rng:rng,seed:seedAiRng,toggleDebug:aiDebugToggle};
+}catch(_){}
+const KAIJU_CHASE_MPS=AI_TUNING.DEFAULT_CHASE_MPS;
+const KAIJU_GRAZE_MPS=AI_TUNING.DEFAULT_GRAZE_MPS;
+const KAIJU_NOTICE_M=AI_TUNING.NOTICE_M;
+const KAIJU_STARE_M=AI_TUNING.STARE_M;
+const KAIJU_CROSS_OFF=ROAD_W+AI_TUNING.CROSS_PAD;
 try{(function buildMonsterIsland(){
   const jungleDark=new THREE.MeshLambertMaterial({color:0x123d24,map:TEX.rep(TEX.leaf,2,2)});jungleDark.userData.mat='foliage';
   const jungleMid=new THREE.MeshLambertMaterial({color:0x2b7837,map:TEX.rep(TEX.leaf,2,2)});jungleMid.userData.mat='foliage';
@@ -6446,6 +7042,7 @@ try{(function buildMonsterIsland(){
       hitCD:0,bumpCount:0,bumpWindow:0,stompT:0,stompHit:false,stompTarget:new THREE.Vector3(),lastLift:[0,0],lastCross:-motion.range,
       lastPos:g.position.clone(),travelDistance:0,prevYaw:g.rotation.y,turnRate:0,
       mode:'wait',crazyFace:true,trampled:false,leaveT:0,leaveDir:null});
+    try{initKaijuAI(MONSTER_ISLAND.walkers[MONSTER_ISLAND.walkers.length-1]);}catch(e){console.warn('kaiju ai',e);}
     try{attachKaijuMoveSprite(MONSTER_ISLAND.walkers[MONSTER_ISLAND.walkers.length-1]);}catch(e){console.warn('kaiju sprite',e);}
   }
 
@@ -6926,13 +7523,16 @@ function resetMonsterIslandHazards(){
     if(s.tongue)s.tongue.visible=false;
     if(s.segments)for(const seg of s.segments){seg.body.position.copy(seg.base);seg.body.scale.y=seg.baseScaleY;}
   }
-  MONSTER_ISLAND.kaijuNextSpawn=3.2+Math.random()*2.2;
+  if(typeof seedAiRng==='function')seedAiRng(0xACE111);
+  if(typeof AI_WORLD!=='undefined'){AI_WORLD.now=0;AI_WORLD.acc=0;AI_WORLD.hits=[];AI_WORLD.dmgBuf.length=0;AI_WORLD.suppressUntil=0;}
+  MONSTER_ISLAND.kaijuNextSpawn=3.2+rng()*2.2;
   for(const w of MONSTER_ISLAND.walkers){
     w.hitCD=0;w.bumpCount=0;w.bumpWindow=0;w.stompT=0;w.stompHit=false;w.stompFoot.visible=false;w.g.visible=false;w.lastLift[0]=w.lastLift[1]=0;
     w.lastCross=-w.motion.range;w.g.position.copy(w.frame.p).addScaledVector(w.frame.right,w.lastCross);w.g.position.y=surfaceH(w.g.position.x,w.g.position.z);
     w.lastPos.copy(w.g.position);w.travelDistance=0;w.prevYaw=w.g.rotation.y;w.turnRate=0;
     w.motion.offset=w.motion.baseOffset;w.motion.playerTriggered=false;
     w.mode='wait';w.crazyFace=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.roarT=0;w.roar=0;w.spawnYell=0;w.lookDownT=0;w.huntSide=null;w.noticed=false;w.crossPos=null;w.crossTarget=null;w.crossDir=null;w.huntStage=null;w.walkHold=0;w.walkFrame=0;w.crossedRoad=false;w.onScreenT=0;w.offScreenT=0;w.turnT=0;w.seenOnce=false;w._followErr=undefined;w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
+    if(typeof initKaijuAI==='function')initKaijuAI(w);
     for(let li=0;li<w.legs.length;li++)applyMonsterLeg(w,li,monsterGaitPose(w.motion,0,li),0);
   }
   for(const h of MONSTER_ISLAND.harpies){h.g.visible=true;h.heading=h.g.rotation.y;h.bank=0;h.pitch=0;h.flapPhase=h.phase;h.rejoin=0;}
@@ -7084,11 +7684,9 @@ function monsterLookPose(w){
   const near=horizontal<64;
   return {lookYaw:clamp(relative,near?-1.2:-.82,near?1.2:.82),lookPitch:clamp(Math.atan2(headY+w.g.position.y-cart.y,horizontal),.10,.92),attention:cart.started?(near?1:.85):.62};
 }
-const KAIJU_CHASE_MPS=40/2.237; /* 40 mph, same units as cart.v / the HUD */
-const KAIJU_GRAZE_MPS=6.1;
-const KAIJU_NOTICE_M=72;
-const KAIJU_STARE_M=58;
-const KAIJU_CROSS_OFF=ROAD_W+26;
+/* Spec: The Legend of Macar — Monster Behavior. One FSM, many archetypes.
+   Island kaiju (Lizzie/George/Ralph/Rhino) are the monsters; the cart is the target.
+   World units are meters. All AI timing uses AI_WORLD.now (ms). */
 const _kaijuNdc=new THREE.Vector3(),_kaijuDir=new THREE.Vector3();
 function kaijuView(w){
   const h=(w.moveSprite&&w.moveSprite.baseH)||48;
@@ -7173,6 +7771,9 @@ function spawnKaijuGrazer(w){
   w.g.rotation.x=0;w.g.rotation.z=0;
   const across=w.crossDir||-(w.huntSide||1);
   w.g.rotation.y=Math.atan2(s.right.x*across,s.right.z*across);
+  if(typeof initKaijuAI==='function')initKaijuAI(w);
+  if(typeof rng==='function')w.cooldownUntil=(AI_WORLD&&AI_WORLD.now||0)+rng()*(w.a&&w.a.attackCooldownMs||1100);
+  if(typeof aiSetState==='function')aiSetState(w,'DORMANT');
 }
 function kaijuPlantStare(w){
   const lookYaw=Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
@@ -7180,16 +7781,20 @@ function kaijuPlantStare(w){
   w.stareYaw=lookYaw;w.g.rotation.y=lookYaw;
 }
 function kaijuNoticeCart(w){
-  if(w.mode==='hunt'||w.noticed)return;
-  w.mode='hunt';w.noticed=true;w.crazyFace=true;w.closeLook=true;
-  w.huntStage='stare';w.turnT=0;w.lookDownT=3.4;w.roarT=.12;w.roar=0;w.spawnYell=0;
-  kaijuPlantStare(w);
-  toast((w.label||'KAIJU')+' LOOKS DOWN AT YOUR CART!',2200);
+  if(!w)return;
+  if(w.aiState==='ALERT'||w.aiState==='APPROACH'||w.aiState==='TELEGRAPH'||w.aiState==='STRIKE'||w.aiState==='RECOVER')return;
+  aiSetState(w,'ALERT');
 }
 function parkKaiju(w){
-  w.mode='wait';w.g.visible=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.stompT=0;w.roarT=0;w.roar=0;w.spawnYell=0;w.lookDownT=0;w.noticed=false;w.huntStage=null;
-  w.crossedRoad=false;w.onScreenT=0;w.offScreenT=0;w.turnT=0;w.seenOnce=false;w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
-  if(w.stompFoot)w.stompFoot.visible=false;
+  if(!w)return;
+  if(typeof aiSetState==='function'){
+    if(w.aiState!=='DEAD')aiSetState(w,'DEAD');
+    else AI_STATES.DEAD.enter(w,AI_WORLD);
+  }else{
+    w.mode='wait';w.g.visible=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.stompT=0;w.roarT=0;w.roar=0;w.spawnYell=0;w.lookDownT=0;w.noticed=false;w.huntStage=null;
+    w.crossedRoad=false;w.onScreenT=0;w.offScreenT=0;w.turnT=0;w.seenOnce=false;w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
+    if(w.stompFoot)w.stompFoot.visible=false;
+  }
 }
 function startKongThrow(w){
   cart._kongThrow={phase:'grab',t:0,kaiju:w,ox:cart.x,oy:cart.y,oz:cart.z};
@@ -7239,129 +7844,23 @@ function updateMonsterIslandHazards(dt){
     if(MONSTER_ISLAND.kaijuNextSpawn<=0&&busy<2){
       const pool=MONSTER_ISLAND.walkers.filter(w=>w.mode==='wait');
       if(pool.length){
-        spawnKaijuGrazer(pool[Math.floor(Math.random()*pool.length)]);
-        MONSTER_ISLAND.kaijuNextSpawn=9+Math.random()*6;
+        spawnKaijuGrazer(pool[Math.floor(rng()*pool.length)]);
+        MONSTER_ISLAND.kaijuNextSpawn=9+rng()*6;
       }else MONSTER_ISLAND.kaijuNextSpawn=3.5;
     }
   }else if(!RUNNING){
     for(const w of MONSTER_ISLAND.walkers)if(w.mode!=='wait')parkKaiju(w);
   }
+  advanceKaijuAI(dt);
+  if(typeof aiDebugDraw==='function')aiDebugDraw();
   for(const w of MONSTER_ISLAND.walkers){
-    w.hitCD=Math.max(0,w.hitCD-dt);w.bumpWindow=Math.max(0,w.bumpWindow-dt);
-    if(w.bumpWindow===0)w.bumpCount=0;
-    if(w.roarCD===undefined)w.roarCD=2+Math.random()*4;
-    if(w.roarT===undefined)w.roarT=0;
-    if(w.spawnYell>0)w.spawnYell=Math.max(0,w.spawnYell-dt);
-    if(w.lookDownT>0)w.lookDownT=Math.max(0,w.lookDownT-dt);
-    if(w.roarT>0)w.roarT=Math.max(0,w.roarT-dt);
-    w.roar=w.roarT>0?Math.pow(Math.sin((1-Math.min(1,w.roarT/.42))*Math.PI),.7):(w.mode==='hunt'?.12:0);
-    if(w.mode==='wait'){w.g.visible=false;continue;}
+    if(w.mode==='wait'||w.aiState==='DEAD'){w.g.visible=false;continue;}
     const M=w.motion;
     const cycle=((w.travelDistance/M.stride)%1+1)%1;
     const hop=M.gait==='hop'?(cycle<.16?0:cycle<.78?Math.pow(Math.sin((cycle-.16)/.62*Math.PI),.72):0):0;
     const impact=M.gait==='hop'?Math.max(0,1-Math.abs(cycle-.82)/.10):Math.pow(Math.max(0,Math.cos(w.travelDistance/M.stride*Math.PI*2*2)),8);
     const support=M.gait==='hop'?1-hop:Math.abs(Math.cos(w.travelDistance/M.stride*Math.PI*2));
-    if(w.mode==='graze'){
-      const view=kaijuView(w);
-      if(view.onScreen&&!view.leaving){w.seenOnce=true;w.onScreenT=(w.onScreenT||0)+dt;w.offScreenT=0;}
-      else{w.offScreenT=(w.offScreenT||0)+dt;w.onScreenT=Math.max(0,(w.onScreenT||0)-dt*2);}
-      const dist=view.dist;
-      const canAct=cart.boom<=0&&!cart.finished;
-      const nearLane=Math.abs(w.crossPos||0)<ROAD_W+18||!!w.crossedRoad;
-      if(canAct&&dist<26)kaijuNoticeCart(w);
-      else if(canAct&&view.onScreen&&nearLane&&dist<KAIJU_STARE_M)kaijuNoticeCart(w);
-      else if(canAct&&view.onScreen&&!view.leaving&&dist<KAIJU_NOTICE_M&&nearLane)kaijuNoticeCart(w);
-      else if(canAct&&w.seenOnce&&view.leaving&&(w.offScreenT||0)>1.2){
-        if(kaijuIsFollowed(w,view))kaijuNoticeCart(w);
-        else parkKaiju(w);
-      }else if((w.pathU||0)>1.08)parkKaiju(w);
-      if(w.mode==='graze'){
-        const aim=kaijuGrazeAim(w,dt);
-        const turn=Math.atan2(Math.sin(aim.yaw-w.g.rotation.y),Math.cos(aim.yaw-w.g.rotation.y));
-        w.g.rotation.y+=turn*Math.min(1,dt*2.4);
-        const ny=surfaceH(aim.x,aim.z);
-        const moved=Math.hypot(aim.x-w.g.position.x,aim.z-w.g.position.z);
-        w.g.position.y=ny;
-        w.travelDistance+=moved;w.lastPos.set(aim.x,ny,aim.z);
-        w.g.visible=true;w.g.position.x=aim.x;w.g.position.z=aim.z;
-        driveKaijuBody(w,dt,moved,hop,impact,support,!!aim.moving);
-      }
-    }
-    if(w.mode==='hunt'){
-      const aim=kaijuHuntAim(w,dt),dist=aim.dist;
-      if(!w.huntStage)w.huntStage='stare';
-      if(w.huntStage==='stare'&&(w.lookDownT||0)<=0)w.huntStage='chase';
-      const throwing=w.huntStage==='throw';
-      const turning=w.huntStage==='turn';
-      const staring=w.huntStage==='stare';
-      w.crazyFace=true;
-      if(throwing){
-        const lookYaw=Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
-        w.g.rotation.y=lookYaw;w.g.rotation.x=0;w.g.rotation.z=0;
-        w.g.visible=true;w.lastPos.copy(w.g.position);
-        driveKaijuBody(w,dt,0,0,0,1,false);
-      }else if(turning){
-        const lookYaw=Math.atan2(cart.x-w.g.position.x,cart.z-w.g.position.z);
-        const turn=Math.atan2(Math.sin(lookYaw-w.g.rotation.y),Math.cos(lookYaw-w.g.rotation.y));
-        w.g.rotation.y+=turn*Math.min(1,dt*3.4);
-        w.turnT=Math.max(0,(w.turnT||0)-dt);
-        w.g.rotation.x=0;w.g.rotation.z=0;
-        w.g.visible=true;w.lastPos.copy(w.g.position);
-        driveKaijuBody(w,dt,0,0,0,1,false);
-        if((w.turnT||0)<=0){w.huntStage='stare';if((w.lookDownT||0)<=0)w.lookDownT=3.4;kaijuPlantStare(w);}
-      }else if(staring){
-        if(w.stareX==null)kaijuPlantStare(w);
-        w.g.position.set(w.stareX,w.stareY,w.stareZ);
-        w.g.rotation.y=w.stareYaw;
-        w.g.rotation.x=0;w.g.rotation.z=0;
-        w.lastPos.set(w.stareX,w.stareY,w.stareZ);
-        w.g.visible=true;
-        driveKaijuBody(w,dt,0,0,0,1,false);
-      }else{
-      const lead=Math.min(22,Math.abs(cart.v)*.45);
-      const tx=cart.x+Math.sin(cart.heading)*lead,tz=cart.z+Math.cos(cart.heading)*lead;
-      const lookYaw=Math.atan2(tx-w.g.position.x,tz-w.g.position.z);
-      const turn=Math.atan2(Math.sin(lookYaw-w.g.rotation.y),Math.cos(lookYaw-w.g.rotation.y));
-      w.g.rotation.y+=turn*Math.min(1,dt*1.35);
-      w.stareX=w.stareY=w.stareZ=w.stareYaw=null;
-      const spd=KAIJU_CHASE_MPS;
-      const nx=w.g.position.x+Math.sin(w.g.rotation.y)*spd*dt;
-      const nz=w.g.position.z+Math.cos(w.g.rotation.y)*spd*dt;
-      const ny=surfaceH(nx,nz);
-      const moved=Math.hypot(nx-w.g.position.x,nz-w.g.position.z);
-      w.g.position.y=ny;
-      w.travelDistance+=moved;w.lastPos.set(nx,w.g.position.y,nz);
-      w.g.visible=true;w.g.position.x=nx;w.g.position.z=nz;
-      driveKaijuBody(w,dt,moved,hop,impact,support,moved>.04);
-      }
-      if(!staring&&!turning&&!throwing&&dist<22&&cart.boom<=0&&!cart.finished&&!w.trampled&&!cart._kongThrow){
-        w.trampled=true;w.hitCD=2.2;thunk();cart.v*=.10;
-        if(w.kind==='kong'){
-          startKongThrow(w);
-        }else{
-          damage(Math.ceil(cartMaxHP()/3),(w.label||'KAIJU')+' WALKS ON YOUR CART!',true);
-          toast((w.label||'KAIJU')+' STOMPS THROUGH — AND LEAVES THE COURSE!',1600);
-          w.mode='leave';w.leaveT=0;w.leaveDir=kaijuLeaveDir(w);w.stompT=1.05;w.stompHit=false;
-          w.stompTarget.set(cart.x,groundYAt(cart.x,cart.z).y,cart.z);
-        }
-      }
-    }else if(w.mode==='leave'){
-      if(!w.leaveDir)w.leaveDir=kaijuLeaveDir(w);
-      w.leaveT+=dt;
-      const spd=22;
-      const nx=w.g.position.x+w.leaveDir.x*spd*dt;
-      const nz=w.g.position.z+w.leaveDir.z*spd*dt;
-      const ny=surfaceH(nx,nz);
-      const moved=Math.hypot(nx-w.g.position.x,nz-w.g.position.z);
-      const desiredYaw=Math.atan2(w.leaveDir.x,w.leaveDir.z);
-      const turn=Math.atan2(Math.sin(desiredYaw-w.g.rotation.y),Math.cos(desiredYaw-w.g.rotation.y));
-      w.g.rotation.y+=turn*Math.min(1,dt*4.2);
-      w.travelDistance+=moved;w.lastPos.set(nx,ny,nz);
-      w.g.visible=true;w.g.position.set(nx,ny,nz);
-      driveKaijuBody(w,dt,moved,hop,impact,support,true);
-      const off=monsterRoadDistance(nx,nz);
-      if(w.leaveT>2.6||off>42)parkKaiju(w);
-    }
+    driveKaijuBody(w,dt,w._moved||0,hop,impact,support,!!w._moving);
     if(w.stompT>0){
       w.stompT=Math.max(0,w.stompT-dt);const p=1-w.stompT/1.18;
       const raise=smooth(0,.18,p),slam=smooth(.52,.68,p);
@@ -7371,7 +7870,7 @@ function updateMonsterIslandHazards(dt){
       w.stompFoot.rotation.x=p<.52?-.15*(1-raise):.08*(1-slam);
       if(p>=.66&&!w.stompHit){
         w.stompHit=true;
-        if(typeof smokePuff==='function')for(let k=0;k<7;k++)smokePuff(new THREE.Vector3(w.stompTarget.x+(Math.random()-.5)*7,w.stompTarget.y+.25,w.stompTarget.z+(Math.random()-.5)*7),k%2===0);
+        if(typeof smokePuff==='function')for(let k=0;k<7;k++)smokePuff(new THREE.Vector3(w.stompTarget.x+(rng()-.5)*7,w.stompTarget.y+.25,w.stompTarget.z+(rng()-.5)*7),k%2===0);
       }
       if(w.stompT===0)w.stompFoot.visible=false;
     }
@@ -7467,7 +7966,7 @@ function updateMonsterIslandCinematic(dt){
         cart.heading=yaw;cart.v=26;cart.vy=28;cart.airT=.05;cart.crash=0;
         cart.x=gx+Math.sin(yaw)*8;cart.z=gz+Math.cos(yaw)*8;cart.y=gy+32;
         cart._kongThrowLand=true;cart._kongThrow=null;
-        w.mode='leave';w.leaveT=0;w.leaveDir=kaijuLeaveDir(w);w.huntStage=null;w.stompT=0;
+        if(typeof aiSetState==='function')aiSetState(w,'FLEE');else{w.mode='leave';w.leaveT=0;w.leaveDir=kaijuLeaveDir(w);w.huntStage=null;w.stompT=0;}
         toast('GEORGE THROWS YOUR CART!',1600);
         return false;
       }
