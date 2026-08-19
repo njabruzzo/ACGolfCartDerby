@@ -60,7 +60,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-CHASE">
+<meta name="acr-build" content="2026-08-19-KAIJU-WALK-2">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -5692,12 +5692,13 @@ function updateKaijuMoveSprite(w,moving){
   const S=w&&w.moveSprite;if(!S)return;
   const nWalk=8,stompIdx=8,roarIdx=9;
   let idx=0;
-  const cartDist=(typeof cart!=='undefined'&&cart)?Math.hypot(cart.x-w.g.position.x,cart.z-w.g.position.z):999;
+  /* Walk while moving. Roar is a brief spawn yell only — holding the roar
+     frame for the whole hunt made them slide on a frozen pose. */
   if(w.stompT>0)idx=Math.min(stompIdx,S.frames.length-1);
-  else if(w.mode==='hunt'&&cartDist<50)idx=Math.min(roarIdx,S.frames.length-1);
-  else if(w.mode==='hunt'&&(w.roarT||0)>.85)idx=Math.min(roarIdx,S.frames.length-1);
+  else if((w.spawnYell||0)>0.04)idx=Math.min(roarIdx,S.frames.length-1);
   else if(moving){
-    const cycle=((w.travelDistance/Math.max(.001,w.motion.stride*2))%1+1)%1;
+    const step=Math.max(6.4,(w.motion&&w.motion.stride||12)*.52);
+    const cycle=((w.travelDistance/step)%1+1)%1;
     idx=Math.floor(cycle*nWalk)%nWalk;
   }
   try{
@@ -6618,7 +6619,7 @@ function resetMonsterIslandHazards(){
     w.lastCross=-w.motion.range;w.g.position.copy(w.frame.p).addScaledVector(w.frame.right,w.lastCross);w.g.position.y=surfaceH(w.g.position.x,w.g.position.z);
     w.lastPos.copy(w.g.position);w.travelDistance=0;w.prevYaw=w.g.rotation.y;w.turnRate=0;
     w.motion.offset=w.motion.baseOffset;w.motion.playerTriggered=false;
-    w.mode='wait';w.crazyFace=true;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.roarT=0;w.roar=0;
+    w.mode='wait';w.crazyFace=true;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.roarT=0;w.roar=0;w.spawnYell=0;w.huntSide=null;
     for(let li=0;li<w.legs.length;li++)applyMonsterLeg(w,li,monsterGaitPose(w.motion,0,li),0);
   }
   for(const h of MONSTER_ISLAND.harpies){h.g.visible=true;h.heading=h.g.rotation.y;h.bank=0;h.pitch=0;h.flapPhase=h.phase;h.rejoin=0;}
@@ -6771,35 +6772,65 @@ function monsterLookPose(w){
   return {lookYaw:clamp(relative,near?-1.2:-.82,near?1.2:.82),lookPitch:clamp(Math.atan2(headY+w.g.position.y-cart.y,horizontal),.10,.92),attention:cart.started?(near?1:.85):.62};
 }
 function kaijuSpawnBesideCart(w){
-  const t=courseWrapT((cart.lastNearT||0)+.028+Math.random()*.10);
-  const s=monsterSampAt(t),side=Math.random()<.5?1:-1,off=ROAD_W+16+Math.random()*24;
-  const p=s.p.clone().addScaledVector(s.right,side*off).addScaledVector(s.tan,(Math.random()-.5)*12);
+  /* A few metres up the shoulder — look-ahead is in metres, not a fraction of
+     the figure-eight, or they appear a football field away on a long ribbon. */
+  const aheadM=12+Math.random()*8;
+  const t=courseWrapT((cart.lastNearT||0)+aheadM/Math.max(140,MONSTER_TRACKLEN||900));
+  const s=monsterSampAt(t);
+  let side=Math.random()<.5?1:-1;
+  const hunting=MONSTER_ISLAND.walkers.filter(o=>o!==w&&o.mode==='hunt');
+  if(hunting.length===1&&hunting[0].huntSide)side=-hunting[0].huntSide;
+  w.huntSide=side;w.huntT=t;
+  const off=ROAD_W+6.8+Math.random()*3.2;
+  const p=s.p.clone().addScaledVector(s.right,side*off).addScaledVector(s.tan,(Math.random()-.5)*3);
   p.y=surfaceH(p.x,p.z);return p;
 }
 function kaijuLeaveDir(w){
-  const s=monsterSampAt(cart.lastNearT||w.t||0);
+  const s=monsterSampAt(cart.lastNearT||w.huntT||w.t||0);
   const away=s.right.clone();
   const fromRoad=new THREE.Vector3(w.g.position.x-s.p.x,0,w.g.position.z-s.p.z);
   if(fromRoad.dot(away)<0)away.multiplyScalar(-1);
   away.y=0;if(away.lengthSq()<.01)away.set(s.right.x,0,s.right.z);
   return away.normalize();
 }
+function kaijuHuntAim(w){
+  const px=w.g.position.x,pz=w.g.position.z;
+  const dist=Math.hypot(cart.x-px,cart.z-pz)||1;
+  const side=w.huntSide||1;
+  /* Always chase the cart. Leading the ribbon made hunters already ahead of the
+     player sprint farther away instead of turning around and coming at you. */
+  let x=cart.x,z=cart.z;
+  if(dist>24&&monsterRoadDistance(px,pz)>ROAD_W+14){
+    const near=monsterSampAt(courseWrapT((cart.lastNearT||0)+.004));
+    x=near.p.x+near.right.x*side*(ROAD_W+5.4);
+    z=near.p.z+near.right.z*side*(ROAD_W+5.4);
+  }
+  return {x,z,dist,lunge:dist<30};
+}
 function spawnKaijuHunter(w){
   const p=kaijuSpawnBesideCart(w);
   w.g.position.copy(p);w.lastPos.copy(p);w.g.position.y=p.y;
   w.mode='hunt';w.g.visible=true;w.trampled=false;w.leaveT=0;w.leaveDir=null;
-  w.crazyFace=true;w.roarT=1.6;w.roar=1;w.hitCD=0.4;
+  w.crazyFace=true;w.roarT=.36;w.roar=1;w.spawnYell=.36;w.hitCD=.18;
+  w.travelDistance=0;w.g.rotation.x=0;w.g.rotation.z=0;
   const dx=cart.x-p.x,dz=cart.z-p.z;if(Math.hypot(dx,dz)>.2)w.g.rotation.y=Math.atan2(dx,dz);
   toast((w.label||'KAIJU')+' IS AFTER YOU!',1300);
 }
 function parkKaiju(w){
-  w.mode='wait';w.g.visible=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.stompT=0;w.roarT=0;w.roar=0;
+  w.mode='wait';w.g.visible=false;w.trampled=false;w.leaveT=0;w.leaveDir=null;w.stompT=0;w.roarT=0;w.roar=0;w.spawnYell=0;
   if(w.stompFoot)w.stompFoot.visible=false;
 }
 function driveKaijuBody(w,dt,moved,hop,impact,support,moving){
   const M=w.motion,travelSpeed=Math.min(1.45,moved/Math.max(.001,dt)/14),phase=w.travelDistance/M.stride*Math.PI*2;
   const lean=w.kind==='kong'?-.045:w.kind==='furbeast'?-.022:w.kind==='armored'?-.030:-.025;
-  w.g.rotation.x=lean*travelSpeed;w.g.rotation.z=Math.sin(phase)*(w.kind==='kong'?.012:w.kind==='armored'?.006:.007);
+  /* Sprites are camera-facing billboards: pitching the root lifts their feet
+     off the ground. Keep the root planted and lean the hidden 3D rig instead. */
+  if(w.moveSprite){
+    w.g.rotation.x=0;w.g.rotation.z=0;
+    if(w.bodyRig){w.bodyRig.rotation.x=lean*travelSpeed;w.bodyRig.rotation.z=Math.sin(phase)*(w.kind==='kong'?.012:w.kind==='armored'?.006:.007);}
+  }else{
+    w.g.rotation.x=lean*travelSpeed;w.g.rotation.z=Math.sin(phase)*(w.kind==='kong'?.012:w.kind==='armored'?.006:.007);
+  }
   {const dyaw=Math.atan2(Math.sin(w.g.rotation.y-w.prevYaw),Math.cos(w.g.rotation.y-w.prevYaw));
    w.turnRate+=(clamp(dyaw/Math.max(.001,dt),-2.2,2.2)-w.turnRate)*Math.min(1,dt*4);w.prevYaw=w.g.rotation.y;}
   for(let li=0;li<2;li++){
@@ -6830,7 +6861,7 @@ function updateMonsterIslandHazards(dt){
       const pool=MONSTER_ISLAND.walkers.filter(w=>w.mode==='wait');
       if(pool.length){
         spawnKaijuHunter(pool[Math.floor(Math.random()*pool.length)]);
-        MONSTER_ISLAND.kaijuNextSpawn=4.8+Math.random()*6.5;
+        MONSTER_ISLAND.kaijuNextSpawn=3.4+Math.random()*4.8;
       }else MONSTER_ISLAND.kaijuNextSpawn=2.2;
     }
   }else if(!RUNNING){
@@ -6841,10 +6872,10 @@ function updateMonsterIslandHazards(dt){
     if(w.bumpWindow===0)w.bumpCount=0;
     if(w.roarCD===undefined)w.roarCD=2+Math.random()*4;
     if(w.roarT===undefined)w.roarT=0;
-    if(w.mode==='hunt'){w.roarT=Math.max(w.roarT,0.55);w.crazyFace=true;}
+    if(w.spawnYell>0)w.spawnYell=Math.max(0,w.spawnYell-dt);
     if(w.roarT>0)w.roarT=Math.max(0,w.roarT-dt);
-    else{w.roarCD-=dt;if(w.roarCD<=0){w.roarT=1.8;w.roarCD=6+Math.random()*10;}}
-    w.roar=w.mode==='hunt'?Math.max(.55,w.roarT>0?Math.pow(Math.sin((1-Math.min(1,w.roarT/1.8))*Math.PI),.7):.55): (w.roarT>0?Math.pow(Math.sin((1-w.roarT/1.8)*Math.PI),.7):0);
+    w.roar=w.roarT>0?Math.pow(Math.sin((1-Math.min(1,w.roarT/.42))*Math.PI),.7):(w.mode==='hunt'?.12:0);
+    if(w.mode==='hunt')w.crazyFace=true;
     if(w.mode==='wait'){w.g.visible=false;continue;}
     const M=w.motion;
     const cycle=((w.travelDistance/M.stride)%1+1)%1;
@@ -6852,11 +6883,16 @@ function updateMonsterIslandHazards(dt){
     const impact=M.gait==='hop'?Math.max(0,1-Math.abs(cycle-.82)/.10):Math.pow(Math.max(0,Math.cos(w.travelDistance/M.stride*Math.PI*2*2)),8);
     const support=M.gait==='hop'?1-hop:Math.abs(Math.cos(w.travelDistance/M.stride*Math.PI*2));
     if(w.mode==='hunt'){
-      const dx=cart.x-w.g.position.x,dz=cart.z-w.g.position.z,dist=Math.hypot(dx,dz)||1;
-      const lookYaw=Math.atan2(dx,dz);
+      const aim=kaijuHuntAim(w),dist=aim.dist;
+      const adx=aim.x-w.g.position.x,adz=aim.z-w.g.position.z;
+      const lookYaw=Math.atan2(adx,adz);
       const turn=Math.atan2(Math.sin(lookYaw-w.g.rotation.y),Math.cos(lookYaw-w.g.rotation.y));
-      w.g.rotation.y+=turn*Math.min(1,dt*(dist<48?5.2:3.2));
-      const spd=dist<28?22:(dist<70?17:13);
+      w.g.rotation.y+=turn*Math.min(1,dt*(aim.lunge?7.4:4.6));
+      const cartSpd=Math.abs(cart.v||0);
+      let spd=Math.max(22,cartSpd*1.32+10);
+      if(dist>34)spd+=9;
+      if(aim.lunge)spd=Math.max(spd,cartSpd+8);
+      spd=Math.min(44,spd);
       const nx=w.g.position.x+Math.sin(w.g.rotation.y)*spd*dt;
       const nz=w.g.position.z+Math.cos(w.g.rotation.y)*spd*dt;
       const ny=surfaceH(nx,nz);
@@ -6864,7 +6900,7 @@ function updateMonsterIslandHazards(dt){
       w.travelDistance+=moved;w.lastPos.set(nx,ny,nz);
       w.g.visible=true;w.g.position.set(nx,ny,nz);
       driveKaijuBody(w,dt,moved,hop,impact,support,true);
-      if(dist<9.2&&cart.started&&cart.boom<=0&&!w.trampled){
+      if(dist<15.6&&cart.boom<=0&&!cart.finished&&!w.trampled){
         w.trampled=true;w.hitCD=2.2;thunk();cart.v*=.10;
         damage(Math.ceil(cartMaxHP()*.5),(w.label||'KAIJU')+' WALKS ON YOUR CART!',true);
         toast((w.label||'KAIJU')+' STOMPS THROUGH — AND LEAVES THE COURSE!',1600);
@@ -6874,19 +6910,19 @@ function updateMonsterIslandHazards(dt){
     }else if(w.mode==='leave'){
       if(!w.leaveDir)w.leaveDir=kaijuLeaveDir(w);
       w.leaveT+=dt;
-      const spd=19;
+      const spd=26;
       const nx=w.g.position.x+w.leaveDir.x*spd*dt;
       const nz=w.g.position.z+w.leaveDir.z*spd*dt;
       const ny=surfaceH(nx,nz);
       const moved=Math.hypot(nx-w.g.position.x,nz-w.g.position.z);
       const desiredYaw=Math.atan2(w.leaveDir.x,w.leaveDir.z);
       const turn=Math.atan2(Math.sin(desiredYaw-w.g.rotation.y),Math.cos(desiredYaw-w.g.rotation.y));
-      w.g.rotation.y+=turn*Math.min(1,dt*3.4);
+      w.g.rotation.y+=turn*Math.min(1,dt*4.2);
       w.travelDistance+=moved;w.lastPos.set(nx,ny,nz);
       w.g.visible=true;w.g.position.set(nx,ny,nz);
       driveKaijuBody(w,dt,moved,hop,impact,support,true);
       const off=monsterRoadDistance(nx,nz);
-      if(w.leaveT>3.4||off>78)parkKaiju(w);
+      if(w.leaveT>2.6||off>42)parkKaiju(w);
     }
     if(w.stompT>0){
       w.stompT=Math.max(0,w.stompT-dt);const p=1-w.stompT/1.18;
