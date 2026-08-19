@@ -60,7 +60,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-WALK-2">
+<meta name="acr-build" content="2026-08-19-KAIJU-WALK-4">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -5674,9 +5674,10 @@ function attachKaijuMoveSprite(w){
   if(!pack)return;
   const frames=pack.map(kaijuMoveTex);
   const h=w.kind==='kong'?58:w.kind==='furbeast'?54:w.kind==='armored'?56:62;
-  const mat=new THREE.SpriteMaterial({map:frames[0],transparent:true,alphaTest:.08,depthWrite:true,sizeAttenuation:true});
-  const spr=new THREE.Sprite(mat);
-  spr.center.set(.5,0);spr.position.set(0,0,0);spr.scale.set(h,h,1);spr.name='kaijuMoveSprite';spr.renderOrder=3;
+  const geo=new THREE.PlaneGeometry(1,1);geo.translate(0,.5,0);
+  const mat=new THREE.MeshBasicMaterial({map:frames[0],transparent:true,alphaTest:.08,depthWrite:true,side:THREE.DoubleSide});
+  const spr=new THREE.Mesh(geo,mat);
+  spr.position.set(0,0,0);spr.scale.set(h,h,1);spr.name='kaijuMoveSprite';spr.renderOrder=3;
   w.g.add(spr);
   w.moveSprite={spr,frames,frame:-1,face:1,baseH:h,appliedFace:0};
   if(w.bodyRig)w.bodyRig.visible=false;
@@ -5694,7 +5695,7 @@ function updateKaijuMoveSprite(w,moving){
   let idx=0;
   /* Walk while moving. Roar is a brief spawn yell only — holding the roar
      frame for the whole hunt made them slide on a frozen pose. */
-  if(w.stompT>0)idx=Math.min(stompIdx,S.frames.length-1);
+  if((w.stompT||0)>0.62)idx=Math.min(stompIdx,S.frames.length-1);
   else if((w.spawnYell||0)>0.04)idx=Math.min(roarIdx,S.frames.length-1);
   else if(moving){
     const step=Math.max(6.4,(w.motion&&w.motion.stride||12)*.52);
@@ -5707,6 +5708,9 @@ function updateKaijuMoveSprite(w,moving){
     a.set(w.g.position.x,w.g.position.y,w.g.position.z).project(camera);
     b.set(w.g.position.x+Math.sin(yaw),w.g.position.y,w.g.position.z+Math.cos(yaw)).project(camera);
     if(Math.abs(b.x-a.x)>0.0008)S.face=b.x>a.x?1:-1;
+    /* Y-billboard: face the camera around world up so feet stay planted. */
+    const cx=camera.position.x-w.g.position.x,cz=camera.position.z-w.g.position.z;
+    if(cx*cx+cz*cz>0.04)S.spr.rotation.y=Math.atan2(cx,cz)-yaw;
   }catch(_){}
   const tex=S.frames[idx];
   if(!tex)return;
@@ -6774,7 +6778,7 @@ function monsterLookPose(w){
 function kaijuSpawnBesideCart(w){
   /* A few metres up the shoulder — look-ahead is in metres, not a fraction of
      the figure-eight, or they appear a football field away on a long ribbon. */
-  const aheadM=12+Math.random()*8;
+  const aheadM=22+Math.random()*12;
   const t=courseWrapT((cart.lastNearT||0)+aheadM/Math.max(140,MONSTER_TRACKLEN||900));
   const s=monsterSampAt(t);
   let side=Math.random()<.5?1:-1;
@@ -6811,7 +6815,7 @@ function spawnKaijuHunter(w){
   const p=kaijuSpawnBesideCart(w);
   w.g.position.copy(p);w.lastPos.copy(p);w.g.position.y=p.y;
   w.mode='hunt';w.g.visible=true;w.trampled=false;w.leaveT=0;w.leaveDir=null;
-  w.crazyFace=true;w.roarT=.36;w.roar=1;w.spawnYell=.36;w.hitCD=.18;
+  w.crazyFace=true;w.roarT=.22;w.roar=1;w.spawnYell=.22;w.hitCD=.18;
   w.travelDistance=0;w.g.rotation.x=0;w.g.rotation.z=0;
   const dx=cart.x-p.x,dz=cart.z-p.z;if(Math.hypot(dx,dz)>.2)w.g.rotation.y=Math.atan2(dx,dz);
   toast((w.label||'KAIJU')+' IS AFTER YOU!',1300);
@@ -6900,7 +6904,7 @@ function updateMonsterIslandHazards(dt){
       w.travelDistance+=moved;w.lastPos.set(nx,ny,nz);
       w.g.visible=true;w.g.position.set(nx,ny,nz);
       driveKaijuBody(w,dt,moved,hop,impact,support,true);
-      if(dist<15.6&&cart.boom<=0&&!cart.finished&&!w.trampled){
+      if(dist<22&&cart.boom<=0&&!cart.finished&&!w.trampled){
         w.trampled=true;w.hitCD=2.2;thunk();cart.v*=.10;
         damage(Math.ceil(cartMaxHP()*.5),(w.label||'KAIJU')+' WALKS ON YOUR CART!',true);
         toast((w.label||'KAIJU')+' STOMPS THROUGH — AND LEAVES THE COURSE!',1600);
