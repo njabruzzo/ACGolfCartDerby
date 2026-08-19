@@ -60,7 +60,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="acr-build" content="2026-08-19-KAIJU-LOOK">
+<meta name="acr-build" content="2026-08-19-KAIJU-GATE">
 <title>Apple Canyon Run — Derby Fixed</title>
 <style>
   :root{--cream:#f3ead8;--bark:#3a2c1c;--sun:#f2b64a}
@@ -1525,6 +1525,17 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
   -webkit-user-select:text;user-select:text;
 }
 </style>
+<style id="acr-gate-first-paint">
+/* Gate CSS used to live after the 18MB game script, so the title card covered
+   sign-in until that file finished parsing. Keep the overlay on top from the
+   first paint. */
+#acrGate,#acrBoard,#acrResults{
+  position:fixed;inset:0;z-index:6000;display:none;
+  align-items:center;justify-content:center;padding:18px;
+}
+#acrGate.show,#acrBoard.show,#acrResults.show{display:flex}
+#acrGate{background:#1273b4}
+</style>
 <style id="acr-gate-board-btn">
 /* Sign-in is the first thing anyone sees, so the board has to be reachable
    from it — including for a driver who has not signed in yet. */
@@ -1582,7 +1593,7 @@ body.menuMode #bigfootPlushHudWrap{display:none!important}
 <div id="wrongway" aria-hidden="true">&#8634; TURN AROUND &mdash; YOU&#8217;RE GOING THE WRONG WAY!</div>
 
 <!-- ============ DRIVER LOGIN + LEADERBOARD (added 2026-08-08) ============ -->
-<div id="acrGate" aria-hidden="false">
+<div id="acrGate" class="show" aria-hidden="false">
   <div class="acr-gate-inner">
     <div class="acr-logo">
       <div class="acr-logo-badge">APPLE CANYON</div>
@@ -2857,7 +2868,7 @@ window.ACR_CONFIG = {
     function enterGame(){
       var bootErr=document.getElementById('loadstatus');
       if(bootErr&&bootErr.classList.contains('error')&&!window.ACR_GAME_READY){
-        location.reload();
+        openGate();
         return;
       }
       window.ACR_PENDING_ENTRY=true;
@@ -5707,12 +5718,13 @@ function kaijuCropFrame(img,keyBlack){
   return {cv,w:cw,h:ch,footX:n?sm/n:cw/2};
 }
 function kaijuBakeSpriteSheet(frames,urls,done){
-  const imgs=urls.map(function(u){const i=new Image();i.decoding='async';i.src=u;return i;});
+  const imgs=urls.map(function(){return new Image();});
   let left=imgs.length;
   function finish(){
+    try{
     const crops=imgs.map(function(img,i){
       if(!(img.naturalWidth||img.width))return {cv:null,w:2,h:2,footX:1};
-      return kaijuCropFrame(img,i===10);
+      try{return kaijuCropFrame(img,i===10);}catch(_){return {cv:null,w:2,h:2,footX:1};}
     });
     let maxW=2,maxH=2;
     for(let i=0;i<Math.min(10,crops.length);i++){
@@ -5734,12 +5746,16 @@ function kaijuBakeSpriteSheet(frames,urls,done){
       tex.minFilter=look?THREE.LinearFilter:THREE.NearestFilter;
       tex.needsUpdate=true;
     }
+    }catch(e){console.warn('kaiju bake',e);}
     if(typeof done==='function')done();
   }
   function tick(){if(--left<=0)finish();}
-  imgs.forEach(function(img){
-    if(img.complete)tick();
-    else{img.onload=tick;img.onerror=tick;}
+  imgs.forEach(function(img,i){
+    let fired=false;
+    const once=function(){if(fired)return;fired=true;tick();};
+    img.onload=once;img.onerror=once;
+    img.src=urls[i];
+    if(img.complete)once();
   });
 }
 function attachKaijuMoveSprite(w){
@@ -6971,7 +6987,7 @@ function updateMonsterIslandHazards(dt){
   if(typeof trackMonsterShadow==='function')trackMonsterShadow();
   MONSTER_ISLAND.harpyCooldown=Math.max(0,MONSTER_ISLAND.harpyCooldown-dt);
   if(MONSTER_ISLAND.kaijuNextSpawn===undefined)MONSTER_ISLAND.kaijuNextSpawn=8;
-  if(RUNNING&&cart.boom<=0&&!cart.finished&&cart.started&&(cart.lastNearT||0)>0.055){
+  if(RUNNING&&cart.boom<=0&&!cart.finished&&cart.started){
     MONSTER_ISLAND.kaijuNextSpawn-=dt;
     let busy=0;for(const w of MONSTER_ISLAND.walkers)if(w.mode==='hunt'||w.mode==='graze')busy++;
     if(MONSTER_ISLAND.kaijuNextSpawn<=0&&busy<2){
