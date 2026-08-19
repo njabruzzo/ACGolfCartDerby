@@ -10338,6 +10338,7 @@ function spawnAnimal(nearT){
   scene.add(grp);
   ANIMALS.push({grp,typ,dir,dist:0,total:34,phase:Math.random()*6,fled:false});
 }
+window.ACR_ANIMALS=ANIMALS;window.ACR_SPAWN_ANIMAL=spawnAnimal;
 function animalHitFx(pos){
   for(let i=0;i<7;i++){
     const puff=new THREE.Mesh(new THREE.SphereGeometry(.16,5,4),
