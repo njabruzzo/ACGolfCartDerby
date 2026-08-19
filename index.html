@@ -6612,7 +6612,7 @@ function resetMonsterIslandHazards(){
     if(s.tongue)s.tongue.visible=false;
     if(s.segments)for(const seg of s.segments){seg.body.position.copy(seg.base);seg.body.scale.y=seg.baseScaleY;}
   }
-  MONSTER_ISLAND.kaijuNextSpawn=1.6+Math.random()*1.4;
+  MONSTER_ISLAND.kaijuNextSpawn=0.45+Math.random()*.55;
   for(const w of MONSTER_ISLAND.walkers){
     w.hitCD=0;w.bumpCount=0;w.bumpWindow=0;w.stompT=0;w.stompHit=false;w.stompFoot.visible=false;w.g.visible=false;w.lastLift[0]=w.lastLift[1]=0;
     w.lastCross=-w.motion.range;w.g.position.copy(w.frame.p).addScaledVector(w.frame.right,w.lastCross);w.g.position.y=surfaceH(w.g.position.x,w.g.position.z);
@@ -6823,17 +6823,17 @@ function updateMonsterIslandHazards(dt){
   if(typeof trackMonsterShadow==='function')trackMonsterShadow();
   MONSTER_ISLAND.harpyCooldown=Math.max(0,MONSTER_ISLAND.harpyCooldown-dt);
   if(MONSTER_ISLAND.kaijuNextSpawn===undefined)MONSTER_ISLAND.kaijuNextSpawn=2;
-  if(cart.started&&cart.boom<=0&&!cart.finished){
+  if(RUNNING&&cart.boom<=0&&!cart.finished){
     MONSTER_ISLAND.kaijuNextSpawn-=dt;
     let hunting=0;for(const w of MONSTER_ISLAND.walkers)if(w.mode==='hunt')hunting++;
     if(MONSTER_ISLAND.kaijuNextSpawn<=0&&hunting<2){
       const pool=MONSTER_ISLAND.walkers.filter(w=>w.mode==='wait');
       if(pool.length){
         spawnKaijuHunter(pool[Math.floor(Math.random()*pool.length)]);
-        MONSTER_ISLAND.kaijuNextSpawn=5.5+Math.random()*7.5;
-      }else MONSTER_ISLAND.kaijuNextSpawn=2.5;
+        MONSTER_ISLAND.kaijuNextSpawn=4.8+Math.random()*6.5;
+      }else MONSTER_ISLAND.kaijuNextSpawn=2.2;
     }
-  }else if(!cart.started){
+  }else if(!RUNNING){
     for(const w of MONSTER_ISLAND.walkers)if(w.mode!=='wait')parkKaiju(w);
   }
   for(const w of MONSTER_ISLAND.walkers){
